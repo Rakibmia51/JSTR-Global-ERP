@@ -1,0 +1,39 @@
+# Dependency folders (খুব বড় ফাইল, এগুলো GitHub-এ নেওয়া যাবে না)
+node_modules/
+jspm_packages/
+web_modules/
+
+# Environment variables (ডাটাবেজ পাসওয়ার্ড ও সিক্রেট কি থাকে, এগুলো শেয়ার করা যাবে না)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# Operating System files (ল্যাপটপ বা পিসির নিজস্ব সিস্টেম ফাইল)
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs (এরর বা ডিবাগিং মেসেজের ফাইল)
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Uploads / Media (ইউজারের আপলোড করা ছবি বা ফাইল লোকালি সেভ হলে)
+public/uploads/
+src/uploads/
+dist/
+
+# Debug and IDE configs (কোড এডিটর বা IDE-এর নিজস্ব সেটিংস)
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
