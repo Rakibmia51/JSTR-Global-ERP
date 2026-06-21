@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+/* 🎨 ১. গ্লোবাল ব্র্যান্ড কালার, ফন্ট ও শ্যাডো কনফিগারেশন (এক জায়গায়) */
+@theme {
+  /* আপনার ERP প্রজেক্টের ব্র্যান্ড কালার গাইড */
+  --color-brand: #4BCBFA;       /* মেইন থিম কালার (ডার্ক নেভি ব্লু) */
+  --color-brand-light: #38bdf8; /* হাইলাইট কালার (স্কাই ব্লু) */
+  --color-brand-dark: #4BCBFA;  /* সাইডবার বা ব্যাকগ্রাউন্ডের গাঢ় কালার */
+  --color-brand-accent: #f59e0b;/* ওয়ার্নিং বা নোটিফিকেশন কালার (গোল্ডেন) */
+  
+  /* টেক্সটের গ্লোবাল কালার */
+  --color-text-primary: #1e293b;
+  --color-text-secondary: #64748b;
+
+  /* গ্লোবাল ফন্ট ফ্যামিলি */
+  --font-sans: 'Inter', 'Segoe UI', 'Roboto', 'sans-serif';
+
+  /* গ্লোবাল কার্ড শ্যাডো */
+  --shadow-erp-card: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+/* 🏢 ২. গ্লোবাল ইউটিলিটি ক্লাস (যাতে বারবার কোড লিখতে না হয়) */
+@utility erp-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #1e293b;
+  transition: all 0.2s ease;
+  
+  &:focus {
+    border-color: transparent;
+    outline: none;
+    box-shadow: 0 0 0 2px #38bdf8; /* brand-light কালার */
+  }
+}
+
+@utility erp-btn-primary {
+  width: 100%;
+  padding: 12px;
+  background-color: #4BCBFA; /* brand কালার */
+  color: white;
+  font-weight: 700;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.2);
+  transition: all 0.15s ease;
+
+  &:hover {
+    background-color: #020617; /* brand-dark কালার */
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  &:disabled {
+    background-color: #cbd5e1;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+}
