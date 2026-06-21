@@ -22,7 +22,13 @@ const Login = () => {
       const response = await API.post('/users/login', { email, password });
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('userRole', response.data.role);
-      navigate('/dashboard'); 
+      localStorage.setItem('userEmail', response.data.email);
+      if(response.data.role === "admin"){
+        navigate('/admin-panel'); 
+      }else{
+        navigate('/dashboard'); 
+      }
+      
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed. Please try again.');
     } finally {
