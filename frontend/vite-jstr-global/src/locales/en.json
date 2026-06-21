@@ -1,0 +1,18 @@
+{
+  "dashboard": "Dashboard",
+  "employees": "Employees",
+  "all_employees": "All Employees",
+  "add_employee": "Add Employee",
+  "inventory": "Inventory",
+  "stock_overview": "Stock Overview",
+  "dealer": "Dealer",
+  "invoice_accounting": "Invoice & Accounting",
+  "marketing_sales": "Marketing & Sales",
+  "settings": "Settings",
+  "logout": "Logout",
+  "welcome": "Welcome back to JSTR Global ERP panel.",
+  "total_employees": "Total Employees",
+  "active_products": "Active Products",
+  "system_status": "System Status",
+  "optimal": "Optimal"
+}

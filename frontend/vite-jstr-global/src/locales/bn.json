@@ -1,0 +1,47 @@
+{
+  "dashboard": "ড্যাশবোর্ড",
+
+  "employees": "কর্মচারী",
+  "all_employees": "সকল কর্মচারী",
+  "add_employee": "কর্মচারী যোগ করুন",
+  "departments": "বিভাগসমূহ",
+
+  "inventory": "ইনভেন্টরি",
+  "stock_overview": "স্টক ওভারভিউ",
+  "add_new_item": "নতুন আইটেম যোগ করুন",
+  "suppliers": "সরবরাহকারী",
+
+  "delete_product": "পণ্য মুছুন",
+  "products": "পণ্য",
+  "categories": "ক্যাটাগরি",
+  "add_product": "পণ্য যোগ করুন",
+  "view_products": "পণ্য দেখুন",
+  "add_item": "আইটেম যোগ করুন",
+  "view_items": "আইটেম দেখুন",
+  "delete_item": "আইটেম মুছুন",
+
+  "dealer": "ডিলার",
+  "all_dealers": "সকল ডিলার",
+  "add_new_dealer": "ডিলার যোগ করুন",
+  "dealer_orders": "ডিলার অর্ডারসমূহ",
+
+  "invoice_accounting": "অ্যাকাউন্টিং",
+    "create_invoice": "ইনভয়েস তৈরি করুন",
+    "invoice_history": "ইনভয়েস ইতিহাস",
+    "expense_tracker": "ব্যয় ট্র্যাকার",
+    "financial_reports": "আর্থিক রিপোর্ট",
+  
+  "marketing_sales": "মার্কেটিং ও সেলস",
+    "sales_forecast": "সেলস ফোরকাস্ট",
+    "lead_management": "লিড ম্যানেজমেন্ট",
+    "campaigns": "ক্যাম্পেইন",
+
+
+  "settings": "সেটিংস",
+  "Logout": "লগআউট",
+  "welcome": "জেএসটিআর গ্লোবাল ইআরপি প্যানেলে আপনাকে স্বাগতম।",
+  "total_employees": "মোট কর্মচারী",
+  "active_products": "সক্রিয় পণ্য",
+  "system_status": "সিস্টেম স্ট্যাটাস",
+  "optimal": "সঠিক আছে"
+}

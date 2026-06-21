@@ -63,7 +63,7 @@ const Login = () => {
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">{t.emailLabel}</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@jstr-erp.com" required className="erp-input" />
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@example.com" required className="erp-input" />
           </div>
           
           <div>

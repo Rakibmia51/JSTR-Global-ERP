@@ -5,7 +5,6 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Sidebar from './components/Sidebar';
 
 
-
 function App() {
   return (
     <Router>
@@ -20,10 +19,40 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['admin']}>
               <Sidebar/>
+              {/* <NewSidebar/> */}
             </ProtectedRoute>
-          } 
-        />
+          }>
 
+             {/* 👥 Employees Modules */}
+          <Route path="employees/all" element={<h5>AllEmployees</h5>} />
+          <Route path="employees/add" element={<h5>Add Employee</h5>} />
+          <Route path="employees/departments" element={<h5>Departments</h5>} />
+
+          {/* 📦 Inventory Modules */}
+          <Route path="inventory/stock" element={<h5>Stock Overview</h5>} />
+          <Route path="inventory/add" element={<h5>Add New Item</h5>} />
+          <Route path="inventory/suppliers" element={<h5>Suppliers</h5>} />
+
+          {/* 🤝 Dealer Modules */}
+          <Route path="dealer/all" element={<h5>All Dealers</h5>} />
+          <Route path="dealer/add" element={<h5>Add New Dealer</h5>} />
+          <Route path="dealer/orders" element={<h5>Dealer Orders</h5>} />
+
+          {/* 📊 Invoice & Accounting Modules */}
+          <Route path="accounting/create-invoice" element={<h5>Create Invoice</h5>} />
+          <Route path="accounting/history" element={<h5>Invoice History</h5>} />
+          <Route path="accounting/expenses" element={<h5>Expense Tracker</h5>} />
+          <Route path="accounting/reports" element={<h5>Financial Reports</h5>} />
+
+          {/* 📈 Marketing & Sales Modules */}
+          <Route path="sales/forecast" element={<h5>Sales Forecast</h5>} />
+          <Route path="sales/leads" element={<h5>Lead Management</h5>} />
+          <Route path="sales/campaigns" element={<h5>Campaigns</h5>} />
+
+          {/* ⚙️ Settings */}
+          <Route path="settings" element={<h5>Settings</h5>} />
+
+        </Route>
       
         <Route 
           path="/dashboard" 
