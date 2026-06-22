@@ -6,42 +6,128 @@ const generateToken = require('../utils/generateToken');
 // @access  Public
 const registerUser = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
 
-    // ১. ইউজার সব ইনপুট দিয়েছে কিনা চেক করা
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: 'All fields are required' });
-    }
-
-    // ২. ইউজার আগে থেকেই রেজিস্টার্ড কিনা চেক করা
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ message: 'User with this email already exists' });
-    }
-
-    // ৩. নতুন ইউজার তৈরি করা
-    const user = await User.create({
+    //  ইমেজ ফাইলের পাথ বের করা
+    const photo = req.files && req.files['photo'] ? req.files['photo'][0].path : 'uploads/default-profile.png';
+    const nomineePhoto = req.files && req.files['nomineePhoto'] ? req.files['nomineePhoto'][0].path : 'uploads/default-nominee.png';
+   
+    // রিকোয়েস্ট বডি থেকে টেক্সট ডাটা নেওয়া
+    const {
+      idNo,
+      refIdNo,
       name,
       email,
       password,
-      role
+      role,
+      department,
+      dateOfBirth,
+      gender,
+      nidNo,
+      fatherName,
+      motherName,
+      spouseName,
+      mobileNo,
+      address,
+      district,
+      thana,
+      // নমিনি অবজেক্টের ভেতরের ডাটা
+      nomineeName,
+      nomineeFatherName,
+      nomineeMotherName,
+      nomineeDateOfBirth,
+      nomineeNidNo,
+      nomineeRelation,
+      nomineeMobileNo,
+    } = req.body;
+
+    // ১. মেইন রিকোয়ার্ড ফিল্ডগুলো চেক করা (Validation)
+    if (
+      !idNo || !name || !email || !password || !department || 
+      !dateOfBirth || !gender || !nidNo || !fatherName || !motherName || 
+      !mobileNo || !address || !district || !thana
+    ) {
+      return res.status(400).json({ message: 'All mandatory staff fields are required' });
+    }
+
+    // ২. নমিনির রিকোয়ার্ড ফিল্ডগুলো চেক করা (Nominee Validation)
+    if (
+      !nomineeName || !nomineeFatherName || !nomineeMotherName || 
+      !nomineeDateOfBirth || !nomineeNidNo || !nomineeRelation || !nomineeMobileNo
+    ) {
+      return res.status(400).json({ message: 'All nominee fields are required' });
+    }
+
+    // ৩. ডুপ্লিকেট অ্যাকাউন্ট চেক (Email, ID No, NID No ইউনিক হতে হবে)
+    const emailExists = await User.findOne({ email });
+    if (emailExists) {
+      return res.status(400).json({ message: 'User with this email already exists' });
+    }
+
+    const idExists = await User.findOne({ idNo });
+    if (idExists) {
+      return res.status(400).json({ message: 'User with this ID Number already exists' });
+    }
+
+    const nidExists = await User.findOne({ nidNo });
+    if (nidExists) {
+      return res.status(400).json({ message: 'User with this NID Number already exists' });
+    }
+
+    // ৪. নতুন ইউজার অবজেক্ট তৈরি এবং ডাটাবেজে সেভ
+    const user = await User.create({
+      idNo,
+      refIdNo,
+      name,
+      email,
+      password,
+      role,
+      department, // Department ObjectId অথবা String (আপনার চয়েস অনুযায়ী)
+      dateOfBirth,
+      gender,
+      nidNo,
+      fatherName,
+      motherName,
+      spouseName,
+      mobileNo,
+      address,
+      district,
+      thana,
+      photo,
+      // স্ট্রাকচার্ড নমিনি অবজেক্ট
+      nominee: {
+        name: nomineeName,
+        fatherName: nomineeFatherName,
+        motherName: nomineeMotherName,
+        dateOfBirth: nomineeDateOfBirth,
+        nidNo: nomineeNidNo,
+        relation: nomineeRelation,
+        mobileNo: nomineeMobileNo,
+        photo: nomineePhoto
+      }
     });
 
+    // ৫. রেসপন্স পাঠানো
     if (user) {
       res.status(201).json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        message: 'User registered successfully!'
+        success: true,
+        message: 'User registered successfully!',
+        data: {
+          _id: user._id,
+          idNo: user.idNo,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          department: user.department
+        }
       });
     } else {
-      res.status(400).json({ message: 'Failed to create user' });
+      res.status(400).json({ message: 'Invalid user data provided' });
     }
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
 
 // @desc    Auth user & get token (Login)
 // @route   POST /api/users/login

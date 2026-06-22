@@ -17,9 +17,12 @@ app.use(express.json());
 
 // রাউট ইম্পোর্ট করা
 const userRoutes = require('./routes/userRoutes');
+const userManagementRoutes = require('./routes/userManagementRoutes'); // নতুন ইউজার ম্যানেজমেন্ট রাউট
 
 // এপিআই রাউট লিংক
 app.use('/api/users', userRoutes);
+app.use('/api/users-management', userManagementRoutes);
+app.use('/uploads', express.static('uploads')); // আপলোড করা ফাইল সার্ভ করার জন্য স্ট্যাটিক ফোল্ডার
 
 // বেসিক টেস্ট রাউট
 app.get('/', (req, res) => {
