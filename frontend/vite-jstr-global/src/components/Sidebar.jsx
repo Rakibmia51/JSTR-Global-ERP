@@ -255,7 +255,7 @@ const Sidebar = () => {
 
       </aside>
 
-      {/* 🖥️ ডানপাশের মেইন কন্টেন্ট এরিয়া */}
+      {/* 🖥️ ডানপাশের মেইন কন্টেন্ট এরিয়া
       <main className="flex-1 p-8 overflow-y-auto mt-14 md:mt-0">
         <header className="mb-6 flex justify-between items-center">
           <div>
@@ -264,7 +264,7 @@ const Sidebar = () => {
           </div>
         </header>
 
-        {/* ডেমো ড্যাশবোর্ড কন্টেন্ট */}
+        ডেমো ড্যাশবোর্ড কন্টেন্ট
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-2xl shadow-erp-card border border-slate-100">
             <h3 className="text-text-secondary text-sm font-semibold mb-2">Total Employees</h3>
@@ -282,7 +282,8 @@ const Sidebar = () => {
             <p className="text-3xl font-bold text-emerald-500">Optimal</p>
           </div>
         </div>
-      </main>
+      </main> */}
+
     </div>
   );
 };

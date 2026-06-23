@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const generateToken = require('../utils/generateToken');
+const Department = require('../models/Department');
 
 // @desc    Register a new user
 // @route   POST /api/users/register
@@ -198,4 +199,24 @@ const getAllUsers = async (req, res) => {
 };
 
 
-module.exports = { registerUser, loginUser, getUserProfile, getAllUsers };
+// @desc    Get all employees list
+// @route   GET /api/users
+// @access  Private/Public (আপনার প্রজেক্ট অনুযায়ী)
+const getAllEmployees = async (req, res) => {
+  try {
+    // .populate('department', 'name') দিলে শুধু ডিপার্টমেন্টের আইডি না এসে নামও চলে আসবে
+    const employees = await User.find({}).populate('department', 'name').sort({ createdAt: -1 });
+    
+    res.status(200).json({
+      success: true,
+      count: employees.length,
+      data: employees
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+};
+
+
+
+module.exports = { registerUser, loginUser, getUserProfile, getAllUsers, getAllEmployees };

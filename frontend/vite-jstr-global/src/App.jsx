@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from './pages/Login';
 import ProtectedRoute from './components/ProtectedRoute';
 import Sidebar from './components/Sidebar';
+import Dashboard from './pages/Dashboard';
+import EmployeeList from './components/EmployeeList';
 
 
 function App() {
@@ -18,13 +20,12 @@ function App() {
           path="/admin-panel" 
           element={
             <ProtectedRoute allowedRoles={['admin']}>
-              <Sidebar/>
-              {/* <NewSidebar/> */}
+              <Dashboard/>
             </ProtectedRoute>
           }>
 
              {/* 👥 Employees Modules */}
-          <Route path="employees/all" element={<h5>AllEmployees</h5>} />
+          <Route path="employees/all" element={<EmployeeList/>} />
           <Route path="employees/add" element={<h5>Add Employee</h5>} />
           <Route path="employees/departments" element={<h5>Departments</h5>} />
 
