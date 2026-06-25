@@ -136,6 +136,112 @@ const getAllEmployees = async (req, res) => {
   }
 };
 
+//ViewEmployee কন্ট্রোলার কোড
+const getEmployeeById = async (req, res) => {
+  try {
+    const { id } = req.params;
 
+    // ১. আইডি দিয়ে ডাটাবেজ থেকে এমপ্লয়ি খোঁজা এবং ডিপার্টমেন্টের নাম নিয়ে আসা (populate)
+    const employee = await User.findById(id).populate('department', 'name');
 
-module.exports = { registerUser, loginUser, getUserProfile, getAllUsers, getAllEmployees };
+    // ২. যদি ওই আইডির কোনো এমপ্লয়ি/ইউজার না পাওয়া যায়
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: 'Employee not found'
+      });
+    }
+
+    // ৩. ডাটা পাওয়া গেলে ফ্রন্টএন্ডে পাঠানো
+    res.status(200).json({
+      success: true,
+      data: employee
+    });
+
+  } catch (error) {
+    // যদি আইডি ফরম্যাট ভুল হয় (যেমন CastError) অথবা অন্য কোনো সার্ভার এরর হয়
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error', 
+      error: error.message 
+    });
+  }
+};
+
+// @desc    Update user / employee
+// @route   PUT /api/users/:id
+// @access  Private/Admin
+const updateUser = async (req, res) => {
+  try {
+    const updateData = { ...req.body };
+
+    // ১. নোমিনি ডাটা স্ট্রিং হিসেবে আসলে অবজেক্টে রূপান্তর করা
+    if (updateData.nominee && typeof updateData.nominee === 'string') {
+      updateData.nominee = JSON.parse(updateData.nominee);
+    }
+
+    // ২. নতুন কোনো ফাইল/ছবি আপলোড করা হলে তার পাথ সেট করা
+    if (req.files) {
+      if (req.files.photo && req.files.photo[0]) {
+        updateData.photo = req.files.photo[0].path;
+      }
+      if (req.files.nomineePhoto && req.files.nomineePhoto[0]) {
+        // যদি নোমিনি অবজেক্ট আগে থেকে না থাকে তবে ফাকা অবজেক্ট তৈরি করে নেওয়া
+        if (!updateData.nominee) updateData.nominee = {};
+        updateData.nominee.photo = req.files.nomineePhoto[0].path;
+      }
+    }
+
+    // পাসওয়ার্ড আপডেট করার চেষ্টা করলে তা হ্যাশ করার জন্য আলাদা লজিক লাগবে, 
+    // তাই সাধারণ আপডেটে পাসওয়ার্ড ফিল্ডটি বাদ দেওয়া ভালো
+    if (updateData.password) {
+      delete updateData.password; 
+    }
+
+    // ৩. ডেটাবেজে ডাটা আপডেট করা
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateData },
+      { new: true, runValidators: true } // নতুন ডাটা রিটার্ন করবে এবং স্কিমা ভ্যালিডেশন চেক করবে
+      ).populate('department', 'name');
+
+      if (!updatedUser) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'User updated successfully!',
+        data: updatedUser
+      });
+
+    } catch (error) {
+      res.status(400).json({ success: false, message: error.message });
+    }
+  };
+
+// @desc    Delete user / employee
+// @route   DELETE /api/users/:id
+// @access  Private/Admin
+const deleteUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // ডেটাবেজ থেকে ইউজার ডিলিট করা
+    await User.findByIdAndDelete(req.params.id);
+
+    res.status(200).json({
+      success: true,
+      message: 'User deleted successfully!'
+    });
+
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+}
+
+module.exports = { registerUser, loginUser, getUserProfile, getAllUsers, getAllEmployees, updateUser, deleteUser, getEmployeeById };

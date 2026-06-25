@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { Edit3, Eye, Trash2 } from 'lucide-react';
+import EditEmployeeModal from './EditEmployeeModal';
 
 const EmployeeList = () => {
   const [employees, setEmployees] = useState([]);
@@ -13,9 +16,15 @@ const EmployeeList = () => {
 
 
   // ব্যাকএন্ড থেকে ডাটা ফেচ করা
-const fetchEmployees = async () => {
+  const fetchEmployees = async () => {
+    const token = localStorage.getItem('token'); 
       try {
-        const response = await fetch('http://localhost:3000/api/users/all'); // আপনার ব্যাকএন্ড ইউআরএল
+        const response = await fetch('http://localhost:3000/api/users/all', {
+        headers: {
+            'Authorization': `Bearer ${token}` // আপনার অথ মিডলওয়্যার পাস করার জন্য
+            }
+
+        }); // আপনার ব্যাকএন্ড ইউআরএল
         const result = await response.json();
        
         if (result.success) {
@@ -81,6 +90,41 @@ useEffect(() => {
 
   setFilteredEmployees(tempEmployees);
 }, [searchTerm, selectedDepartment, employees]);
+
+ // এডিট স্টেটের জন্য ভেরিয়েবল
+  const [editingEmployee, setEditingEmployee] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+
+
+   // ==========================================
+  // 🗑️ DELETE FUNCTION
+  // ==========================================
+  const handleDelete = async (id) => {
+    if (window.confirm('আপনি কি নিশ্চিত যে এই কর্মচারীর ডাটা ডিলিট করতে চান?')) {
+      try {
+        const token = localStorage.getItem('token');
+        await axios.delete(`http://localhost:3000/api/users/${id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        // সফল হলে ফ্রন্টএন্ড স্টেট থেকে ওই এমপ্লয়িকে বাদ দেওয়া (UI আপডেট)
+        setEmployees(employees.filter(emp => emp._id !== id));
+        alert('সফলভাবে ডিলিট হয়েছে!');
+      } catch (err) {
+        alert(err.response?.data?.message || 'ডিলিট করতে সমস্যা হয়েছে');
+      }
+    }
+  };
+
+
+   // ==========================================
+  // 📝 EDIT FUNCTIONS
+  // ==========================================
+  // এডিট বাটনে ক্লিক করলে ডাটা মডালে বা ফর্মে পাঠানো
+  const handleEditClick = (employee) => {
+    setEditingEmployee({ ...employee });
+    setShowEditModal(true);
+  };
 
 
   if (loading) return <div className="p-6 text-center text-lg font-semibold">Loading Employees...</div>;
@@ -177,12 +221,28 @@ useEffect(() => {
 
                 {/* অ্যাকশন বাটনসমূহ */}
                 <div className="flex justify-end space-x-3 pt-2 text-sm">
-                  <button className="text-indigo-600 hover:text-indigo-900 font-medium px-3 py-1 bg-indigo-50 rounded-md">
-                    View
+                  <button 
+                    onClick={() => navigate(`/admin-panel/employees/view/${emp._id}`)}
+                    className="text-indigo-600 hover:text-indigo-900 font-medium px-3 py-1 bg-indigo-50 rounded-md">
+                   
+                   <Eye className="w-3.5 h-3.5 stroke-[2.5]" /> 
                   </button>
-                  <button className="text-emerald-600 hover:text-emerald-900 font-medium px-3 py-1 bg-emerald-50 rounded-md">
-                    Edit
-                  </button>
+                  {/* ✏️ Lucide Edit3 Icon */}
+                        <button 
+                        onClick={() => handleEditClick(emp)}
+                        className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded hover:bg-indigo-50 transition inline-flex items-center gap-1 text-xs font-bold"
+                        >
+                        <Edit3 className="w-3.5 h-3.5 stroke-[2.5]" /> Edit
+                        </button>
+
+
+                   {/* 🗑️ Lucide Trash2 Icon */}
+                        <button 
+                        onClick={() => handleDelete(emp._id)}
+                        className="text-red-500 hover:text-red-700 p-1.5 rounded hover:bg-red-50 transition inline-flex items-center gap-1 text-xs font-bold ml-2"
+                        >
+                        <Trash2 className="w-3.5 h-3.5 stroke-[2.5]" /> Delete
+                        </button>
                 </div>
 
               </div>
@@ -243,13 +303,43 @@ useEffect(() => {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-center space-x-2">
-                      <button className="text-indigo-600 hover:text-indigo-900 font-medium mr-3">View</button>
-                      <button className="text-emerald-600 hover:text-emerald-900 font-medium">Edit</button>
+                      <button 
+                        className="text-indigo-600 hover:text-indigo-900 font-medium px-3 py-1 bg-indigo-50 rounded-md"
+                        onClick={() => navigate(`/admin-panel/employees/view/${emp._id}`)}
+                      >
+                        <Eye className="w-3.5 h-3.5 stroke-[2.5]" /> 
+                      </button>
+                      {/* ✏️ Lucide Edit3 Icon */}
+                        <button 
+                         onClick={() => handleEditClick(emp)}
+                        className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded hover:bg-indigo-50 transition inline-flex items-center gap-1 text-xs font-bold"
+                        >
+                        <Edit3 className="w-3.5 h-3.5 stroke-[2.5]" /> Edit
+                        </button>
+
+
+                   {/* 🗑️ Lucide Trash2 Icon */}
+                        <button 
+                        onClick={() => handleDelete(emp._id)}
+                        className="text-red-500 hover:text-red-700 p-1.5 rounded hover:bg-red-50 transition inline-flex items-center gap-1 text-xs font-bold ml-2"
+                        >
+                        <Trash2 className="w-3.5 h-3.5 stroke-[2.5]" /> Delete
+                        </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+             {/* যদি এডিট পপআপ/মডাল ওপেন হয় */}
+            {showEditModal && (
+              <EditEmployeeModal
+                employee={editingEmployee} 
+                onClose={() => setShowEditModal(false)} 
+                onUpdateSuccess={fetchEmployees} // আপডেট হলে লিস্ট রিফ্রেশ করবে
+                fetchEmployees={fetchEmployees} 
+              />
+            )}
+            
           </div>
 
         </div>

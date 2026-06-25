@@ -204,26 +204,26 @@ const AddEmployee = () => {
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Department Assignment *</label>
               
              <select 
-    name="department" 
-    required 
-    value={formData.department} 
-    onChange={handleChange} 
-    className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30 cursor-pointer"
-  >
-    {/* ডিপার্টমেন্ট লোড হতে থাকলে ইউজারকে নোটিফাই করবে */}
-    {deptLoading ? (
-      <option value="">Loading Departments...</option>
-    ) : (
-      <option value="">Select Department</option>
-    )}
+                name="department" 
+                required 
+                value={formData.department} 
+                onChange={handleChange} 
+                className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30 cursor-pointer"
+              >
+                {/* ডিপার্টমেন্ট লোড হতে থাকলে ইউজারকে নোটিফাই করবে */}
+                {deptLoading ? (
+                  <option value="">Loading Departments...</option>
+                ) : (
+                  <option value="">Select Department</option>
+                )}
 
-    {/* ডেটাবেস থেকে আসা ডিপার্টমেন্টের ডাটা লুপ চালিয়ে অপশনে বসানো হচ্ছে */}
-    {!deptLoading && departments && departments.map((dept) => (
-      <option key={dept._id} value={dept._id}>
-        {dept.name} ({dept.code})
-      </option>
-    ))}
-  </select>
+                {/* ডেটাবেস থেকে আসা ডিপার্টমেন্টের ডাটা লুপ চালিয়ে অপশনে বসানো হচ্ছে */}
+                {!deptLoading && departments && departments.map((dept) => (
+                  <option key={dept._id} value={dept._id}>
+                    {dept.name} ({dept.code})
+                  </option>
+                ))}
+              </select>
 
 
             </div>
