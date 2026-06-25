@@ -57,17 +57,17 @@ const Sidebar = () => {
         { name: t('departments'), icon: Building2, path: '/admin-panel/employees/departments' },
       ]
     },
-    { 
-      name: t('inventory'), 
-      icon: Package,
-      path: '/admin-panel/inventory',
-      hasSubMenu: true,
-      subMenuItems: [
-        { name: t('stock_overview'), icon: Boxes, path: '/admin-panel/inventory/stock' },
-        { name: t('add_new_item'), icon: PlusCircle, path: '/admin-panel/inventory/add' },
-        { name: t('suppliers'), icon: Users, path: '/admin-panel/inventory/suppliers' },
-      ]
-    },
+    // { 
+    //   name: t('inventory'), 
+    //   icon: Package,
+    //   path: '/admin-panel/inventory',
+    //   hasSubMenu: true,
+    //   subMenuItems: [
+    //     { name: t('stock_overview'), icon: Boxes, path: '/admin-panel/inventory/stock' },
+    //     { name: t('add_new_item'), icon: PlusCircle, path: '/admin-panel/inventory/add' },
+    //     { name: t('suppliers'), icon: Users, path: '/admin-panel/inventory/suppliers' },
+    //   ]
+    // },
     { 
       // 🤝 নতুন মডিউল: Dealer
       name: t('dealer'), 

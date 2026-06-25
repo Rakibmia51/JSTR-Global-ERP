@@ -5,6 +5,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import EmployeeList from './components/EmployeeList';
+import AddEmployee from './components/AddEmployee';
+import DepartmentPanel from './components/DepartmentPanel';
 
 
 function App() {
@@ -26,8 +28,8 @@ function App() {
 
              {/* 👥 Employees Modules */}
           <Route path="employees/all" element={<EmployeeList/>} />
-          <Route path="employees/add" element={<h5>Add Employee</h5>} />
-          <Route path="employees/departments" element={<h5>Departments</h5>} />
+          <Route path="employees/add" element={<AddEmployee/>} />
+          <Route path="employees/departments" element={<DepartmentPanel/>} />
 
           {/* 📦 Inventory Modules */}
           <Route path="inventory/stock" element={<h5>Stock Overview</h5>} />

@@ -7,125 +7,44 @@ const Department = require('../models/Department');
 // @access  Public
 const registerUser = async (req, res) => {
   try {
+    const userData = { ...req.body };
 
-    //  ইমেজ ফাইলের পাথ বের করা
-    const photo = req.files && req.files['photo'] ? req.files['photo'][0].path : 'uploads/default-profile.png';
-    const nomineePhoto = req.files && req.files['nomineePhoto'] ? req.files['nomineePhoto'][0].path : 'uploads/default-nominee.png';
-   
-    // রিকোয়েস্ট বডি থেকে টেক্সট ডাটা নেওয়া
-    const {
-      idNo,
-      refIdNo,
-      name,
-      email,
-      password,
-      role,
-      department,
-      dateOfBirth,
-      gender,
-      nidNo,
-      fatherName,
-      motherName,
-      spouseName,
-      mobileNo,
-      address,
-      district,
-      thana,
-      // নমিনি অবজেক্টের ভেতরের ডাটা
-      nomineeName,
-      nomineeFatherName,
-      nomineeMotherName,
-      nomineeDateOfBirth,
-      nomineeNidNo,
-      nomineeRelation,
-      nomineeMobileNo,
-    } = req.body;
-
-    // ১. মেইন রিকোয়ার্ড ফিল্ডগুলো চেক করা (Validation)
-    if (
-      !idNo || !name || !email || !password || !department || 
-      !dateOfBirth || !gender || !nidNo || !fatherName || !motherName || 
-      !mobileNo || !address || !district || !thana
-    ) {
-      return res.status(400).json({ message: 'All mandatory staff fields are required' });
+    // 💡 সমাধান: ফ্রন্টএন্ড থেকে আসা নমিনি স্ট্রিংটিকে অবজেক্টে রূপান্তর করা হচ্ছে
+    if (userData.nominee && typeof userData.nominee === 'string') {
+      userData.nominee = JSON.parse(userData.nominee);
+    } else if (!userData.nominee) {
+      userData.nominee = {};
     }
 
-    // ২. নমিনির রিকোয়ার্ড ফিল্ডগুলো চেক করা (Nominee Validation)
-    if (
-      !nomineeName || !nomineeFatherName || !nomineeMotherName || 
-      !nomineeDateOfBirth || !nomineeNidNo || !nomineeRelation || !nomineeMobileNo
-    ) {
-      return res.status(400).json({ message: 'All nominee fields are required' });
-    }
-
-    // ৩. ডুপ্লিকেট অ্যাকাউন্ট চেক (Email, ID No, NID No ইউনিক হতে হবে)
-    const emailExists = await User.findOne({ email });
-    if (emailExists) {
-      return res.status(400).json({ message: 'User with this email already exists' });
-    }
-
-    const idExists = await User.findOne({ idNo });
-    if (idExists) {
-      return res.status(400).json({ message: 'User with this ID Number already exists' });
-    }
-
-    const nidExists = await User.findOne({ nidNo });
-    if (nidExists) {
-      return res.status(400).json({ message: 'User with this NID Number already exists' });
-    }
-
-    // ৪. নতুন ইউজার অবজেক্ট তৈরি এবং ডাটাবেজে সেভ
-    const user = await User.create({
-      idNo,
-      refIdNo,
-      name,
-      email,
-      password,
-      role,
-      department, // Department ObjectId অথবা String (আপনার চয়েস অনুযায়ী)
-      dateOfBirth,
-      gender,
-      nidNo,
-      fatherName,
-      motherName,
-      spouseName,
-      mobileNo,
-      address,
-      district,
-      thana,
-      photo,
-      // স্ট্রাকচার্ড নমিনি অবজেক্ট
-      nominee: {
-        name: nomineeName,
-        fatherName: nomineeFatherName,
-        motherName: nomineeMotherName,
-        dateOfBirth: nomineeDateOfBirth,
-        nidNo: nomineeNidNo,
-        relation: nomineeRelation,
-        mobileNo: nomineeMobileNo,
-        photo: nomineePhoto
+    // ছবি আপলোড হয়ে থাকলে সেগুলোর পাথ স্কিমা অনুযায়ী বসানো হচ্ছে
+    if (req.files) {
+      if (req.files.photo && req.files.photo[0]) {
+        userData.photo = req.files.photo[0].path;
       }
+      if (req.files.nomineePhoto && req.files.nomineePhoto[0]) {
+        userData.nominee.photo = req.files.nomineePhoto[0].path;
+      }
+    }
+
+    // যদি কোনো ছবি আপলোড না করা হয়, তবে ডিফল্ট ছবির নাম সেট করা হচ্ছে
+    if (!userData.photo) userData.photo = 'default-profile.png';
+    if (!userData.nominee.photo) userData.nominee.photo = 'default-nominee.png';
+
+    // ডেটাবেসে ইউজার তৈরি করা
+    const newEmployee = await User.create(userData);
+
+    return res.status(201).json({
+      success: true,
+      message: 'Employee and Nominee registered successfully!',
+      data: newEmployee
     });
 
-    // ৫. রেসপন্স পাঠানো
-    if (user) {
-      res.status(201).json({
-        success: true,
-        message: 'User registered successfully!',
-        data: {
-          _id: user._id,
-          idNo: user.idNo,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          department: user.department
-        }
-      });
-    } else {
-      res.status(400).json({ message: 'Invalid user data provided' });
-    }
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error("Mongoose Nominee Validation Failure:", error);
+    return res.status(400).json({
+      success: false,
+      message: error.message // মঙ্গুজ বলবে কোন ফিল্ডটি এখনো মিসিং আছে
+    });
   }
 };
 
