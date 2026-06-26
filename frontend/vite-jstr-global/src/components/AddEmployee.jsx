@@ -127,7 +127,7 @@ const AddEmployee = () => {
     }
     };
 
-     const [departments, setDepartments] = useState([]); // ড্রপডাউনের জন্য
+    const [departments, setDepartments] = useState([]); // ড্রপডাউনের জন্য
     const [deptLoading, setDeptLoading] = useState(true); // ডিপার্টমেন্ট লোডিং ট্র্যাকার
 
     useEffect(() => {

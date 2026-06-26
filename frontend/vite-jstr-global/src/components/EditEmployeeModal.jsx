@@ -9,12 +9,11 @@ const EditEmployeeModal = ({ employee, onClose, fetchEmployees }) => {
 
   // ডাটাবেজ স্কিমা অনুযায়ী স্টেট ডিজাইন
   const [formData, setFormData] = useState({
-    idNo: '', refIdNo: '', name: '', email: '', role: 'staff',
-    department: '', gender: 'Male', dateOfBirth: '', nidNo: '', fatherName: '',
-    motherName: '', spouseName: '', mobileNo: '', address: '', district: '', thana: '',
-    nominee: {
-      name: '', fatherName: '', motherName: '', dateOfBirth: '', nidNo: '', relation: '', mobileNo: ''
-    }
+            idNo: '', refIdNo: '', name: '', email: '', password: '', role: 'staff',
+            department: '', gender: 'Male', dateOfBirth: '', nidNo: '', fatherName: '',
+            motherName: '', spouseName: '', mobileNo: '', photo: '',
+            address: '', district: '', thana: '',
+            nominee: { name: '', fatherName: '', motherName: '', dateOfBirth: '', nidNo: '', relation: '', mobileNo: '', photo: '' }
   });
 
   const [loading, setLoading] = useState(false);
@@ -136,6 +135,23 @@ const EditEmployeeModal = ({ employee, onClose, fetchEmployees }) => {
       setLoading(false);
     }
   };
+
+  // ডেট ইনপুটের জন্য ফরম্যাটিং
+
+  const inputDateValue = formData.dateOfBirth?.split('T')[0];
+
+  const handleDateChange = (e) => {
+    const selectedDate = e.target.value; // আউটপুট পাবেন: "YYYY-MM-DD"
+    
+    if (selectedDate) {
+      // ৪. নতুন তারিখের সাথে পুনরায় 'T00:00:00.000Z' যোগ করে ISO ফরম্যাট বানানো হলো
+      const updatedIsoDate = `${selectedDate}T00:00:00.000Z`;
+      
+      // ৫. স্টেটে নতুন ISO ডেট সেট করা হলো (যা আপনি API দিয়ে ব্যাকএন্ডে পাঠাবেন)
+      setFormData({ ...formData, dateOfBirth: updatedIsoDate });
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-xs overflow-hidden">
       <div className="bg-white w-full max-w-5xl h-[100dvh] sm:h-auto sm:max-h-[90vh] flex flex-col rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden border border-gray-100 transition-transform duration-300">
@@ -160,11 +176,18 @@ const EditEmployeeModal = ({ employee, onClose, fetchEmployees }) => {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Employee ID *</label>
-                <input type="text" name="idNo" required value={formData.idNo} onChange={handleChange} className="w-full px-3 py-2 text-sm border rounded-xl bg-gray-50" disabled />
+                <input type="text" name="idNo" required value={formData.idNo} onChange={handleChange} 
+                 className="w-full px-4 py-2.5 text-sm border border-gray-300 bg-white rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"  disabled />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Ref. ID *</label>
+                <input type="text" name="refIdNo" required value={formData.refIdNo} onChange={handleChange} 
+                 className="w-full px-4 py-2.5 text-sm border border-gray-300 bg-white rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">System Role *</label>
-                <select name="role" required value={formData.role} onChange={handleChange} className="w-full px-3 py-2 text-sm border rounded-xl">
+                <select name="role" required value={formData.role} onChange={handleChange} 
+                   className="w-full px-4 py-2.5 text-sm border border-gray-300 bg-white rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition" >
                   <option value="staff">Staff</option>
                   <option value="manager">Manager</option>
                   <option value="admin">Admin</option>
@@ -172,13 +195,15 @@ const EditEmployeeModal = ({ employee, onClose, fetchEmployees }) => {
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Department *</label>
-                <select name="department" required value={formData.department} onChange={handleChange} className="w-full px-3 py-2 text-sm border rounded-xl">
+                <select name="department" required value={formData.department} onChange={handleChange} 
+                   className="w-full px-4 py-2.5 text-sm border border-gray-300 bg-white rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition" >
                   <option value="">Select Department</option>
                   {departments.map((dept) => (
                     <option key={dept._id} value={dept._id}>{dept.name}</option>
                   ))}
                 </select>
               </div>
+               
             </div>
           </div>
 
@@ -188,16 +213,50 @@ const EditEmployeeModal = ({ employee, onClose, fetchEmployees }) => {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Full Name *</label>
-                <input type="text" name="name" required value={formData.name} onChange={handleChange} className="w-full px-3 py-2 text-sm border rounded-xl" />
+                <input type="text" name="name" required value={formData.name} onChange={handleChange} 
+                 className="w-full px-4 py-2.5 text-sm border border-gray-300 bg-white rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"  />
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Mobile No *</label>
-                <input type="text" name="mobileNo" required value={formData.mobileNo} onChange={handleChange} className="w-full px-3 py-2 text-sm border rounded-xl" />
+                <input type="text" name="mobileNo" required value={formData.mobileNo} onChange={handleChange} 
+                 className="w-full px-4 py-2.5 text-sm border border-gray-300 bg-white rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"  />
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Email *</label>
-                <input type="email" name="email" required value={formData.email} onChange={handleChange} className="w-full px-3 py-2 text-sm border rounded-xl" />
+                <input type="email" name="email" required value={formData.email} onChange={handleChange} 
+                 className="w-full px-4 py-2.5 text-sm border border-gray-300 bg-white rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"  />
               </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">NID No *</label>
+                <input type="text" name="nidNo" required value={formData.nidNo} onChange={handleChange} 
+                 className="w-full px-4 py-2.5 text-sm border border-gray-300 bg-white rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"  />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Date of Birth *</label>
+                <input type="date" name="dateOfBirth" required value={inputDateValue} onChange={handleDateChange} 
+                 className="w-full px-4 py-2.5 text-sm border border-gray-300 bg-white rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"  />
+              </div>
+               <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Gender Specifier *</label>
+                  <select name="gender" required value={formData.gender} onChange={handleChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30 cursor-pointer">
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                 <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Father's Name *</label>
+              <input type="text" name="fatherName" required value={formData.fatherName} onChange={handleChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Mother's Name *</label>
+              <input type="text" name="motherName" required value={formData.motherName} onChange={handleChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Spouse Name (If Applicable)</label>
+              <input type="text" name="spouseName" value={formData.spouseName} onChange={handleChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30" placeholder="Optional" />
+            </div>
             </div>
           </div>
 
@@ -207,15 +266,18 @@ const EditEmployeeModal = ({ employee, onClose, fetchEmployees }) => {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-emerald-50/20 p-4 rounded-xl border border-emerald-100">
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nominee Name *</label>
-                <input type="text" name="name" required value={formData.nominee.name} onChange={handleNomineeChange} className="w-full px-3 py-2 text-sm border rounded-xl bg-white" />
+                <input type="text" name="name" required value={formData.nominee.name} onChange={handleNomineeChange} 
+                 className="w-full px-4 py-2.5 text-sm border border-gray-300 bg-white rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Relationship *</label>
-                <input type="text" name="relation" required value={formData.nominee.relation} onChange={handleNomineeChange} className="w-full px-3 py-2 text-sm border rounded-xl bg-white" />
+                <input type="text" name="relation" required value={formData.nominee.relation} onChange={handleNomineeChange} 
+                className="w-full px-4 py-2.5 text-sm border border-gray-300 bg-white rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"  />
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Contact No *</label>
-                <input type="text" name="mobileNo" required value={formData.nominee.mobileNo} onChange={handleNomineeChange} className="w-full px-3 py-2 text-sm border rounded-xl bg-white" />
+                <input type="text" name="mobileNo" required value={formData.nominee.mobileNo} onChange={handleNomineeChange} 
+                 className="w-full px-4 py-2.5 text-sm border border-gray-300 bg-white rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition"  />
               </div>
             </div>
           </div>
@@ -224,7 +286,7 @@ const EditEmployeeModal = ({ employee, onClose, fetchEmployees }) => {
           <div className="space-y-4">
             <h3 className="text-sm font-extrabold text-indigo-600 uppercase border-b pb-2 flex items-center gap-2"><Image className="w-4 h-4" /> Media Attachments</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex items-center gap-4 border p-3 rounded-xl">
+              <div className="flex items-center gap-4 border  border-gray-300 p-3 rounded-xl">
                 <div className="w-14 h-14 rounded-full border overflow-hidden shrink-0 bg-gray-50 flex items-center justify-center">
                   {photoPreview ? <img src={photoPreview} alt="Emp" className="w-full h-full object-cover" /> : <User className="w-6 h-6 text-gray-400" />}
                 </div>
@@ -234,13 +296,13 @@ const EditEmployeeModal = ({ employee, onClose, fetchEmployees }) => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 border p-3 rounded-xl">
+              <div className="flex items-center gap-4 border  border-gray-300 p-3 rounded-xl">
                 <div className="w-14 h-14 rounded-full border overflow-hidden shrink-0 bg-gray-50 flex items-center justify-center">
                   {nomineePhotoPreview ? <img src={nomineePhotoPreview} alt="Nom" className="w-full h-full object-cover" /> : <User className="w-6 h-6 text-gray-400" />}
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Change Nominee Photo</label>
-                  <input type="file" accept="image/*" onChange={handlePhotoChange} className="text-xs" />
+                  <input type="file" accept="image/*" onChange={handleNomineePhotoChange} className="text-xs" />
                 </div>
               </div>
             </div>

@@ -16,16 +16,18 @@ const DepartmentPanel = () => {
 
   // ১. ব্যাকএন্ড থেকে সমস্ত ডিপার্টমেন্ট লোড করা
   const fetchDepartments = async () => {
+    const token = localStorage.getItem('token');
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3000/api/departments', {
+      
+      const response = await fetch('http://localhost:3000/api/departments',{
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const result = await response.json();
       
       if (result.success) {
         setDepartments(result.data);
+        console.log(result.data)
       } else {
         setError(result.message);
       }

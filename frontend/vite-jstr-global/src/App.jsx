@@ -8,7 +8,8 @@ import EmployeeList from './components/EmployeeList';
 import AddEmployee from './components/AddEmployee';
 import DepartmentPanel from './components/DepartmentPanel';
 import ViewEmployee from './components/ViewEmployee';
-import EditEmployeeModal from './components/EditEmployeeModal';
+import EditEmployeePage from './components/EditEmployeePage';
+
 
 
 function App() {
@@ -31,9 +32,10 @@ function App() {
              {/* 👥 Employees Modules */}
           <Route path="employees/all" element={<EmployeeList/>} />
           <Route path="employees/add" element={<AddEmployee/>} />
-          {/* 🚀 ডাইনামিক আইডি রুট (অত্যন্ত গুরুত্বপূর্ণ) */}
+          {/* 🚀 ডাইনামিক আইডি রুট (অত্যন্ত গুরুত্বপূরণ) */}
           <Route path="/admin-panel/employees/view/:id" element={<ViewEmployee />} />
-          <Route path="/admin-panel/employees/edit/:id" element={<EditEmployeeModal />} />
+          <Route path="/admin-panel/employees/edit/:id" element={<EditEmployeePage/>} />
+          
           <Route path="employees/departments" element={<DepartmentPanel/>} />
 
           {/* 📦 Inventory Modules */}

@@ -229,7 +229,8 @@ useEffect(() => {
                   </button>
                   {/* ✏️ Lucide Edit3 Icon */}
                         <button 
-                        onClick={() => handleEditClick(emp)}
+                        // onClick={() => handleEditClick(emp)}
+                        onClick={() => navigate(`/admin-panel/employees/edit/${emp._id}`)}
                         className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded hover:bg-indigo-50 transition inline-flex items-center gap-1 text-xs font-bold"
                         >
                         <Edit3 className="w-3.5 h-3.5 stroke-[2.5]" /> Edit
@@ -311,7 +312,8 @@ useEffect(() => {
                       </button>
                       {/* ✏️ Lucide Edit3 Icon */}
                         <button 
-                         onClick={() => handleEditClick(emp)}
+                        // onClick={() => handleEditClick(emp)}
+                        onClick={() => navigate(`/admin-panel/employees/edit/${emp._id}`)}
                         className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded hover:bg-indigo-50 transition inline-flex items-center gap-1 text-xs font-bold"
                         >
                         <Edit3 className="w-3.5 h-3.5 stroke-[2.5]" /> Edit

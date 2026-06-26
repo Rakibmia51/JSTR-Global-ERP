@@ -4,7 +4,7 @@ const { getAllDepartments, createDepartment, updateDepartment, deleteDepartment 
 const { protect, authorizeRoles } = require('../middleware/authMiddleware'); // যদি সুরক্ষিত করতে চান
 
 // সর্বসাধারণ বা লগইন করা ইউজাররা দেখতে পারবে, কিন্তু ক্রিয়েট শুধু অ্যাডমিন পারবে
-router.get('/', getAllDepartments);
+router.get('/', protect, authorizeRoles("admin"), getAllDepartments);
 router.post('/', protect, authorizeRoles('admin'), createDepartment);
 
 router.put('/:id', protect, authorizeRoles('admin'), updateDepartment);
