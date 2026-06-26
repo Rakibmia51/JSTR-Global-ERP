@@ -6,7 +6,8 @@ import { Save, User, Briefcase, ShieldCheck, Image, ArrowLeft, MapPin } from 'lu
 const EditEmployeePage = () => {
   const { id } = useParams(); 
   const navigate = useNavigate(); 
-  const API_BASE_URL = 'http://localhost:3000/api';
+  const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'; 
+  const API_BASE_URL = `${SERVER_URL}/api`;
 
   const [formData, setFormData] = useState({
     idNo: '', refIdNo: '', name: '', email: '', password: '', role: 'staff',
@@ -44,8 +45,8 @@ const EditEmployeePage = () => {
             nominee: employee.nominee || { name: '', fatherName: '', motherName: '', dateOfBirth: '', nidNo: '', relation: '', mobileNo: '' }
           });
 
-          if (employee.photo) setPhotoPreview(`http://localhost:3000/${employee.photo}`);
-          if (employee.nominee?.photo) setNomineePhotoPreview(`http://localhost:3000/${employee.nominee.photo}`);
+          if (employee.photo) setPhotoPreview(`${SERVER_URL}/${employee.photo}`);
+          if (employee.nominee?.photo) setNomineePhotoPreview(`${SERVER_URL}/${employee.nominee.photo}`);
         }
       } catch (err) {
         console.error('Error fetching employee details:', err);

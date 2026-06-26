@@ -10,7 +10,9 @@ const ViewEmployee = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const API_BASE_URL = 'http://localhost:3000/api';
+  const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'; 
+
+  const API_BASE_URL = `${SERVER_URL}/api`;
 
   useEffect(() => {
     const fetchEmployeeDetails = async () => {
@@ -44,8 +46,8 @@ const ViewEmployee = () => {
   if (!employee) return <div className="p-6 text-center text-gray-500">No employee data found.</div>;
 
   // ব্যাকএন্ড থেকে আসা ছবিগুলোর পাথ (আপনার সার্ভারের আপলোড ফোল্ডারের সাথে মিলিয়ে নেবেন)
-  const employeePhotoUrl = employee.photo ? `http://localhost:3000/${employee.photo}` : null;
-  const nomineePhotoUrl = employee.nominee?.photo ? `http://localhost:3000/${employee.nominee.photo}` : null;
+  const employeePhotoUrl = employee.photo ? `${SERVER_URL}/${employee.photo}` : null;
+  const nomineePhotoUrl = employee.nominee?.photo ? `${SERVER_URL}/${employee.nominee.photo}` : null;
 
   return (
     <div className="mt-15 p-6 bg-gray-50 min-h-screen space-y-6">

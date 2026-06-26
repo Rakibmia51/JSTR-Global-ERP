@@ -13,6 +13,7 @@ const DepartmentPanel = () => {
     name: '',
     code: ''
   });
+  const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'; 
 
   // ১. ব্যাকএন্ড থেকে সমস্ত ডিপার্টমেন্ট লোড করা
   const fetchDepartments = async () => {
@@ -20,7 +21,7 @@ const DepartmentPanel = () => {
     try {
       setLoading(true);
       
-      const response = await fetch('http://localhost:3000/api/departments',{
+      const response = await fetch(`${SERVER_URL}/api/departments`,{
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const result = await response.json();
@@ -58,8 +59,8 @@ const handleSubmit = async (e) => {
 
   // এডিট মোড অন থাকলে এডিটের ইউআরএল ও মেথড সেট হবে, না হলে ক্রিয়েটেরটা হবে
   const url = isEditing 
-    ? `http://localhost:3000/api/departments/${editId}` 
-    : 'http://localhost:3000/api/departments';
+    ? `${SERVER_URL}/api/departments/${editId}` 
+    : `${SERVER_URL}/api/departments`;
   
   const method = isEditing ? 'PUT' : 'POST';
 
@@ -107,7 +108,7 @@ const handleDelete = async (id) => {
 
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`http://localhost:3000/api/departments/delete/${id}`, {
+    const response = await fetch(`${SERVER_URL}/api/departments/delete/${id}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
     });

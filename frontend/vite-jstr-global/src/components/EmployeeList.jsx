@@ -13,15 +13,15 @@ const EmployeeList = () => {
   const [selectedDepartment, setSelectedDepartment] = useState(''); // সিলেক্টেড ডিপার্টমেন্ট
   const [departmentsList, setDepartmentsList] = useState([]);     // ড্রপডাউন ডাইনামিক লিস্টের জন্য
   const navigate = useNavigate();
-
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'; 
 
   // ব্যাকএন্ড থেকে ডাটা ফেচ করা
   const fetchEmployees = async () => {
     const token = localStorage.getItem('token'); 
       try {
-        const response = await fetch('http://localhost:3000/api/users/all', {
+        const response = await fetch(`${SERVER_URL}/api/users/all`, {
         headers: {
-            'Authorization': `Bearer ${token}` // আপনার অথ মিডলওয়্যার পাস করার জন্য
+            'Authorization': `Bearer ${token}` // আপনার অথ মিডলওয়্যার পাস করার জন্য
             }
 
         }); // আপনার ব্যাকএন্ড ইউআরএল
@@ -103,15 +103,15 @@ useEffect(() => {
     if (window.confirm('আপনি কি নিশ্চিত যে এই কর্মচারীর ডাটা ডিলিট করতে চান?')) {
       try {
         const token = localStorage.getItem('token');
-        await axios.delete(`http://localhost:3000/api/users/${id}`, {
+        await axios.delete(`${SERVER_URL}/api/users/${id}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         
         // সফল হলে ফ্রন্টএন্ড স্টেট থেকে ওই এমপ্লয়িকে বাদ দেওয়া (UI আপডেট)
         setEmployees(employees.filter(emp => emp._id !== id));
-        alert('সফলভাবে ডিলিট হয়েছে!');
+        alert('সফলভাবে ডিলিট হয়েছে!');
       } catch (err) {
-        alert(err.response?.data?.message || 'ডিলিট করতে সমস্যা হয়েছে');
+        alert(err.response?.data?.message || 'ডিলিট করতে সমস্যা হয়েছে');
       }
     }
   };

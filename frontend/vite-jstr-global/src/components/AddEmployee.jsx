@@ -17,6 +17,8 @@ const AddEmployee = () => {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
 
+    const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'; 
+
 
     
     // ১. সাধারণ ইনপুট ফিল্ড ট্র্যাক করার জন্য
@@ -61,10 +63,10 @@ const AddEmployee = () => {
         if (nomineePhotoFile) formDataToSend.append('nomineePhoto', nomineePhotoFile);
 
         // ৪️⃣ ব্যাকএন্ড এপিআই-তে রিকোয়েস্ট পাঠান
-        const response = await fetch('http://localhost:3000/api/users/register', {
+        const response = await fetch(`${SERVER_URL}/api/users/register`, {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${token}` // আপনার অথ মিডলওয়্যার পাস করার জন্য
+            'Authorization': `Bearer ${token}` // আপনার অথ মিডলওয়্যার পাস করার জন্য
         },
         body: formDataToSend 
         });
@@ -136,7 +138,7 @@ const AddEmployee = () => {
         setDeptLoading(true);
         const token = localStorage.getItem('token'); 
 
-        const response = await fetch('http://localhost:3000/api/departments', {
+        const response = await fetch(`${SERVER_URL}/api/departments`, {
             headers: {
             'Authorization': `Bearer ${token}`
             }
