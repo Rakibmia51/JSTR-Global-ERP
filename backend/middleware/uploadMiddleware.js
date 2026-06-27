@@ -38,4 +38,11 @@ const cpUpload = upload.fields([
   { name: 'nomineePhoto', maxCount: 1 }
 ]);
 
+// 2️⃣ YOUR NEW CONFIGURATION (For Dealer Registration)
+const dealerUpload = upload.fields([
+  { name: 'photo', maxCount: 1 },
+  { name: 'nidPhoto', maxCount: 1 }
+]);
+
 module.exports = cpUpload;
+module.exports = dealerUpload;
