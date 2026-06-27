@@ -9,6 +9,8 @@ import AddEmployee from './components/AddEmployee';
 import DepartmentPanel from './components/DepartmentPanel';
 import ViewEmployee from './components/ViewEmployee';
 import EditEmployeePage from './components/EditEmployeePage';
+import DealerList from './components/DealerList';
+import DealerForm from './components/DealerForm';
 
 
 
@@ -35,7 +37,6 @@ function App() {
           {/* 🚀 ডাইনামিক আইডি রুট (অত্যন্ত গুরুত্বপূরণ) */}
           <Route path="/admin-panel/employees/view/:id" element={<ViewEmployee />} />
           <Route path="/admin-panel/employees/edit/:id" element={<EditEmployeePage/>} />
-          
           <Route path="employees/departments" element={<DepartmentPanel/>} />
 
           {/* 📦 Inventory Modules */}
@@ -44,8 +45,8 @@ function App() {
           <Route path="inventory/suppliers" element={<h5>Suppliers</h5>} />
 
           {/* 🤝 Dealer Modules */}
-          <Route path="dealer/all" element={<h5>All Dealers</h5>} />
-          <Route path="dealer/add" element={<h5>Add New Dealer</h5>} />
+          <Route path="dealer/all" element={<DealerList/>} />
+          <Route path="dealer/add" element={<DealerForm/>} />
           <Route path="dealer/orders" element={<h5>Dealer Orders</h5>} />
 
           {/* 📊 Invoice & Accounting Modules */}
