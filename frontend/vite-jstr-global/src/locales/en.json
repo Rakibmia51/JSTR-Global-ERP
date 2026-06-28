@@ -6,6 +6,8 @@
   "inventory": "Inventory",
   "stock_overview": "Stock Overview",
   "dealer": "Dealer",
+  "all_dealers": "All Dealers",
+  "add_new_dealer": "Add New Dealer",
   "invoice_accounting": "Invoice & Accounting",
   "marketing_sales": "Marketing & Sales",
   "settings": "Settings",

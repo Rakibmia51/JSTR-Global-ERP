@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'; // 👈 i18n হুক ইম্
 import { 
   LayoutDashboard, 
   Users, 
-  Package, 
+  // Package, 
   Settings, 
   LogOut, 
   Menu, 
@@ -13,7 +13,7 @@ import {
   UserPlus,
   Building2,
   Boxes,
-  PlusCircle,
+  // PlusCircle,
   Briefcase,      // Dealer আইকন
   FileSpreadsheet, // Invoice & Accounting আইকন
   TrendingUp,     // Marketing & Sales আইকন
@@ -77,7 +77,7 @@ const Sidebar = () => {
       subMenuItems: [
         { name: t('all_dealers'), icon: Users, path: '/admin-panel/dealer/all' },
         { name: t('add_new_dealer'), icon: UserPlus, path: '/admin-panel/dealer/add' },
-        { name: t('dealer_orders'), icon: Boxes, path: '/admin-panel/dealer/orders' },
+        // { name: t('dealer_orders'), icon: Boxes, path: '/admin-panel/dealer/orders' },
       ]
     },
     { 

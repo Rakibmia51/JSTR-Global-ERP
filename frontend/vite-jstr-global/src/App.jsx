@@ -11,6 +11,8 @@ import ViewEmployee from './components/ViewEmployee';
 import EditEmployeePage from './components/EditEmployeePage';
 import DealerList from './components/DealerList';
 import DealerForm from './components/DealerForm';
+import UpdateDealer from './components/UpdateDealer';
+import ViewDealer from './components/ViewDealer';
 
 
 
@@ -47,6 +49,8 @@ function App() {
           {/* 🤝 Dealer Modules */}
           <Route path="dealer/all" element={<DealerList/>} />
           <Route path="dealer/add" element={<DealerForm/>} />
+          <Route path="/admin-panel/dealers/view/:id" element={<ViewDealer/>} />
+          <Route path="/admin-panel/dealers/edit/:id" element={<UpdateDealer/>} />
           <Route path="dealer/orders" element={<h5>Dealer Orders</h5>} />
 
           {/* 📊 Invoice & Accounting Modules */}
