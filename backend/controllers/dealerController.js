@@ -6,7 +6,7 @@ const Dealer = require('../models/Dealer');
 const registerDealer = async (req, res) => {
     try {
         const {
-            dealerId, referenceIdNo, district, thana, status,
+            dealerId, password, referenceIdNo, district, thana, status,
             name, dateOfBirth, nationalIdNo, fathersName, mothersName,
             mobilePhoneNo, email, address, photo, nidPhoto
         } = req.body;
@@ -36,7 +36,7 @@ const registerDealer = async (req, res) => {
 
         // Create new dealer object
         const newDealer = new Dealer({
-            dealerId, referenceIdNo, district, thana, status,
+            dealerId, password, referenceIdNo, district, thana, status,
             name, dateOfBirth, nationalIdNo, fathersName, mothersName,
             mobilePhoneNo, email, address,
             photo: uploadedPhoto,       // ফাইল থাকলে ফাইলের পাথ, JSON থাকলে JSON এর টেক্সট সেভ হবে

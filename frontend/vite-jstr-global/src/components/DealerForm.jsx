@@ -5,6 +5,7 @@ import { Briefcase, Image, Save, User } from 'lucide-react';
 const DealerForm = () => {
   const [formData, setFormData] = useState({
     dealerId: '',
+    password: '',
     referenceIdNo: '',
     district: '',
     thana: '',
@@ -89,9 +90,9 @@ const DealerForm = () => {
         });
         // Reset states
         setFormData({
-          dealerId: '', referenceIdNo: '', district: '', thana: '',
+          dealerId: '',password:'', referenceIdNo: '', district: '', thana: '',
           name: '', dateOfBirth: '', nationalIdNo: '', fathersName: '',
-          mothersName: '', mobilePhoneNo: '', email: '', address: ''
+          mothersName: '', mobilePhoneNo: '', email: '', address: '', status: 'Active'
         });
         setPhoto(null);
         setNidPhoto(null);
@@ -134,6 +135,19 @@ const DealerForm = () => {
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Reference ID No</label>
               <input type="text" name="referenceIdNo" value={formData.referenceIdNo} onChange={handleChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30" placeholder="Optional" />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Secure Password *</label>
+              <input type="password" name="password" required value={formData.password} onChange={handleChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30" placeholder="Minimum 6 characters" />
+            </div>
+            
+             <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Account Status *</label>
+              <select name="status" required value={formData.status || 'Active'} onChange={handleChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30 cursor-pointer">
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
             </div>
            
             <div>

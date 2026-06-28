@@ -8,6 +8,11 @@ const dealerSchema = new mongoose.Schema({
         unique: true,
         trim: true
     },
+    password: { 
+        type: String, 
+        required: [true, 'Password is required'], 
+        minlength: [6, 'Password must be at least 6 characters long']
+     },
     referenceIdNo: {
         type: String,
         trim: true
@@ -24,8 +29,8 @@ const dealerSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['Pending', 'Approved', 'Rejected'],
-        default: 'Pending'
+        enum: ['Active', 'Inactive'],
+        default: 'Active'
     },
 
     // --- Personal Information ---

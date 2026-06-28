@@ -27,7 +27,10 @@ const seedAdminUser = async () => {
 
   // 2️⃣ যদি ডেটাবেসে কোনো ডিপার্টমেন্ট না থাকে, তবে একটি ডিফল্ট ডিপার্টমেন্ট তৈরি করে নিন
   if (!dept) {
-    dept = await Department.create({ name: 'Engineering' }); 
+    dept = await Department.create({ 
+      name: 'Administration', 
+      code: 'ADMIN-01'
+    }); 
     console.log("✅ 'Engineering' department created automatically.");
   }
 

@@ -42,7 +42,7 @@ const DealerList = () => {
         if (dealers.length > 0) {
             setFilteredDealers(dealers); 
             // Extract unique status values (e.g., ['Pending', 'Approved', 'Rejected'])
-            const uniqueStatuses = [...new Set(dealers.map(dealer => dealer.status).filter(Boolean))];
+            const uniqueStatuses = [...new Set(dealers.map(dealer => dealer.status).filter(String))];
             setStatusList(uniqueStatuses);
         }
     } , [dealers]);
@@ -131,11 +131,12 @@ const DealerList = () => {
                                 <div className="font-bold text-gray-900">{emp.name}</div>
                                 <div className="text-xs text-indigo-600 font-mono">{emp.dealerId}</div>
                             </div>
-                            <span className={`ml-auto px-2 py-0.5 rounded-full text-xs font-bold ${
-                                emp.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                           <span className={`ml-auto px-2 py-0.5 rounded-full text-xs font-bold ${
+                                emp.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                             }`}>
-                                {emp.isActive ? 'Active' : 'Inactive'}
+                                {emp.status === 'Active' ? 'Active' : 'Inactive'}
                             </span>
+
                         </div>
 
                         {/* কন্টাক্ট, ডিপার্টমেন্ট ও রোল এর গ্রিড */}
@@ -219,11 +220,12 @@ const DealerList = () => {
                             <td className="px-6 py-4 capitalize font-medium">{emp.thana}</td>
                 
                             <td className="px-6 py-4">
-                                <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                                    emp.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                <span className={`ml-auto px-2 py-0.5 rounded-full text-xs font-bold ${
+                                    emp.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                                 }`}>
-                                    {emp.isActive ? 'Active' : 'Inactive'}
+                                    {emp.status === 'Active' ? 'Active' : 'Inactive'}
                                 </span>
+
                             </td>
                             <td className="px-6 py-4 text-center space-x-2">
                             <button 
