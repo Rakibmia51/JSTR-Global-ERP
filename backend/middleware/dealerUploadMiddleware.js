@@ -32,11 +32,11 @@ const upload = multer({
   fileFilter: fileFilter
 });
 
-// স্টাফের ফটো এবং নমিনির ফটোর জন্য ফিল্ড ডিফাইন করা
-const cpUpload = upload.fields([
+
+// YOUR NEW CONFIGURATION (For Dealer Registration)
+const dealerUpload = upload.fields([
   { name: 'photo', maxCount: 1 },
-  { name: 'nomineePhoto', maxCount: 1 }
+  { name: 'nidPhoto', maxCount: 1 }
 ]);
 
-
-module.exports = cpUpload;
+module.exports =  dealerUpload;

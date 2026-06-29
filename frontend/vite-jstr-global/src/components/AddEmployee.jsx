@@ -186,10 +186,10 @@ const AddEmployee = () => {
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
-            <div>
+            {/* <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Employee ID *</label>
               <input type="text" name="idNo" required value={formData.idNo} onChange={handleChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30" placeholder="e.g. ADMIN001" />
-            </div>
+            </div> */}
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Reference ID No</label>
               <input type="text" name="refIdNo" value={formData.refIdNo} onChange={handleChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30" placeholder="Optional" />

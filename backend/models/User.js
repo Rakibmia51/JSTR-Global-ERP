@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const userSchema = new mongoose.Schema(
   {
     // --- মেইন অ্যাকাউন্ট ইনফো / Main Account Info ---
-    idNo: { type: String, required: [true, 'ID No is required'], unique: true, trim: true },
+    idNo: { type: String, unique: true, trim: true },
     refIdNo: { type: String, trim: true, default: '' },
     name: { type: String, required: [true, 'Name of staff is required'] },
     email: { type: String, required: [true, 'Email is required'], unique: true, lowercase: true, trim: true },
@@ -45,6 +45,62 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// অটোমেটিক ডিপার্টমেন্ট ওয়াইজ আইডি জেনারেট করার মিডলওয়্যার
+// অটোমেটিক ডিপার্টমেন্ট ওয়াইজ আইডি জেনারেট করার মিডলওয়্যার (Mongoose v6/v7/v8 Safe)
+userSchema.pre('save', async function () {
+  // 💡 লক্ষ্য করুন: এখানে কোনো 'next' প্যারামিটার নেই
+
+  // যদি idNo আগে থেকেই থাকে (যেমন আপডেট করার সময়), তবে কোড এখানেই স্টপ হবে
+  if (!this.isNew || this.idNo) {
+    return;
+  }
+
+  try {
+    const Department = mongoose.models.Department || mongoose.model('Department');
+    
+    if (!this.department) {
+      throw new Error('Department ID is missing in user data'); // next(error) এর বদলে সরাসরি throw করুন
+    }
+
+    const dept = await Department.findById(this.department);
+    
+    if (!dept) {
+      throw new Error(`Department not found with ID: ${this.department}`);
+    }
+
+    // ডিপার্টমেন্ট কোড তৈরি
+    const deptCode = dept.code || (dept.name ? dept.name.substring(0, 3).toUpperCase().replace(/\s/g, '') : 'EMP');
+    const currentYear = new Date().getFullYear();
+
+    const idPattern = new RegExp(`^${deptCode}-`);
+    const lastUser = await mongoose.model('User').findOne(
+      { idNo: idPattern },
+      { idNo: 1 },
+      { sort: { idNo: -1 } }
+    );
+
+    let nextSerialNumber = 1;
+
+    if (lastUser && lastUser.idNo) {
+      const parts = lastUser.idNo.split('-');
+      const lastSerial = parseInt(parts[parts.length - 1], 10);
+      if (!isNaN(lastSerial)) {
+        nextSerialNumber = lastSerial + 1;
+      }
+    }
+
+    const formattedSerial = String(nextSerialNumber).padStart(4, '0');
+    
+    // ৫. ফাইনাল আইডি সেট করা (Format: DEPT-SERIAL)
+    this.idNo = `${deptCode}-${formattedSerial}`;
+
+  } catch (error) {
+    console.error("Error in User pre-save middleware:", error);
+    throw error; // সরাসরি এরর থ্রো করলে মঙ্গুজ নিজে থেকেই সেভ প্রসেস আটকে দেবে
+  }
+});
+
 
 // পাসওয়ার্ড এনক্রিপ্ট করার মিডলওয়্যার
 userSchema.pre('save', async function (next) {

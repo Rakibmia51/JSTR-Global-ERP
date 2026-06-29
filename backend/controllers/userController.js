@@ -9,6 +9,9 @@ const registerUser = async (req, res) => {
   try {
     const userData = { ...req.body };
 
+     // ফ্রন্টএন্ড থেকে আইডি পাঠানো হলেও তা মুছে দেওয়া হচ্ছে যাতে সিস্টেমেটিক আইডি তৈরি হয়
+    delete userData.idNo; 
+
     // 💡 সমাধান: ফ্রন্টএন্ড থেকে আসা নমিনি স্ট্রিংটিকে অবজেক্টে রূপান্তর করা হচ্ছে
     if (userData.nominee && typeof userData.nominee === 'string') {
       userData.nominee = JSON.parse(userData.nominee);
@@ -31,7 +34,9 @@ const registerUser = async (req, res) => {
     if (!userData.nominee.photo) userData.nominee.photo = 'default-nominee.png';
 
     // ডেটাবেসে ইউজার তৈরি করা
-    const newEmployee = await User.create(userData);
+    const newEmployee = new User(userData);
+
+    await newEmployee.save(); 
 
     return res.status(201).json({
       success: true,

@@ -5,13 +5,14 @@ const Dealer = require('../models/Dealer');
 // @access  Public
 const registerDealer = async (req, res) => {
     try {
+        // ১. রিকোয়েস্ট বডি থেকে ডাটা ডেসট্রাকচারিং করা (এখান থেকে dealerId বাদ দেওয়া হয়েছে)
         const {
-            dealerId, password, referenceIdNo, district, thana, status,
+            password, referenceIdNo, district, thana, status,
             name, dateOfBirth, nationalIdNo, fathersName, mothersName,
             mobilePhoneNo, email, address, photo, nidPhoto
         } = req.body;
 
-        // --- ⚠️ ফাইল চেকিং লজিক আপডেট (ফাইল অথবা JSON বডি যেকোনো একটি থাকলেই হবে) ---
+        // ২. ফাইল চেকিং লজিক (ফাইল আপলোড হলে সেটির পাথ, নাহলে বডির টেক্সট/ডিফল্ট পাথ নেবে)
         const uploadedPhoto = (req.files && req.files.photo) ? req.files.photo[0].path : photo;
         const uploadedNidPhoto = (req.files && req.files.nidPhoto) ? req.files.nidPhoto[0].path : nidPhoto;
 
@@ -22,27 +23,36 @@ const registerDealer = async (req, res) => {
             });
         }
 
-        // Check for existing unique fields
+        // ৩. ইউনিক ফিল্ডগুলো ডাটাবেজে আগে থেকে আছে কিনা তা চেক করা 
+        // (এখানে $or কন্ডিশন থেকে dealerId চেকটি বাদ দেওয়া হয়েছে, কারণ আইডি ব্যাকএন্ডে তৈরি হবে)
         const dealerExists = await Dealer.findOne({
-            $or: [{ dealerId }, { nationalIdNo }, { mobilePhoneNo }, { email }]
+            $or: [{ nationalIdNo }, { mobilePhoneNo }, { email }]
         });
 
         if (dealerExists) {
+            // সুনির্দিষ্ট মেসেজ দেওয়ার জন্য কোন ফিল্ডটি মিলল তা চেক করা
+            let matchField = 'National ID, Mobile, or Email';
+            if (dealerExists.nationalIdNo === nationalIdNo) matchField = 'National ID';
+            else if (dealerExists.mobilePhoneNo === mobilePhoneNo) matchField = 'Mobile Number';
+            else if (dealerExists.email === email) matchField = 'Email Address';
+
             return res.status(400).json({
                 success: false,
-                message: 'A dealer with this Dealer ID, National ID, Mobile, or Email already exists.'
+                message: `A dealer with this ${matchField} already exists.`
             });
         }
 
-        // Create new dealer object
+        // ৪. নতুন ডিলার অবজেক্ট তৈরি করা 
+        // 💡 লক্ষ্য করুন: এখানে dealerId পাস করা হয়নি, মঙ্গুজ pre-save মিডলওয়্যার এটি নিজে তৈরি করে নেবে
         const newDealer = new Dealer({
-            dealerId, password, referenceIdNo, district, thana, status,
+            password, referenceIdNo, district, thana, status,
             name, dateOfBirth, nationalIdNo, fathersName, mothersName,
             mobilePhoneNo, email, address,
-            photo: uploadedPhoto,       // ফাইল থাকলে ফাইলের পাথ, JSON থাকলে JSON এর টেক্সট সেভ হবে
+            photo: uploadedPhoto,       
             nidPhoto: uploadedNidPhoto  
         });
 
+        // ৫. ডাটাবেজে সেভ করা (এটি রান হওয়ার সাথে সাথে pre-save মিডলওয়্যারটি DLR-2026-0001 আইডি বানাবে)
         await newDealer.save();
 
         res.status(201).json({
@@ -52,6 +62,7 @@ const registerDealer = async (req, res) => {
         });
 
     } catch (error) {
+        console.error("Dealer Controller Error:", error);
         res.status(500).json({
             success: false,
             message: 'Server error encountered.',

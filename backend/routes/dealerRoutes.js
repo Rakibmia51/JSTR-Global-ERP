@@ -3,7 +3,7 @@ const router = express.Router();
 
 // Destructuring the specific middleware from your combined upload file
 const { protect, authorizeRoles } = require('../middleware/authMiddleware.js');
-const dealerUpload  = require('../middleware/uploadMiddleware.js'); 
+const dealerUpload  = require('../middleware/dealerUploadMiddleware.js'); 
 const { registerDealer, getDealers, viewDealer, updateDealer, deleteDealer } = require('../controllers/dealerController.js');
 
 // --- Routes Definition ---

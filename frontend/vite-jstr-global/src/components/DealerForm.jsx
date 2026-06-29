@@ -128,10 +128,10 @@ const DealerForm = () => {
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
-            <div>
+            {/* <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Dealer ID *</label>
               <input type="text" name="dealerId" required value={formData.dealerId} onChange={handleChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30" placeholder="e.g. DEALER001" />
-            </div>
+            </div> */}
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Reference ID No</label>
               <input type="text" name="referenceIdNo" value={formData.referenceIdNo} onChange={handleChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30" placeholder="Optional" />

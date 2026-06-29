@@ -5,6 +5,8 @@ const { protect, authorizeRoles } = require('../middleware/authMiddleware');
 const cpUpload = require('../middleware/uploadMiddleware'); // মাল্টার মিডলওয়্যার
 
 
+
+
 // রেজিস্ট্রেশন এন্ডপয়েন্ট
 router.post('/register', cpUpload, registerUser);
 

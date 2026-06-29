@@ -100,6 +100,14 @@ const UpdateDealer = () => {
     }
     };
 
+     const handleNidFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        setNidPhoto(file); // NID ফাইল স্টেট
+        setNidPhotoPreview(URL.createObjectURL(file)); // NID প্রিভিউ জেনারেট 
+    }
+    };
+
 
     // ২. ফর্ম সাবমিট ও ব্যাকএন্ডে PUT রিকোয়েস্ট পাঠানো
     const handleSubmit = async (e) => {
@@ -314,7 +322,7 @@ const UpdateDealer = () => {
                             type="file" 
                             name="nidPhoto" 
                             accept="image/*" 
-                            onChange={handleFileChange} 
+                            onChange={handleNidFileChange} 
                             required={!formData?.status} // Optional in edit mode, required in create mode
                             className="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 transition cursor-pointer"
                         />
