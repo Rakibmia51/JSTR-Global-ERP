@@ -34,4 +34,43 @@ const createInvoice = async (req, res) => {
   }
 };
 
-module.exports = {createInvoice}
+const getNextInvoiceNumber = async (req, res) => {
+  try {
+    const currentYear = new Date().getFullYear();
+    const prefix = 'INV';
+    
+    // Regular Expression to match current year's invoices (e.g., ^INV-2026-)
+    const idPattern = new RegExp(`^${prefix}-${currentYear}-`);
+    
+    // Find the absolute latest invoice created in the current year
+    const lastInv = await Invoice.findOne(
+      { invoiceNo: idPattern }, 
+      { invoiceNo: 1 }, 
+      { sort: { invoiceNo: -1 } }
+    );
+
+    let nextSerial = 1;
+    if (lastInv && lastInv.invoiceNo) {
+      const parts = lastInv.invoiceNo.split('-');
+      // Extract the serial number from the end and add 1
+      nextSerial = parseInt(parts[parts.length - 1], 10) + 1;
+    }
+
+    // Format the next invoice number with 5 digits padding (e.g., INV-2026-00001)
+    const nextInvoiceNo = `${prefix}-${currentYear}-${String(nextSerial).padStart(5, '0')}`;
+
+    res.status(200).json({ 
+      success: true, 
+      nextInvoiceNo 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to generate next invoice number', 
+      error: error.message 
+    });
+  }
+};
+
+
+module.exports = {createInvoice, getNextInvoiceNumber}

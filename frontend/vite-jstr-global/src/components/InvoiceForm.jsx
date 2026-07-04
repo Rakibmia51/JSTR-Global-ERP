@@ -1,10 +1,19 @@
-import React, { useState } from 'react';
+import { useEffect } from 'react';
+import  { useState } from 'react';
 
 const InvoiceForm = () => {
   // 1. Core State Management
-  const [dealers, setDealers] = useState([]); // Array to store fetched dealers from your API
   const [isDealer, setIsDealer] = useState(false);
-  
+  const [dealerCode, setDealerCode] = useState(''); // Array to store fetched dealers from your API
+  const [fetchedDealerName, setFetchedDealerName] = useState('');
+
+  const [nextInvoiceNo, setNextInvoiceNo] = useState('Loading...');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+   // NEW: State to store and show the last successfully saved invoice number inside the form
+  const [lastSavedInvoiceNo, setLastSavedInvoiceNo] = useState('None');
+
+
   const [formData, setFormData] = useState({
     dealer: '',
     customerName: '',
@@ -16,6 +25,82 @@ const InvoiceForm = () => {
     paymentMethod: 'Cash',
     createdBy: '' // Temporary logged-in User MongoDB ObjectId
   });
+
+   
+    // Fetch Next Expected Serial Number
+  const fetchNextInvoiceNumber = async () => {
+    try {
+      const response = await fetch('http://localhost:3000/api/invoices/next-number');
+      const result = await response.json();
+      if (result.success) {
+        setNextInvoiceNo(result.nextInvoiceNo);
+      }
+    } catch (error) {
+      console.error('Error fetching next invoice number:', error);
+      setNextInvoiceNo('Error Loading');
+    }
+  };
+
+    useEffect(() => {
+    fetchNextInvoiceNumber();
+  }, []);
+
+// নতুন সংযোজন: ফর্ম একদম নতুন করে রিসেট করার ফাংশন (+ New Invoice Button)
+  const handleNewInvoiceReset = () => {
+    setDealerCode('');
+    setFetchedDealerName('');
+    setFormData({
+      dealer: '',
+      customerName: '',
+      customerMobile: '',
+      items: [{ productName: '', quantity: 1, unitPrice: 0 }],
+      discount: 0,
+      tax: 0,
+      paidAmount: 0,
+      paymentMethod: 'Cash',
+      createdBy: '65f8a123cd456ef789012345'
+    });
+    fetchNextInvoiceNumber(); // রিসেট করার সময় ডাটাবেজ থেকে লেটেস্ট সিরিয়াল নম্বর আবার চেক করবে
+  };
+
+
+
+ // NEW: Automatic Real-time Dealer Search using useEffect
+  useEffect(() => {
+    // If input has less than 3 characters, do not trigger API call
+    if (dealerCode.trim().length < 3) {
+      setFetchedDealerName('');
+      setFormData(prev => ({ ...prev, dealer: '' }));
+      return;
+    }
+
+    const fetchDealerAutomatically = async () => {
+      try {
+        const response = await fetch(`http://localhost:3000/api/dealers/code/${dealerCode.trim()}`);
+        const result = await response.json();
+
+        if (result.success) {
+          setFetchedDealerName(result.data.name);
+          setFormData(prev => ({ ...prev, dealer: result.data._id })); // Link database _id
+        } else {
+          // Keep it clean if dealer is not found while typing
+          setFetchedDealerName('Searching or Not Found...');
+          setFormData(prev => ({ ...prev, dealer: '' }));
+        }
+      } catch (error) {
+        console.error('Auto-fetch network error:', error);
+      }
+    };
+
+    // Debounce/Timeout setup to optimize API calls while typing
+    const delayDebounceFn = setTimeout(() => {
+      fetchDealerAutomatically();
+    }, 500); // 500ms delay after user stops typing
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [dealerCode]);
+
+
 
   // 2. Dynamic Product Row Handling
   const handleItemChange = (index, field, value) => {
@@ -47,6 +132,8 @@ const InvoiceForm = () => {
   // 4. API Submission
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
+   
     
     // ১. প্রোডাক্টের মোট দাম ফ্রন্টএন্ডেই নাম্বার ফরম্যাটে নিশ্চিত করা
     const parsedItems = formData.items.map(item => ({
@@ -90,6 +177,10 @@ const InvoiceForm = () => {
       
       if (result.success) {
         alert(`Invoice created successfully! Invoice No: ${result.data.invoiceNo}`);
+
+         setLastSavedInvoiceNo(result.data.invoiceNo);
+         // Refresh the next expected serial number from database
+        fetchNextInvoiceNumber(); 
         // এখানে ফর্ম রিসেট লজিক দিতে পারেন
       } else {
         alert(`Error: ${result.message}`);
@@ -106,6 +197,29 @@ const InvoiceForm = () => {
       <h2 className="text-2xl font-bold mb-6 text-gray-800 text-center border-b pb-3">Create New Invoice</h2>
       
       <form onSubmit={handleSubmit} className="space-y-6">
+
+         {/* NEW LAYOUT: Dual Serial Numbers Display Fields inside the Form */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-semibold text-gray-500">Expected Invoice No (Next)</label>
+            <input 
+              type="text" 
+              readOnly 
+              value={nextInvoiceNo} 
+              className="mt-1 w-full p-2 border rounded bg-gray-50 font-mono font-bold text-gray-700 tracking-wider text-center" 
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-emerald-600">Last Saved Invoice No (Recent)</label>
+            <input 
+              type="text" 
+              readOnly 
+              value={lastSavedInvoiceNo} 
+              className="mt-1 w-full p-2 border border-emerald-300 rounded bg-emerald-50 font-mono font-bold text-emerald-800 tracking-wider text-center" 
+            />
+          </div>
+        </div>
+
         {/* Customer Type Selection */}
         <div className="flex gap-4 p-3 bg-gray-50 rounded">
           <label className="flex items-center gap-2 font-medium cursor-pointer">
@@ -118,7 +232,7 @@ const InvoiceForm = () => {
           </label>
         </div>
 
-        {/* Dynamic Identity Inputs */}
+        {/* Dynamic Context Fields WITHOUT Verify Button */}
         {!isDealer ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -131,14 +245,15 @@ const InvoiceForm = () => {
             </div>
           </div>
         ) : (
-          <div>
-            <label className="block text-sm font-semibold text-gray-700">Select Dealer</label>
-            <select required value={formData.dealer} onChange={(e) => setFormData({...formData, dealer: e.target.value})} className="mt-1 w-full p-2 border rounded">
-              <option value="">-- Choose Dealer --</option>
-              {/* Dummy data mapping - populate this from your backend array */}
-              <option value="65f8a123cd456ef789012aaa">Abir Enterprise</option>
-              <option value="65f8a123cd456ef789012bbb">Bhai Bhai Traders</option>
-            </select>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700">Dealer Code</label>
+              <input type="text" value={dealerCode} onChange={(e) => setDealerCode(e.target.value)} className="mt-1 w-full p-2 border rounded text-sm uppercase" placeholder="e.g. DLR-0001" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-500">Verified Dealer Name</label>
+              <input type="text" readOnly value={fetchedDealerName} className="mt-1 w-full p-2 border rounded bg-gray-100 text-sm font-medium text-emerald-700 border-emerald-300" placeholder="Type a valid dealer code..." />
+            </div>
           </div>
         )}
 
@@ -202,10 +317,28 @@ const InvoiceForm = () => {
           </div>
         </div>
 
-        {/* Submit Button */}
-        <button type="submit" className="w-full bg-emerald-600 text-white font-bold py-3 rounded-lg hover:bg-emerald-700 transition duration-200">
-          Save & Save Invoice
-        </button>
+
+        {/* Action Row: Save Invoice & New Invoice Buttons Side-by-Side */}
+        <div className="flex flex-col sm:flex-row gap-4  pt-4">
+          {/* Primary Save Action */}
+          <button 
+            type="submit" 
+           
+           className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold px-8 py-3 rounded-xl shadow-lg transition transform active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+             Save & Save Invoice
+          </button>
+          
+          {/* Brand New Isolated Reset Button Trigger */}
+          <button 
+            type="button" 
+            onClick={handleNewInvoiceReset}
+            className="sm:w-1/3 bg-gray-800 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-900 transition duration-200"
+          >
+            + New Invoice
+          </button>
+        </div>
+
       </form>
     </div>
   );

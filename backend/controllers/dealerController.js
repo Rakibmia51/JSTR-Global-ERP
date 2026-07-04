@@ -212,7 +212,31 @@ const deleteDealer = async (req, res) => {
     }
 };
 
+// ৪. Get Dealer by Code (ডিলারের কোড দিয়ে ডিলারের নাম ও আইডি রিটার্ন করা)
+const getDealerByCode = async (req, res) => {
+  try {
+    const { code } = req.params;
+    
+    // Clean spaces and transform to uppercase (e.g., 'dlr-0001' becomes 'DLR-0001')
+    const formattedCode = code.trim().toUpperCase();
+
+    // Direct string match lookup for better performance and accuracy
+    const dealer = await Dealer.findOne(
+      { dealerId: formattedCode }, 
+      { name: 1, _id: 1 }
+    );
+
+    if (!dealer) {
+      return res.status(404).json({ success: false, message: 'Dealer not found in database' });
+    }
+
+    res.status(200).json({ success: true, data: dealer });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 
 module.exports = {
-    registerDealer, getDealers, viewDealer, updateDealer, deleteDealer
+    registerDealer, getDealers, viewDealer, updateDealer, deleteDealer, getDealerByCode
 };
