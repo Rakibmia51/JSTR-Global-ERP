@@ -13,6 +13,7 @@ import DealerList from './components/DealerList';
 import DealerForm from './components/DealerForm';
 import UpdateDealer from './components/UpdateDealer';
 import ViewDealer from './components/ViewDealer';
+import InvoiceForm from './components/InvoiceForm';
 
 
 
@@ -54,7 +55,7 @@ function App() {
           <Route path="dealer/orders" element={<h5>Dealer Orders</h5>} />
 
           {/* 📊 Invoice & Accounting Modules */}
-          <Route path="accounting/create-invoice" element={<h5>Create Invoice</h5>} />
+          <Route path="accounting/create-invoice" element={<InvoiceForm/>} />
           <Route path="accounting/history" element={<h5>Invoice History</h5>} />
           <Route path="accounting/expenses" element={<h5>Expense Tracker</h5>} />
           <Route path="accounting/reports" element={<h5>Financial Reports</h5>} />

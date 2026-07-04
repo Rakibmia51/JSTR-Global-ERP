@@ -18,14 +18,15 @@ const invoiceSchema = new mongoose.Schema({
   }],
 
   // হিসাব-নিকাশ
-  subTotal: { type: Number, required: true, min: 0 },
+  subTotal: { type: Number, default: 0, min: 0 },
   discount: { type: Number, default: 0, min: 0 },
   tax: { type: Number, default: 0, min: 0 },
-  grandTotal: { type: Number, required: true, min: 0 },
+  grandTotal: { type: Number, default: 0, min: 0 },
   
   // পেমেন্ট ইনফো
   paidAmount: { type: Number, default: 0, min: 0 },
-  dueAmount: { type: Number, required: true, min: 0 },
+  dueAmount: { type: Number, default: 0, min: 0 },
+
   paymentStatus: { 
     type: String, 
     enum: ['Paid', 'Partially Paid', 'Due'], 

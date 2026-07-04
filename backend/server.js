@@ -20,6 +20,8 @@ const userRoutes = require('./routes/userRoutes');
 const userManagementRoutes = require('./routes/userManagementRoutes'); // নতুন ইউজার ম্যানেজমেন্ট রাউট
 const departmentsRoutes = require('./routes/departmentRoutes.js')
 const dealerRoutes = require('./routes/dealerRoutes')
+const invoicesRoutes = require('./routes/invoicesRoutes.js')
+
 
 // এপিআই রাউট লিংক
 app.use('/api/users', userRoutes);
@@ -30,6 +32,8 @@ app.use('/api/departments',departmentsRoutes)
 // Api Dealers
 app.use('/api/dealers', dealerRoutes);
 
+// Api Incoie
+app.use('/api/invoices', invoicesRoutes);
 
 // বেসিক টেস্ট রাউট
 app.get('/', (req, res) => {
