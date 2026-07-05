@@ -14,6 +14,9 @@ import DealerForm from './components/DealerForm';
 import UpdateDealer from './components/UpdateDealer';
 import ViewDealer from './components/ViewDealer';
 import InvoiceForm from './components/InvoiceForm';
+import ProductForm from './components/ProductForm';
+import ComingSoon from './components/ComingSoon';
+import TaskDashboard from './components/TaskDashboard';
 
 
 
@@ -34,6 +37,7 @@ function App() {
             </ProtectedRoute>
           }>
 
+          <Route path="/admin-panel" element={<TaskDashboard/>} />
              {/* 👥 Employees Modules */}
           <Route path="employees/all" element={<EmployeeList/>} />
           <Route path="employees/add" element={<AddEmployee/>} />
@@ -43,30 +47,30 @@ function App() {
           <Route path="employees/departments" element={<DepartmentPanel/>} />
 
           {/* 📦 Inventory Modules */}
-          <Route path="inventory/stock" element={<h5>Stock Overview</h5>} />
-          <Route path="inventory/add" element={<h5>Add New Item</h5>} />
-          <Route path="inventory/suppliers" element={<h5>Suppliers</h5>} />
+          <Route path="inventory/stock" element={<ComingSoon/>} />
+          <Route path="inventory/add" element={<ProductForm/>} />
+          <Route path="inventory/suppliers" element={<ComingSoon/>} />
 
           {/* 🤝 Dealer Modules */}
           <Route path="dealer/all" element={<DealerList/>} />
           <Route path="dealer/add" element={<DealerForm/>} />
           <Route path="/admin-panel/dealers/view/:id" element={<ViewDealer/>} />
           <Route path="/admin-panel/dealers/edit/:id" element={<UpdateDealer/>} />
-          <Route path="dealer/orders" element={<h5>Dealer Orders</h5>} />
+          <Route path="dealer/orders" element={<ComingSoon/>} />
 
           {/* 📊 Invoice & Accounting Modules */}
           <Route path="accounting/create-invoice" element={<InvoiceForm/>} />
-          <Route path="accounting/history" element={<h5>Invoice History</h5>} />
-          <Route path="accounting/expenses" element={<h5>Expense Tracker</h5>} />
-          <Route path="accounting/reports" element={<h5>Financial Reports</h5>} />
+          <Route path="accounting/history" element={<ComingSoon/>} />
+          <Route path="accounting/expenses" element={<ComingSoon/>} />
+          <Route path="accounting/reports" element={<ComingSoon/>} />
 
           {/* 📈 Marketing & Sales Modules */}
-          <Route path="sales/forecast" element={<h5>Sales Forecast</h5>} />
-          <Route path="sales/leads" element={<h5>Lead Management</h5>} />
-          <Route path="sales/campaigns" element={<h5>Campaigns</h5>} />
+          <Route path="sales/forecast" element={<ComingSoon/>} />
+          <Route path="sales/leads" element={<ComingSoon/>} />
+          <Route path="sales/campaigns" element={<ComingSoon/>} />
 
           {/* ⚙️ Settings */}
-          <Route path="settings" element={<h5>Settings</h5>} />
+          <Route path="settings" element={<ComingSoon/>} />
 
         </Route>
       

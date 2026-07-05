@@ -21,6 +21,7 @@ const userManagementRoutes = require('./routes/userManagementRoutes'); // নত
 const departmentsRoutes = require('./routes/departmentRoutes.js')
 const dealerRoutes = require('./routes/dealerRoutes')
 const invoicesRoutes = require('./routes/invoicesRoutes.js')
+const productRoutes = require('./routes/productRoutes.js')
 
 
 // এপিআই রাউট লিংক
@@ -32,8 +33,12 @@ app.use('/api/departments',departmentsRoutes)
 // Api Dealers
 app.use('/api/dealers', dealerRoutes);
 
-// Api Incoie
+// Api Invoices
 app.use('/api/invoices', invoicesRoutes);
+// Api Products
+app.use('/api/products', productRoutes);
+
+
 
 // বেসিক টেস্ট রাউট
 app.get('/', (req, res) => {
