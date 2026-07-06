@@ -17,6 +17,8 @@ import InvoiceForm from './components/InvoiceForm';
 import ProductForm from './components/ProductForm';
 import ComingSoon from './components/ComingSoon';
 import TaskDashboard from './components/TaskDashboard';
+import InvoiceProductSearch from './components/ExampleInvoice';
+import InvoiceAndChallan from './components/InvoiceAndChallan';
 
 
 
@@ -60,8 +62,8 @@ function App() {
 
           {/* 📊 Invoice & Accounting Modules */}
           <Route path="accounting/create-invoice" element={<InvoiceForm/>} />
-          <Route path="accounting/history" element={<ComingSoon/>} />
-          <Route path="accounting/expenses" element={<ComingSoon/>} />
+          <Route path="accounting/history" element={<InvoiceProductSearch/>} />
+          <Route path="accounting/expenses" element={<InvoiceAndChallan/>} />
           <Route path="accounting/reports" element={<ComingSoon/>} />
 
           {/* 📈 Marketing & Sales Modules */}

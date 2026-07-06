@@ -1,19 +1,69 @@
 import { useEffect } from 'react';
 import  { useState } from 'react';
+import Select from 'react-select';
 
 const InvoiceForm = () => {
   // 1. Core State Management
   const [isDealer, setIsDealer] = useState(false);
+  const [products, setProducts] = useState([]); // ডাটাবেজ থেকে আসা সব প্রোডাক্ট
+  
+ 
+
   const [dealerCode, setDealerCode] = useState(''); // Array to store fetched dealers from your API
   const [fetchedDealerName, setFetchedDealerName] = useState('');
 
   const [nextInvoiceNo, setNextInvoiceNo] = useState('Loading...');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
 
    // NEW: State to store and show the last successfully saved invoice number inside the form
   const [lastSavedInvoiceNo, setLastSavedInvoiceNo] = useState('None');
 
   const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'; 
+
+    // ১. পেজ লোড হওয়ার সাথে সাথে ডাটাবেজ থেকে প্রোডাক্ট লিস্ট নিয়ে আসা
+    useEffect(() => {
+      const loadProducts = async () => {
+        try {
+          const response = await fetch('http://localhost:3000/api/products');
+          const data = await response.json();
+          if (data.success) {
+            setProducts(data.data);
+          }
+        } catch (error) {
+          console.error("Product load করতে সমস্যা হয়েছে:", error);
+        }
+      };
+      loadProducts();
+    }, []);
+
+    // ২. react-select dropdown-এর ফরম্যাটে ডাটা সাজানো
+    const productOptions = products.map(prod => ({
+      value: prod._id, // MongoDB ObjectID
+      label: `${prod.productCode} - ${prod.productName}`, // ড্রপডাউনে যা দেখাবে
+      tp: prod.tp,
+      mrp: prod.mrp
+    }));
+  
+
+    // ১. প্রোডাক্ট সিলেক্ট করলে ওই নির্দিষ্ট লাইনের আইডি এবং দাম সেট করার জন্য
+const handleProductSelect = (index, selectedOption) => {
+  const updatedItems = [...formData.items];
+  
+  if (selectedOption) {
+    updatedItems[index].productId = selectedOption.value; // আইডি সেভ হবে
+    updatedItems[index].productName = selectedOption.label;
+    
+    // ডিলার নাকি কাস্টমার তার ওপর ভিত্তি করে দাম বসবে (isDealer স্টেট আপনার মেইন ফাইলে থাকলে)
+    updatedItems[index].unitPrice = isDealer ? selectedOption.tp : selectedOption.mrp; 
+  } else {
+    updatedItems[index].productId = '';
+    updatedItems[index].productName = '';
+    updatedItems[index].unitPrice = 0;
+  }
+  
+  setFormData({ ...formData, items: updatedItems });
+};
+
 
 
   const [formData, setFormData] = useState({
@@ -43,7 +93,7 @@ const InvoiceForm = () => {
     }
   };
 
-    useEffect(() => {
+  useEffect(() => {
     fetchNextInvoiceNumber();
   }, []);
 
@@ -64,8 +114,6 @@ const InvoiceForm = () => {
     });
     fetchNextInvoiceNumber(); // রিসেট করার সময় ডাটাবেজ থেকে লেটেস্ট সিরিয়াল নম্বর আবার চেক করবে
   };
-
-
 
  // NEW: Automatic Real-time Dealer Search using useEffect
   useEffect(() => {
@@ -101,7 +149,6 @@ const InvoiceForm = () => {
 
     return () => clearTimeout(delayDebounceFn);
   }, [dealerCode]);
-
 
 
   // 2. Dynamic Product Row Handling
@@ -194,6 +241,8 @@ const InvoiceForm = () => {
   };
 
 
+
+
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md my-10">
       <h2 className="text-2xl font-bold mb-6 text-gray-800 text-center border-b pb-3">Create New Invoice</h2>
@@ -226,11 +275,11 @@ const InvoiceForm = () => {
         <div className="flex gap-4 p-3 bg-gray-50 rounded">
           <label className="flex items-center gap-2 font-medium cursor-pointer">
             <input type="radio" checked={!isDealer} onChange={() => setIsDealer(false)} className="w-4 h-4" />
-            General Customer
+            General Customer (MRP)
           </label>
           <label className="flex items-center gap-2 font-medium cursor-pointer">
             <input type="radio" checked={isDealer} onChange={() => setIsDealer(true)} className="w-4 h-4" />
-            Dealer
+            Dealer (TP)
           </label>
         </div>
 
@@ -262,25 +311,70 @@ const InvoiceForm = () => {
         {/* Product Items Table */}
         <div className="space-y-3">
           <h3 className="text-lg font-semibold text-gray-700">Product Items</h3>
-          {formData.items.map((item, index) => (
-            <div key={index} className="grid grid-cols-12 gap-2 items-center bg-gray-50 p-2 rounded">
-              <div className="col-span-5">
-                <input type="text" placeholder="Product Name" required value={item.productName} onChange={(e) => handleItemChange(index, 'productName', e.target.value)} className="w-full p-2 border rounded text-sm" />
-              </div>
-              <div className="col-span-2">
-                <input type="number" placeholder="Qty" min="1" required value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', e.target.value)} className="w-full p-2 border rounded text-sm" />
-              </div>
-              <div className="col-span-2">
-                <input type="number" placeholder="Price" min="0" required value={item.unitPrice} onChange={(e) => handleItemChange(index, 'unitPrice', e.target.value)} className="w-full p-2 border rounded text-sm" />
-              </div>
-              <div className="col-span-2 text-right font-medium text-sm text-gray-600">
-                ${(item.quantity * item.unitPrice).toFixed(2)}
-              </div>
-              <div className="col-span-1 text-center">
-                <button type="button" onClick={() => removeItemRow(index)} className="text-red-500 hover:text-red-700 font-bold text-lg">×</button>
-              </div>
+         {formData.items.map((item, index) => (
+          <div key={index} className="grid grid-cols-12 gap-2 items-center bg-gray-50 p-2 rounded">
+            
+            {/* ১. প্রোডাক্ট সিলেক্ট ড্রপডাউন */}
+            <div className="col-span-5">
+              <Select
+                options={productOptions}
+                isClearable
+                placeholder="Product Name" 
+                required
+                // লুপের নির্দিষ্ট আইটেমটি ড্রপডাউনে সিলেক্টেড দেখানোর জন্য value পাস করতে হবে
+                value={productOptions.find(opt => opt.value === item.productId) || null}
+                // ইনডেক্স সহ কাস্টম হ্যান্ডলার কল করা হয়েছে
+                onChange={(selectedOption) => handleProductSelect(index, selectedOption)} 
+                className="w-full text-sm" 
+              />
             </div>
-          ))}
+
+            {/* ২. কোয়ান্টিটি ইনপুট */}
+            <div className="col-span-2">
+              <input 
+                type="number" 
+                placeholder="Qty" 
+                min="1" 
+                required 
+                value={item.quantity || ''} 
+                onChange={(e) => handleItemChange(index, 'quantity', Number(e.target.value))} 
+                className="w-full p-2 border rounded text-sm" 
+              />
+            </div>
+
+            {/* ৩. ইউনিট প্রাইস ইনপুট (ডাইনামিক আইটেম ওয়াইজ) */}
+            <div className="col-span-2">
+              <input 
+                type="number" 
+                placeholder="Price" 
+                min="0" 
+                required 
+                readOnly 
+                value={item.unitPrice || ''} // গ্লোবাল price না দিয়ে নির্দিষ্ট item.unitPrice ব্যবহার করা হয়েছে
+                onChange={(e) => handleItemChange(index, 'unitPrice', Number(e.target.value))} 
+                className="w-full p-2 border rounded text-sm" 
+              />
+            </div>
+
+            {/* ৪. টোটাল প্রাইজ ক্যালকুলেশন */}
+            <div className="col-span-2 text-right font-medium text-sm text-gray-600">
+              ৳{((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)}
+            </div>
+
+            {/* ৫. রো ডিলিট বাটন */}
+            <div className="col-span-1 text-center">
+              <button 
+                type="button" 
+                onClick={() => removeItemRow(index)} 
+                className="text-red-500 hover:text-red-700 font-bold text-lg"
+              >
+                ×
+              </button>
+            </div>
+
+          </div>
+        ))}
+
           <button type="button" onClick={addItemRow} className="text-sm bg-blue-500 text-white px-3 py-1.5 rounded hover:bg-blue-600">+ Add Item</button>
         </div>
 
@@ -338,6 +432,22 @@ const InvoiceForm = () => {
             className="sm:w-1/3 bg-gray-800 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-900 transition duration-200"
           >
             + New Invoice
+          </button>
+
+          {/* ১. ইনভয়েস প্রিন্ট বাটন */}
+          <button 
+            type="button" 
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-xl shadow-md flex items-center gap-2 text-sm transition-all"
+          >
+            🖨️ Print Invoice
+          </button>
+          
+          {/* ২. চালান প্রিন্ট বাটন */}
+          <button 
+            type="button" 
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-5 rounded-xl shadow-md flex items-center gap-2 text-sm transition-all"
+          >
+            📦 Print Challan
           </button>
         </div>
 

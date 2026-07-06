@@ -63,3 +63,23 @@
     box-shadow: none;
   }
 }
+
+@media print {
+  /* প্রিন্ট করার সময় ব্যাকগ্রাউন্ডের সব কালার ঠিক রাখবে */
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  /* ফর্মে থাকা বাটন, ড্রপডাউন বর্ডার এবং অপ্রয়োজনীয় জিনিস হাইড করবে */
+  .no-print {
+    display: none !important;
+  }
+  /* প্রিন্ট এরিয়া ফুল স্ক্রিন করবে */
+  .print-area {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}
