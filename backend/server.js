@@ -13,7 +13,16 @@ const app = express();
 
 // মিডলওয়্যার সেটআপ
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ limit: '100mb', extended: true }));
+
+// নির্দিষ্ট ডোমেইনকে CORS পারমিশন দিন
+app.use(cors({
+  origin: ['https://erp.jstrglobal.com', 'https://api.jstrglobal.com'], // আপনার ফ্রন্টএন্ড ইউআরএল
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  credentials: true, // কুকি বা টোকেন পাস করার জন্য
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // রাউট ইম্পোর্ট করা
 const userRoutes = require('./routes/userRoutes');
@@ -47,5 +56,5 @@ app.get('/', (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server is running on port http://localhost:${PORT}`);
+  console.log(`🚀 Server is running on port https://api.jstrglobal.com`);
 });
