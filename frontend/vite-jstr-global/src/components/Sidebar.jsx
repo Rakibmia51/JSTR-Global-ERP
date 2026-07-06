@@ -153,7 +153,7 @@ const Sidebar = () => {
             </div>
             {isOpen && (
               <span className="font-extrabold text-lg tracking-wider text-slate-100">
-                RAKIB <span className="text-brand">MIA</span>
+                JSTR <span className="text-brand">Global</span>
               </span>
             )}
           </div>

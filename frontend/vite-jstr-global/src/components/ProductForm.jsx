@@ -16,10 +16,13 @@ const ProductForm = () => {
     stockQuantity: ''
   });
 
+  
+  const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'; 
+
   // 2. Fetch Active Products from Backend API Engine
   const fetchProducts = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/products');
+      const response = await fetch(`${SERVER_URL}/api/products`);
       const result = await response.json();
       if (result.success) {
         setProducts(result.data);
@@ -51,7 +54,7 @@ const ProductForm = () => {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('http://localhost:3000/api/products/add', {
+      const response = await fetch(`${SERVER_URL}/api/products/add`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(productData)

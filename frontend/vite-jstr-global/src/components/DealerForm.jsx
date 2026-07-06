@@ -30,6 +30,8 @@ const DealerForm = () => {
   const [message, setMessage] = useState('');
   const [isError, setIsError] = useState(false);
 
+  const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'; 
+
   // টেক্সট ইনপুট চেঞ্জ হ্যান্ডলার
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -77,7 +79,7 @@ const DealerForm = () => {
 
     setLoading(true);
     try {
-      const response = await axios.post('http://localhost:3000/api/dealers/register', data, {
+      const response = await axios.post(`${SERVER_URL}/api/dealers/register`, data, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

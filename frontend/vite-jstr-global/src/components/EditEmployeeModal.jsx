@@ -4,7 +4,9 @@ import { X, Save, User, Briefcase, ShieldCheck, Image } from 'lucide-react';
 
 
 const EditEmployeeModal = ({ employee, onClose, fetchEmployees }) => {
-  const API_BASE_URL = 'http://localhost:3000/api';
+  const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'; 
+
+  const API_BASE_URL = `${SERVER_URL}/api`;
     
 
   // ডাটাবেজ স্কিমা অনুযায়ী স্টেট ডিজাইন
@@ -36,8 +38,8 @@ const EditEmployeeModal = ({ employee, onClose, fetchEmployees }) => {
       });
 
       // আগের ছবিগুলোর প্রিভিউ সেট করা (যদি সার্ভারে থাকে)
-      if (employee.photo) setPhotoPreview(`http://localhost:3000/${employee.photo}`);
-      if (employee.nominee?.photo) setNomineePhotoPreview(`http://localhost:3000/${employee.nominee.photo}`);
+      if (employee.photo) setPhotoPreview(`${SERVER_URL}/${employee.photo}`);
+      if (employee.nominee?.photo) setNomineePhotoPreview(`${SERVER_URL}/${employee.nominee.photo}`);
     }
   }, [employee]);
 

@@ -14,12 +14,13 @@ const DealerList = () => {
     const [selectedStatus, setSelectedStatus] = useState('');   
     
     const navigate = useNavigate();
+    const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'; 
 
     // ১. ব্যাকএন্ড থেকে ডিলার ডাটা এবং ইউনিক স্ট্যাটাস ফেচ করা
     useEffect(() => {
         const fetchDealers = async () => {
             try {
-                const response = await axios.get('http://localhost:3000/api/dealers');
+                const response = await axios.get(`${SERVER_URL}/api/dealers`);
                 if (response.data.success) {
                     const fetchedData = response.data.data || [];
                     setDealers(fetchedData);
@@ -70,7 +71,7 @@ const DealerList = () => {
         if(window.confirm("Are you sure you want to delete this dealer?")) {
             try {
                 // এখানে আপনার ডিলিট API কল করতে পারেন
-                await axios.delete(`http://localhost:3000/api/dealers/${id}`);
+                await axios.delete(`${SERVER_URL}/api/dealers/${id}`);
                 setDealers(dealers.filter(dealer => dealer._id !== id));
             } catch (err) {
                 console.error("Delete failed:", err);

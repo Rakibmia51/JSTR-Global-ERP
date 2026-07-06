@@ -13,6 +13,8 @@ const InvoiceForm = () => {
    // NEW: State to store and show the last successfully saved invoice number inside the form
   const [lastSavedInvoiceNo, setLastSavedInvoiceNo] = useState('None');
 
+  const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'; 
+
 
   const [formData, setFormData] = useState({
     dealer: '',
@@ -30,7 +32,7 @@ const InvoiceForm = () => {
     // Fetch Next Expected Serial Number
   const fetchNextInvoiceNumber = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/invoices/next-number');
+      const response = await fetch(`${SERVER_URL}/api/invoices/next-number`);
       const result = await response.json();
       if (result.success) {
         setNextInvoiceNo(result.nextInvoiceNo);
@@ -76,7 +78,7 @@ const InvoiceForm = () => {
 
     const fetchDealerAutomatically = async () => {
       try {
-        const response = await fetch(`http://localhost:3000/api/dealers/code/${dealerCode.trim()}`);
+        const response = await fetch(`${SERVER_URL}/api/dealers/code/${dealerCode.trim()}`);
         const result = await response.json();
 
         if (result.success) {
@@ -167,7 +169,7 @@ const InvoiceForm = () => {
     };
 
     try {
-      const response = await fetch('http://localhost:3000/api/invoices', {
+      const response = await fetch(`${SERVER_URL}/api/invoices`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

@@ -10,13 +10,14 @@ const ViewDealer = () => {
     const [dealer, setDealer] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'; 
 
     // ব্যাকএন্ড থেকে নির্দিষ্ট ডিলারের সম্পূর্ণ ডাটা লোড করা
     useEffect(() => {
         const fetchDealerDetails = async () => {
             try {
                 // অবশ্যই ব্যাকটিক ( ` ) ব্যবহার করবেন
-                const response = await axios.get(`http://localhost:3000/api/dealers/${id}`);
+                const response = await axios.get(`${SERVER_URL}/api/dealers/${id}`);
                 if (response.data.success) {
                     setDealer(response.data.data);
                 }
@@ -39,7 +40,7 @@ const ViewDealer = () => {
     const getImageUrl = (path) => {
         if (!path) return "https://placeholder.com";
         // যদি ব্যাকএন্ড অলরেডি ফুল ইউআরএল দেয় তবে সেটি, নাহলে লোকালহোস্ট পাথ জোড়া দেওয়া হবে
-        return path.startsWith('http') ? path : `http://localhost:3000/${path}`;
+        return path.startsWith('http') ? path : `${SERVER_URL}/${path}`;
     };
 
     return (

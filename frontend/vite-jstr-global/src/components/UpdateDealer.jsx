@@ -33,12 +33,13 @@ const UpdateDealer = () => {
     const [photoPreview, setPhotoPreview] = useState('');
     const [nidPhotoPreview, setNidPhotoPreview] = useState('');
 
+     const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'; 
 
     // ১. প্রথমে ডিলারের বর্তমান ডেটা ব্যাকএন্ড থেকে লোড করা
     useEffect(() => {
         const fetchDealerDetails = async () => {
             try {
-                const response = await axios.get(`http://localhost:3000/api/dealers/${id}`);
+                const response = await axios.get(`${SERVER_URL}/api/dealers/${id}`);
                 if (response.data.success) {
                     const dealer = response.data.data;
                     
@@ -65,10 +66,10 @@ const UpdateDealer = () => {
                     setExistingNidPhoto(dealer.nidPhoto || '');
                    // --- 🌟 আপডেট: ইনিশিয়াল প্রিভিউ সেট করা (ব্যাকএন্ড ইউআরএল অনুযায়ী) ---
                     if (dealer.photo) {
-                        setPhotoPreview(`http://localhost:3000/${dealer.photo}`);
+                        setPhotoPreview(`${SERVER_URL}/${dealer.photo}`);
                     }
                     if (dealer.nidPhoto) {
-                        setNidPhotoPreview(`http://localhost:3000/${dealer.nidPhoto}`);
+                        setNidPhotoPreview(`${SERVER_URL}/${dealer.nidPhoto}`);
                     }
                 }
             } catch (err) {
@@ -140,7 +141,7 @@ const UpdateDealer = () => {
 
         setLoading(true);
         try {
-            const response = await axios.put(`http://localhost:3000/api/dealers/${id}`, data, {
+            const response = await axios.put(`${SERVER_URL}/api/dealers/${id}`, data, {
                 headers: {
                     'Content-Type': 'multipart/form-data' // ফাইল পাঠানোর জন্য আবশ্যিকsetHeader
                 }
