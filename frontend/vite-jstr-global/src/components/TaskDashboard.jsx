@@ -9,8 +9,8 @@ const ERPDashboard = () => {
       id: 1,
       name: 'Products Management',
       description: 'Dual pricing schema configurations (TP/MRP), isolated stock catalogs registries, and live inventory table matrix grids.',
-      status: 'In Development',
-      percentage: 80,
+      status: 'Completed',
+      percentage: 100,
       scope: ['Schema Optimization', 'TP / MRP System', 'Stock Registry Grid']
     },
     {

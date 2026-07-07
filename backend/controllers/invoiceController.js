@@ -72,5 +72,68 @@ const getNextInvoiceNumber = async (req, res) => {
   }
 };
 
+const updateInvoice = async (req, res) => {
+  try {
+    const { id } = req.params; // ইউআরএল থেকে ইনভয়েস আইডি নেওয়া (যেমন: /api/invoices/:id)
+    const updatedData = req.body;
 
-module.exports = {createInvoice, getNextInvoiceNumber}
+    // ১. নতুন করে ডিউ এবং পেমেন্ট স্ট্যাটাস ক্যালকুলেশন
+    updatedData.dueAmount = updatedData.grandTotal - updatedData.paidAmount;
+    
+    if (updatedData.dueAmount === 0) {
+      updatedData.paymentStatus = 'Paid';
+    } else if (updatedData.paidAmount > 0) {
+      updatedData.paymentStatus = 'Partially Paid';
+    } else {
+      updatedData.paymentStatus = 'Due';
+    }
+
+    // ২. ডাটাবেজে ইনভয়েস আপডেট করা ({ new: true } দিলে আপডেটেড ডাটা রিটার্ন করে)
+    const updatedInvoice = await Invoice.findByIdAndUpdate(id, updatedData, { new: true });
+
+    if (!updatedInvoice) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+
+    // ৩. 💡 ট্রানজেকশন হিস্ট্রি (Accounting History) আপডেট করা
+    // আগের পুরানো ট্রানজেকশনটি ডিলিট করে দেওয়া হচ্ছে যেন ডাবল এন্ট্রি বা হিস্ট্রি এলোমেলো না হয়
+    await Transaction.deleteMany({ invoice: id });
+
+    // এখন নতুন পেইড অ্যামাউন্টের ওপর ভিত্তি করে নতুন ট্রানজেকশন এন্ট্রি তৈরি করা
+    if (updatedData.paidAmount > 0) {
+      await Transaction.create({
+        invoice: updatedInvoice._id,
+        dealer: updatedData.dealer || null,
+        type: 'Credit', 
+        category: 'Sales Income',
+        amount: updatedData.paidAmount,
+        description: `Updated payment for Invoice No: ${updatedInvoice.invoiceNo} (Edited)`
+      });
+    }
+
+    res.status(200).json({ success: true, data: updatedInvoice, message: 'Invoice and history updated successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Backend Controller: getInvoiceById
+const getInvoiceById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const invoice = await Invoice.findById(id).populate('dealer'); // আইডি দিয়ে ডাটাবেজে খোঁজা
+      // .populate('dealers') 
+      // // .populate('items.productName');
+
+    if (!invoice) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+
+    res.status(200).json({ success: true, data: invoice });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+module.exports = {createInvoice, getNextInvoiceNumber, updateInvoice, getInvoiceById};

@@ -3,7 +3,7 @@ const router = express.Router();
 
 // Destructuring the specific middleware from your combined upload file
 const { protect, authorizeRoles } = require('../middleware/authMiddleware.js');
-const { createInvoice, getNextInvoiceNumber } = require('../controllers/invoiceController.js');
+const { createInvoice, getNextInvoiceNumber, updateInvoice, getInvoiceById } = require('../controllers/invoiceController.js');
 
 
 // --- Routes Definition ---
@@ -12,6 +12,10 @@ router.post('/', createInvoice);
 // ১. Get Next Invoice Number (নেক্সট ইনভয়েস নাম্বার জেনারেট করা)
 router.get('/next-number', getNextInvoiceNumber);
 
+// ২. ইনভয়েস আপডেট করা
+router.put('/:id', updateInvoice);
+
+router.get('/:id', getInvoiceById);
 // router.get('/', getDealers);
 
 // // ২. নির্দিষ্ট ডিলারের প্রোফাইল দেখা

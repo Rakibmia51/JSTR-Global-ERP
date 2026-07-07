@@ -1,13 +1,20 @@
 import { useEffect } from 'react';
 import  { useState } from 'react';
 import Select from 'react-select';
+import { useParams, useNavigate } from 'react-router-dom';
 
 const InvoiceForm = () => {
+
+  const { id } = useParams(); // URL থেকে আইডি নেওয়ার জন্য (যদি এডিট মোড হয়)
+  const navigate = useNavigate();
+
   // 1. Core State Management
   const [isDealer, setIsDealer] = useState(false);
   const [products, setProducts] = useState([]); // ডাটাবেজ থেকে আসা সব প্রোডাক্ট
   
- 
+ // সাবমিট এবং লোডিং স্টেট
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const [dealerCode, setDealerCode] = useState(''); // Array to store fetched dealers from your API
   const [fetchedDealerName, setFetchedDealerName] = useState('');
@@ -19,6 +26,15 @@ const InvoiceForm = () => {
   const [lastSavedInvoiceNo, setLastSavedInvoiceNo] = useState('None');
 
   const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'; 
+
+
+
+
+
+
+
+
+
 
     // ১. পেজ লোড হওয়ার সাথে সাথে ডাটাবেজ থেকে প্রোডাক্ট লিস্ট নিয়ে আসা
     useEffect(() => {
@@ -64,13 +80,12 @@ const handleProductSelect = (index, selectedOption) => {
   setFormData({ ...formData, items: updatedItems });
 };
 
-
-
   const [formData, setFormData] = useState({
+    invoiceNo: '',
     dealer: '',
     customerName: '',
     customerMobile: '',
-    items: [{ productName: '', quantity: 1, unitPrice: 0 }],
+    items: [],
     discount: 0,
     tax: 0,
     paidAmount: 0,
@@ -78,7 +93,71 @@ const handleProductSelect = (index, selectedOption) => {
     createdBy: '' // Temporary logged-in User MongoDB ObjectId
   });
 
-   
+// যদি এডিট মোড হয় (URL-এ id থাকে), তবে ডাটাবেজ থেকে আগের ডাটা লোড করা
+useEffect(() => {
+  if (id) {
+    const fetchInvoiceData = async () => {
+      try {
+        const response = await fetch(`http://localhost:3000/api/invoices/${id}`);
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          const invoiceData = result.data;
+
+          // ১. মূল ফর্ম ডাটা সেট করা
+          setFormData({
+            invoiceNo: invoiceData.invoiceNo || '',
+            dealer: invoiceData.dealer?._id || invoiceData.dealer || '', 
+            customerName: invoiceData.customerName || '',
+            customerMobile: invoiceData.customerMobile || '',
+
+           // 💡 সমাধান: আইটেম লোড করার সময় productName বা productId দুটিই ব্যাকআপ হিসেবে রাখুন
+            items: invoiceData.items ? invoiceData.items.map(item => ({
+              productName: item.productName || item.product?.name || '', 
+              // যদি আপনার productOptions-এর value-তে প্রোডাক্টের নাম থাকে, তবে এটি কাজ করবে:
+              productId: item.productName || item.productId || item.product?._id || item.product ||'', 
+              quantity: Number(item.quantity) || 1,
+              unitPrice: Number(item.unitPrice) || 0,
+              totalPrice: Number(item.totalPrice) || 0
+            })) : [],
+
+            discount: invoiceData.discount || 0,
+            tax: invoiceData.tax || 0,
+            grandTotal: invoiceData.grandTotal || 0,
+            paidAmount: invoiceData.paidAmount || 0,
+            paymentMethod: invoiceData.paymentMethod || 'Cash'
+          });
+
+          // ২. 💡 ডিলারের নাম এবং কোড স্টেটগুলো আলাদা করে সেট করা (সমাধান)
+          if (invoiceData.dealer) {
+            setIsDealer(true);
+            // যদি আপনার ব্যাকএন্ডে ডিলার পপুলেট করা থাকে:
+            setDealerCode(invoiceData.dealer.dealerId || ''); 
+            setFetchedDealerName(invoiceData.dealer.name || '');
+          }
+
+        }
+      } catch (error) {
+        console.error("Error fetching invoice data:", error);
+      }
+    };
+    fetchInvoiceData();
+  }
+}, [id]);
+
+
+ // ইনপুট চেঞ্জ হ্যান্ডেলার
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name]: value,
+    });
+  };
+
+
+
+
     // Fetch Next Expected Serial Number
   const fetchNextInvoiceNumber = async () => {
     try {
@@ -102,6 +181,7 @@ const handleProductSelect = (index, selectedOption) => {
     setDealerCode('');
     setFetchedDealerName('');
     setFormData({
+      invoiceNo: '',
       dealer: '',
       customerName: '',
       customerMobile: '',
@@ -198,26 +278,36 @@ const handleProductSelect = (index, selectedOption) => {
     const calculatedDueAmount = calculatedGrandTotal - Number(formData.paidAmount);
 
     // ৩. ফাইনাল পেলোড তৈরি
-    const payload = {
-      dealer: isDealer ? (formData.dealer || null) : null,
-      customerName: isDealer ? null : formData.customerName,
-      customerMobile: isDealer ? null : formData.customerMobile,
-      items: parsedItems,
-      subTotal: calculatedSubTotal,
-      discount: Number(formData.discount) || 0,
-      tax: Number(formData.tax) || 0,
-      grandTotal: calculatedGrandTotal,
-      paidAmount: Number(formData.paidAmount) || 0,
-      dueAmount: calculatedDueAmount < 0 ? 0 : calculatedDueAmount,
-      paymentMethod: formData.paymentMethod,
-      
-      // গুরুত্বপূর্ণ সমাধান: এখানে অবশ্যই একটি সঠিক ২৪ ডিজিটের MongoDB ObjectId থাকতে হবে
-      createdBy: "65f8a123cd456ef789012345" 
-    };
+   const payload = {
+    // 💡 সমাধান: যদি ডিলার সিলেক্ট করা থাকে এবং আইডির মান থাকে তবেই আইডি যাবে, অন্যথায় strictly null যাবে
+    dealer: isDealer && formData.dealer ? formData.dealer : null, 
+    
+    customerName: isDealer ? null : (formData.customerName || null),
+    customerMobile: isDealer ? null : (formData.customerMobile || null),
+    items: parsedItems,
+    subTotal: calculatedSubTotal,
+    discount: Number(formData.discount) || 0,
+    tax: Number(formData.tax) || 0,
+    grandTotal: calculatedGrandTotal,
+    paidAmount: Number(formData.paidAmount) || 0,
+    dueAmount: calculatedDueAmount < 0 ? 0 : calculatedDueAmount,
+    paymentMethod: formData.paymentMethod,
+    createdBy: "65f8a123cd456ef789012345" 
+  };
 
     try {
-      const response = await fetch(`${SERVER_URL}/api/invoices`, {
-        method: 'POST',
+
+      // 💡 ডাইনামিক ইউআরএল এবং মেথড সিলেকশন (id থাকলে Update, না থাকলে Create)
+    // নিশ্চিত করুন আপনার কম্পোনেন্টের উপরে `const { id } = useParams();` নেওয়া আছে
+    const url = id 
+      ? `${SERVER_URL}/api/invoices/${id}` 
+      : `${SERVER_URL}/api/invoices`;
+    
+    const method = id ? 'PUT' : 'POST';
+
+
+      const response = await fetch(url, {
+        method: method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
@@ -225,29 +315,49 @@ const handleProductSelect = (index, selectedOption) => {
       const result = await response.json();
       
       if (result.success) {
+        // 💡 সফল হলে এডিট নাকি ক্রিয়েট সে অনুযায়ী মেসেজ দেখানো
+        if (id) {
+        alert('Invoice updated successfully!');
+        } else {
         alert(`Invoice created successfully! Invoice No: ${result.data.invoiceNo}`);
-
-         setLastSavedInvoiceNo(result.data.invoiceNo);
+        setLastSavedInvoiceNo(result.data.invoiceNo);
          // Refresh the next expected serial number from database
         fetchNextInvoiceNumber(); 
         // এখানে ফর্ম রিসেট লজিক দিতে পারেন
+        }
+         
       } else {
         alert(`Error: ${result.message}`);
       }
     } catch (error) {
       console.error('Error submitting invoice:', error);
       alert('Unable to connect to the server.');
+    }finally{
+      setIsSubmitting(false)
     }
   };
 
 
-
+  if (isLoading) {
+    return <div>Loading invoice data...</div>;
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md my-10">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800 text-center border-b pb-3">Create New Invoice</h2>
+      <h2 className="text-2xl font-bold mb-6 text-gray-800 text-center border-b pb-3">{id ? 'Update Invoice' : 'Create New Invoice'}</h2>
       
       <form onSubmit={handleSubmit} className="space-y-6">
+           {/* উদাহরণ ইনপুট ফিল্ড */}
+        <div>
+          <label>Invoice No:</label>
+          <input 
+            type="text" 
+            name="invoiceNo" 
+            value={formData.invoiceNo} 
+            onChange={handleChange} 
+            disabled={!!id} // এডিট মোডে ইনভয়েস নাম্বার চেঞ্জ করতে না দেওয়া ভালো
+          />
+        </div>
 
          {/* NEW LAYOUT: Dual Serial Numbers Display Fields inside the Form */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -322,7 +432,11 @@ const handleProductSelect = (index, selectedOption) => {
                 placeholder="Product Name" 
                 required
                 // লুপের নির্দিষ্ট আইটেমটি ড্রপডাউনে সিলেক্টেড দেখানোর জন্য value পাস করতে হবে
-                value={productOptions.find(opt => opt.value === item.productId) || null}
+                value={
+                    productOptions.find(opt => opt.value === item.productId || opt.label === item.productName) || null
+                    //productOptions.find(opt => opt.value === item.productId || opt.label === item.productName) || null
+                  
+                  }
                 // ইনডেক্স সহ কাস্টম হ্যান্ডলার কল করা হয়েছে
                 onChange={(selectedOption) => handleProductSelect(index, selectedOption)} 
                 className="w-full text-sm" 
@@ -419,16 +533,17 @@ const handleProductSelect = (index, selectedOption) => {
           {/* Primary Save Action */}
           <button 
             type="submit" 
-           
+            disabled={isSubmitting}
            className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold px-8 py-3 rounded-xl shadow-lg transition transform active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-             Save & Save Invoice
+             {isSubmitting ? 'Saving Changes...' : id ? 'Update Invoice' : 'Create Invoice'}
           </button>
           
           {/* Brand New Isolated Reset Button Trigger */}
           <button 
             type="button" 
             onClick={handleNewInvoiceReset}
+             
             className="sm:w-1/3 bg-gray-800 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-900 transition duration-200"
           >
             + New Invoice
@@ -448,6 +563,14 @@ const handleProductSelect = (index, selectedOption) => {
             className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-5 rounded-xl shadow-md flex items-center gap-2 text-sm transition-all"
           >
             📦 Print Challan
+          </button>
+
+          <button 
+            type="button" 
+            onClick={() => navigate(`/admin-panel/accounting/update-invoice/${id}`)} // 💡 এখানে আইডি পাস হচ্ছে
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-5 rounded-xl shadow-md flex items-center gap-2 text-sm transition-all"
+          >
+            Edit Button
           </button>
         </div>
 
