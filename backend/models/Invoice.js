@@ -37,9 +37,24 @@ const invoiceSchema = new mongoose.Schema({
     enum: ['Cash', 'Bank Transfer', 'Mobile Banking', 'Bkash', 'Nagad'], 
     default: 'Cash' 
   },
-  
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true } // কোন কর্মচারী ইনভয়েসটি বানালো
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // কোন কর্মচারী ইনভয়েসটি বানালো
+ // 💡 নতুন যুক্ত করুন: ইনভয়েস হিস্ট্রি ট্র্যাক করার লগ
+  historyLog: [{
+    action: { type: String, enum: ['Created', 'Updated'], required: true },
+    grandTotal: { type: Number, required: true },
+    paidAmount: { type: Number, required: true },
+    dueAmount: { type: Number, required: true },
+    note: { type: String, default: '' },
+    updatedBy: { type: String, default: 'System Admin' }, // বা User Object ID দিতে পারেন
+    updatedAt: { type: Date, default: Date.now }
+  }]
+
 }, { timestamps: true });
+
+
+
+
+
 
 // স্বয়ংক্রিয় ইনভয়েস নম্বর জেনারেশন মিডলওয়্যার
 invoiceSchema.pre('save', async function () {
