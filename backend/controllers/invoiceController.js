@@ -155,7 +155,7 @@ const updateInvoice = async (req, res) => {
 const getInvoiceById = async (req, res) => {
   try {
     const { id } = req.params;
-    const invoice = await Invoice.findById(id).populate('dealer'); // আইডি দিয়ে ডাটাবেজে খোঁজা
+    const invoice = await Invoice.findById(id).populate('dealer', 'name dealerId mobilePhoneNo address'); // আইডি দিয়ে ডাটাবেজে খোঁজা
       // .populate('dealers') 
       // // .populate('items.productName');
 
@@ -176,8 +176,8 @@ const getInvoiceByInvoiceNo = async (req, res) => {
     
     // ডাটাবেজে invoiceNo দিয়ে খোঁজা এবং ডিলার ও প্রোডাক্টের ডাটা পপুলেট (populate) করা
     const invoice = await Invoice.findOne({ invoiceNo: invoiceNo })
-      .populate('dealer')
-      .populate('items.productName'); // আপনার স্কিমা অনুযায়ী 'product' বা 'productId' হতে পারে
+      .populate('dealer', 'name dealerId mobilePhoneNo address')
+      .populate('items.productName'); // আপনার স্কিমা অনুযায়ী 'product' বা 'productId' হতে পারে
 
     if (!invoice) {
       return res.status(404).json({ 

@@ -52,8 +52,10 @@ const InvoiceList = () => {
     setFilteredInvoices(result);
   }, [searchTerm, statusFilter, invoices]);
 
+  // প্রিন্ট ফাংশন: একটি নতুন উইন্ডো খুলবে এবং ইনভয়েসের HTML তৈরি করবে
 const handlePrintInvoice = (inv) => {
   const printWindow = window.open('', '_blank');
+  // console.log(inv)
   
   const clientName = inv.dealer ? inv.dealer.name : (inv.customerName || 'Walk-in Customer');
   const clientMobile = inv.dealer ? (inv.dealer.mobilePhoneNo || 'N/A') : (inv.customerMobile || 'N/A');
@@ -224,6 +226,129 @@ const handlePrintInvoice = (inv) => {
   printWindow.document.close();
 };
 
+ // 💡 চালান প্রিন্ট করার জন্য আলাদা ফাংশন (Rate/Price কলাম বাদ দিয়ে)
+  const handleFormPrintChallan = (inv) => {
+  const printWindow = window.open('', '_blank');
+  
+  // ডিলার বা সাধারণ কাস্টমারের নাম, ফোন ও ঠিকানা আলাদা করা
+  const clientName = inv.dealer ? inv.dealer.name : (inv.customerName || 'Walk-in Customer');
+  const clientMobile = inv.dealer ? (inv.dealer.mobilePhoneNo || 'N/A') : (inv.customerMobile || 'N/A');
+  const clientAddress = inv.dealer ? (inv.dealer.address || 'N/A') : 'Counter Sale';
+  
+  // প্রোডাক্ট আইটেম রো জেনারেশন (💡 এখানে রেট বা প্রাইসের কোনো কলাম থাকবে না)
+  const itemRows = inv.items.map((item, idx) => `
+    <tr style="border-bottom: 1px solid #f1f5f9; page-break-inside: avoid;">
+      <td style="padding: 12px 8px; text-align: center; color: #64748b; font-size: 14px;">${idx + 1}</td>
+      <td style="padding: 12px 8px; font-weight: 600; color: #1e293b; font-size: 14px;">${item.productName}</td>
+      <td style="padding: 12px 8px; text-align: center; font-weight: 700; color: #0f172a; font-size: 15px;">${item.quantity} Pcs</td>
+    </tr>
+  `).join('');
+
+  // ইনভয়েস নম্বর নির্ধারণ
+  const finalInvoiceNo = inv.invoiceNo || 'Draft';
+
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Challan - ${finalInvoiceNo}</title>
+        <style>
+          @import url('https://googleapis.com');
+          @media print { 
+            body { margin: 0; padding: 10px; } 
+            .footer-sig { page-break-inside: avoid } 
+          }
+          body { font-family: 'Inter', sans-serif; color: #1e293b; margin: 30px; line-height: 1.5; background: #fff; }
+          .invoice-card { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; min-height: 90vh; }
+          .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0284c7; padding-bottom: 20px; }
+          .logo-area { display: flex; align-items: center; gap: 12px; }
+          .logo-placeholder { width: 45px; height: 45px; background: linear-gradient(135deg, #0284c7, #0ea5e9); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 20px; }
+          .company-title { font-size: 22px; font-weight: 700; color: #0f172a; margin: 0; }
+          .company-sub { margin: 4px 0 0 0; font-size: 12px; color: #64748b; font-weight: 500; }
+          .invoice-meta { text-align: right; }
+          /* 💡 চালানের জন্য আকাশী/নীল থিম এবং ডেলিভারি চালান টাইটেল */
+          .invoice-title { font-size: 24px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #0284c7; margin: 0 0 8px 0; }
+          .meta-text { margin: 3px 0; font-size: 13px; color: #475569; }
+          .details-section { display: flex; justify-content: space-between; margin-top: 25px; margin-bottom: 25px; gap: 20px; }
+          .details-box { width: 100%; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #f1f5f9; }
+          .details-box h4 { margin: 0 0 8px 0; color: #0284c7; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+          .details-box p { margin: 5px 0; font-size: 13px; color: #334155; }
+          table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+          th { background-color: #f1f5f9; color: #475569; padding: 12px 8px; font-weight: 600; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; font-size: 12px; }
+          .notes-wrapper { margin-top: 30px; font-size: 12px; color: #64748b; line-height: 1.6; page-break-inside: avoid; }
+          .footer-sig { display: flex; justify-content: space-between; margin-top: auto; padding-top: 60px; padding-bottom: 20px; }
+          .sig-line { width: 140px; border-top: 1px dashed #cbd5e1; text-align: center; font-size: 12px; color: #475569; padding-top: 8px; }
+        </style>
+      </head>
+      <body>
+        <div class="invoice-card">
+          <!-- হেডার সেকশন -->
+          <div class="header">
+            <div class="logo-area">
+              <div class="logo-placeholder">M</div>
+               <div>
+                  <h1 class="company-title">JSTR Global LTD.</h1>
+                  <p class="company-sub">Motijheel C/A, Dhaka-1000 | Phone: +880 2-9555555<br>Email: info@jstrglobal.com | Web: ://jstrglobal.com</p>
+                </div>
+            </div>
+            <div class="invoice-meta">
+              <h2 class="invoice-title">Delivery Challan</h2>
+              <p class="meta-text"><b>Challan / Inv No:</b> ${finalInvoiceNo}</p>
+              <p class="meta-text"><b>Delivery Date:</b> ${new Date().toLocaleDateString('en-BD', { dateStyle: 'medium' })}</p>
+            </div>
+          </div>
+
+          <!-- ডেলিভারি ইনফো -->
+          <div class="details-section">
+            <div class="details-box">
+              <h4>Delivery Location & Consignee</h4>
+              <p><b>Customer Name:</b> ${clientName}</p>
+              <p><b>Contact Number:</b> ${clientMobile}</p>
+              <p><b>Shipping Address:</b> ${clientAddress}</p>
+            </div>
+          </div>
+
+          <!-- প্রোডাক্ট মেটেরিয়াল লিস্ট টেবিল -->
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 10%; text-align: center;">SL</th>
+                <th style="text-align: left;">Product Description / Item Name</th>
+                <th style="width: 25%; text-align: center;">Quantity (Qty)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemRows}
+            </tbody>
+          </table>
+
+          <!-- চালান নোট -->
+          <div class="notes-wrapper">
+            <h5 style="margin: 0 0 6px 0; color: #334155; font-size: 13px; font-weight: 600;">Declaration & Notes:</h5>
+            <ul style="margin: 0; padding-left: 15px;">
+              <li>Please verify the quantity and condition of goods at the time of delivery.</li>
+              <li>No claims will be accepted after the delivery challan has been signed and received.</li>
+              <li>Received the above-mentioned materials in good condition.</li>
+            </ul>
+          </div>
+
+          <!-- চালান স্বাক্ষর এরিয়া -->
+          <div class="footer-sig">
+            <div class="sig-line">Receiver's Signature</div>
+            <div class="sig-line">Gate Keeper / Loader</div>
+            <div class="sig-line">Authorized Authority</div>
+          </div>
+        </div>
+        <script>
+          window.onload = function() {
+            window.print();
+            window.onafterprint = function() { window.close(); };
+          }
+        </script>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  };
 
 
 
@@ -300,11 +425,29 @@ const handlePrintInvoice = (inv) => {
 
             <div className="flex gap-2 pt-2 border-t border-gray-100">
               <button 
-                onClick={() => navigate(`/invoice-form/${inv._id}`)} // এডিট পেজে নিয়ে যাবে
+                onClick={() => navigate(`/admin-panel/accounting/update-invoice/${inv._id}`)} // এডিট পেজে নিয়ে যাবে
                 className="flex-1 py-2 bg-gray-100 hover:bg-indigo-50 hover:text-indigo-600 text-gray-700 rounded-lg text-xs font-bold transition"
               >
                 ✏️ Edit
               </button>
+
+            {/* 💡 নতুন প্রিন্ট বাটন */}
+              <button 
+                onClick={() => handlePrintInvoice(inv)}
+                className="p-1.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition inline-flex items-center gap-1 text-xs font-bold"
+                title="Print Invoice"
+              >
+                🖨️ Print
+              </button>
+
+              <button 
+                onClick={() => handleFormPrintChallan(inv)}
+                className="p-1.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition inline-flex items-center gap-1 text-xs font-bold"
+                title="Print Challan"
+              >
+                🖨️ Challan
+              </button>
+
             </div>
           </div>
         ))}
@@ -369,6 +512,14 @@ const handlePrintInvoice = (inv) => {
                     title="Print Invoice"
                   >
                     🖨️ Print
+                  </button>
+
+                  <button 
+                    onClick={() => handleFormPrintChallan(inv)}
+                    className="p-1.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition inline-flex items-center gap-1 text-xs font-bold"
+                    title="Print Challan"
+                  >
+                    🖨️ Challan
                   </button>
                 </td>
               </tr>
