@@ -25,7 +25,8 @@ import {
   Megaphone,       // Campaigns
   Globe,
   Package,
-  PlusCircle
+  PlusCircle,
+  Network
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -55,6 +56,7 @@ const Sidebar = () => {
       hasSubMenu: true,
       subMenuItems: [
         { name: t('all_employees'), icon: Users, path: '/admin-panel/employees/all' },
+        { name: t('tree_employees'), icon: Network, path: '/admin-panel/employees/tree' },
         { name: t('add_employee'), icon: UserPlus, path: '/admin-panel/employees/add' },
         { name: t('departments'), icon: Building2, path: '/admin-panel/employees/departments' },
       ]

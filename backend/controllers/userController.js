@@ -249,4 +249,45 @@ const deleteUser = async (req, res) => {
   }
 }
 
-module.exports = { registerUser, loginUser, getUserProfile, getAllUsers, getAllEmployees, updateUser, deleteUser, getEmployeeById };
+
+// Controller function
+const getEmployeeTree = async (req, res) => {
+  try {
+    // ডাটাবেজ থেকে সব এমপ্লয়ি তুলে আনা
+    const employees = await User.find({}).lean();
+
+    const employeeMap = {};
+    const tree = [];
+
+    // ১. প্রথমে প্রতিটি এমপ্লয়িকে ম্যাপে রাখুন এবং তাদের children অ্যারে খালি করুন
+    employees.forEach(emp => {
+      // আপনার ডাটার idNo (যেমন: "1", "2") কে কী (Key) হিসেবে ব্যবহার করা হচ্ছে
+      employeeMap[emp.idNo] = { ...emp, children: [] };
+    });
+
+    // ২. লুপ চালিয়ে ১ এর নিচে ২,৩,৪ এবং ২ এর নিচে ৫,৬,৭ চেইন তৈরি করা
+    employees.forEach(emp => {
+      const currentEmployee = employeeMap[emp.idNo];
+      const parentIdNo = emp.refIdNo; // বসের আইডি (যেমন: "1" বা "2")
+
+      // refIdNo যদি "0" বা খালি হয়, তবে সে মেইন রুট (যেমন: ID-1)
+      if (parentIdNo === "0" || !parentIdNo || !employeeMap[parentIdNo]) {
+        tree.push(currentEmployee);
+      } else {
+        // বসের children অ্যারের ভেতর বর্তমান এমপ্লয়িকে পুশ করা
+        employeeMap[parentIdNo].children.push(currentEmployee);
+      }
+    });
+
+    // ফ্রন্টএন্ডে শুধুমাত্র প্যারেন্ট রুট পাঠানো (যার ভেতর সব নেস্টেড চাইল্ড আছে)
+    res.status(200).json(tree);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+
+
+
+module.exports = { registerUser, loginUser, getUserProfile, getAllUsers, getAllEmployees, updateUser, deleteUser, getEmployeeById, getEmployeeTree };

@@ -5,7 +5,7 @@ const AddEmployee = () => {
 
       // ডাটাবেস স্কিমা অনুযায়ী স্টেট ডিজাইন
     const [formData, setFormData] = useState({
-        idNo: '', refIdNo: '', name: '', email: '', password: '', role: 'staff',
+        idNo: '', refIdNo: '', name: '', email: '', password: '', role: 'employee',
         department: '', gender: 'Male', dateOfBirth: '', nidNo: '', fatherName: '',
         motherName: '', spouseName: '', mobileNo: '', address: '', district: '', thana: '',
         nominee: {
@@ -78,7 +78,7 @@ const AddEmployee = () => {
         
         // ফর্মের টেক্সট ডাটা রিসেট করা
         setFormData({
-            idNo: '', refIdNo: '', name: '', email: '', password: '', role: 'staff',
+            idNo: '', refIdNo: '', name: '', email: '', password: '', role: 'employee',
             department: '', gender: 'Male', dateOfBirth: '', nidNo: '', fatherName: '',
             motherName: '', spouseName: '', mobileNo: '', photo: '',
             address: '', district: '', thana: '',
@@ -191,13 +191,13 @@ const AddEmployee = () => {
               <input type="text" name="idNo" required value={formData.idNo} onChange={handleChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30" placeholder="e.g. ADMIN001" />
             </div> */}
             <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Reference ID No</label>
-              <input type="text" name="refIdNo" value={formData.refIdNo} onChange={handleChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30" placeholder="Optional" />
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Reference ID No *</label>
+              <input type="text" name="refIdNo" value={formData.refIdNo} onChange={handleChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30" placeholder="Reference Entry" />
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">System Role *</label>
               <select name="role" required value={formData.role} onChange={handleChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30 cursor-pointer">
-                <option value="staff">Staff</option>
+                <option value="employee">Employee</option>
                 <option value="manager">Manager</option>
                 <option value="admin">Admin</option>
               </select>
@@ -245,7 +245,7 @@ const AddEmployee = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Full Employee Name *</label>
-              <input type="text" name="name" required value={formData.name} onChange={handleChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30" />
+              <input type="text" name="name" required value={formData.name} onChange={handleChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30" placeholder='Name'/>
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Official Email *</label>
@@ -257,7 +257,7 @@ const AddEmployee = () => {
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">National ID (NID) *</label>
-              <input type="text" name="nidNo" required value={formData.nidNo} onChange={handleChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30" />
+              <input type="text" name="nidNo" required value={formData.nidNo} onChange={handleChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30" placeholder='12345678'/>
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Date of Birth *</label>
@@ -273,11 +273,11 @@ const AddEmployee = () => {
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Father's Name *</label>
-              <input type="text" name="fatherName" required value={formData.fatherName} onChange={handleChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30" />
+              <input type="text" name="fatherName" required value={formData.fatherName} onChange={handleChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30" placeholder='father name'/>
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Mother's Name *</label>
-              <input type="text" name="motherName" required value={formData.motherName} onChange={handleChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30" />
+              <input type="text" name="motherName" required value={formData.motherName} onChange={handleChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30" placeholder='mother name' />
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Spouse Name (If Applicable)</label>

@@ -2,6 +2,7 @@
   "dashboard": "Dashboard",
   "employees": "Employees",
   "all_employees": "All Employees",
+  "tree_employees": "Tree Employees",
   "add_employee": "Add Employee",
   "inventory": "Inventory",
   "stock_overview": "Stock Overview",

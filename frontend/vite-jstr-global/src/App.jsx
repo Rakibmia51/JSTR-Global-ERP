@@ -20,6 +20,7 @@ import TaskDashboard from './components/TaskDashboard';
 import InvoiceProductSearch from './components/ExampleInvoice';
 import InvoiceAndChallan from './components/InvoiceAndChallan';
 import InvoiceHistoryTable from './components/InvoiceHistory';
+import EmployeeTree from './components/EmployeeTree';
 
 
 
@@ -43,6 +44,7 @@ function App() {
           <Route path="/admin-panel" element={<TaskDashboard/>} />
              {/* 👥 Employees Modules */}
           <Route path="employees/all" element={<EmployeeList/>} />
+          <Route path="employees/tree" element={<EmployeeTree/>} />
           <Route path="employees/add" element={<AddEmployee/>} />
           {/* 🚀 ডাইনামিক আইডি রুট (অত্যন্ত গুরুত্বপূরণ) */}
           <Route path="/admin-panel/employees/view/:id" element={<ViewEmployee />} />
