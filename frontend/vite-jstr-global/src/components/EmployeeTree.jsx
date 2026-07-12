@@ -34,96 +34,126 @@ const TreeBranch = ({ node, searchTerm, level = 0 }) => {
 
   const isExpanded = searchTerm ? childMatches || matchesSearch : isOpen;
 
-  // রোল অনুযায়ী ডাইনামিক থিম কালার ব্যাজ
-  const getRoleBadgeStyle = (role) => {
-    switch (role?.toLowerCase()) {
-      case "admin": return { bg: "#fef2f2", text: "#ef4444", border: "#fca5a5" };
-      case "manager": return { bg: "#eff6ff", text: "#3b82f6", border: "#93c5fd" };
-      default: return { bg: "#f8fafc", text: "#64748b", border: "#cbd5e1" };
+// 💡 পজিশন অনুযায়ী ডাইনামিক প্রিমিয়াম কালার ব্যাজ নির্ধারণ
+ const getPositionBadgeStyle = (pos) => {
+    const p = pos?.toUpperCase()?.trim(); // স্পেস এবং কেস সেন্সিটিভিটি ফিক্স
+    
+    switch (p) {
+      case "ED": 
+        return { bg: "#faf5ff", text: "#a855f7", border: "#d8b4fe" };
+      case "NSM": 
+        return { bg: "#fff7ed", text: "#f97316", border: "#ffedd5" };
+      case "SM": 
+        return { bg: "#f0fdf4", text: "#16a34a", border: "#bbf7d0" };
+      case "SDSM": // 💡 SDSM-এর জন্য বিশেষ প্রিমিয়াম ডার্ক পার্পেল/টিয়াল ব্যাজ
+        return { bg: "#f0fdfa", text: "#0d9488", border: "#99f6e4" };
+      case "DSM": 
+        return { bg: "#ecfdf5", text: "#059669", border: "#a7f3d0" };
+      case "RSM": 
+        return { bg: "#eff6ff", text: "#2563eb", border: "#bfdbfe" };
+      case "AM": 
+        return { bg: "#f0fdf4", text: "#15803d", border: "#bbf7d0" };
+      default: 
+        return { bg: "#f8fafc", text: "#64748b", border: "#cbd5e1" };
     }
   };
-  const badge = getRoleBadgeStyle(node.role);
+ // node.position (যা এপিআই থেকে জেনারেট হচ্ছে) ব্যবহার করা হচ্ছে
+  const badge = getPositionBadgeStyle(node.position);
 
-  return (
-    <div style={{ margin: "10px 0", position: "relative" }}>
-      {/* স্লিক এমপ্লয়ি কার্ড ডিজাইন */}
+ return (
+    <div style={{ margin: "8px 0", position: "relative", boxSizing: "border-box", width: "100%" }}>
+      {/* এমপ্লয়ি কার্ড ডিজাইন */}
       <div
         onClick={() => hasChildren && setIsOpen(!isOpen)}
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "12px 14px",
+          padding: "10px 12px",
           background: matchesSearch && searchTerm ? "#f0fdf4" : "#ffffff",
           border: matchesSearch && searchTerm ? "2px solid #10b981" : "1px solid #e2e8f0",
           borderRadius: "12px",
           cursor: hasChildren ? "pointer" : "default",
           transition: "all 0.3s ease",
-          boxShadow: matchesSearch && searchTerm 
-            ? "0 8px 20px -5px rgba(16, 185, 129, 0.15)" 
-            : "0 2px 4px rgba(0,0,0,0.02)",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+          width: "100%",
+          boxSizing: "border-box",
+          minWidth: 0
         }}
         className="tree-card-hover"
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0, flex1: 1 }}>
           {/* ড্রপডাউন অ্যারো */}
-          <span style={{ color: "#94a3b8", display: "flex" }}>
-            {hasChildren ? (isExpanded ? <FaChevronDown size={12} /> : <FaChevronRight size={12} />) : <span style={{ width: "6px", height: "6px", background: "#cbd5e1", borderRadius: "50%", marginLeft: "4px" }} />}
+          <span style={{ color: "#94a3b8", display: "flex", flexShrink: 0 }}>
+            {hasChildren ? (isExpanded ? <FaChevronDown size={12} /> : <FaChevronRight size={12} />) : <span style={{ width: "4px", height: "4px", background: "#cbd5e1", borderRadius: "50%", marginLeft: "4px" }} />}
           </span>
 
-          {/* কাস্টম অবতার রাউন্ড আইকন */}
+          {/* অবতার আইকন */}
           <div style={{
-            width: "36px",
-            height: "36px",
+            width: "32px",
+            height: "32px",
             borderRadius: "50%",
-            background: hasChildren ? "linear-gradient(135deg, #6366f1, #4f46e5)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
+            background: hasChildren ? "linear-gradient(135deg, #4f46e5, #3730a3)" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             color: "#ffffff",
             flexShrink: 0
           }}>
-            {hasChildren ? <FaUserTie size={14} /> : <FaUserAlt size={12} />}
+            {hasChildren ? <FaUserTie size={12} /> : <FaUserAlt size={11} />}
           </div>
 
-          {/* নাম ও মেটাডাটা */}
-          <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-            <span style={{ fontSize: "14px", fontWeight: "600", color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {/* নাম, আইডি, পজিশন এবং ডাবল সেলস ডিসপ্লে */}
+          <div style={{ display: "flex", flexDirection: "column", minWidth: 0, flex1: 1 }}>
+            <span style={{ fontSize: "13px", fontWeight: "600", color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {node.name}
             </span>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-              <span style={{ fontSize: "11px", color: "#64748b", fontWeight: "500" }}>{node.idNo}</span>
+            
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", marginTop: "4px" }}>
+              {/* কাস্টম আইডি */}
+              <span style={{ fontSize: "10px", color: "#64748b", fontWeight: "500" }}>{node.idNo}</span>
+              
+              {/* 💡 ফিক্সড কন্ডিশন: টেক্সট পুরোপুরি .toUpperCase() আকারে ডাইনামিকালি প্রিন্ট হবে */}
               <span style={{ 
                 fontSize: "9px", 
-                fontWeight: "600", 
+                fontWeight: "700", 
                 padding: "1px 6px", 
-                borderRadius: "20px", 
+                borderRadius: "10px", 
                 backgroundColor: badge.bg, 
                 color: badge.text,
                 border: `1px solid ${badge.border}`,
                 textTransform: "uppercase"
-              }}>{node.role || "Staff"}</span>
+              }}>{node.position ? node.position.toUpperCase() : "REPRESENTATIVE"}</span>
+
+              {/* চলতি মাসের সেলস কাউন্টার (গ্রিন কালার ট্যাগ) */}
+              {node.thisMonthSalesAchieved > 0 && (
+                <span style={{ fontSize: "10px", color: "#16a34a", fontWeight: "700", background: "#f0fdf4", padding: "1px 6px", borderRadius: "6px", border: "1px solid #bbf7d0" }}>
+                  Month: Tk {node.thisMonthSalesAchieved.toLocaleString()}/-
+                </span>
+              )}
+
+              {/* সর্বকালের মোট সেলস কাউন্টার (ব্লু কালার ট্যাগ) */}
+              {node.totalSalesAchieved > 0 && (
+                <span style={{ fontSize: "10px", color: "#2563eb", fontWeight: "700", background: "#eff6ff", padding: "1px 6px", borderRadius: "6px", border: "1px solid #bfdbfe" }}>
+                  Total: Tk {node.totalSalesAchieved.toLocaleString()}/-
+                </span>
+              )}
             </div>
           </div>
         </div>
 
         {/* ডাইরেক্ট টিম কাউন্টার ব্যাজ */}
         {hasChildren && (
-          <div style={{ display: "flex", alignItems: "center", gap: "4px", background: "#f1f5f9", padding: "4px 8px", borderRadius: "8px", flexShrink: 0 }}>
-            <FaUsers size={12} color="#475569" />
-            <span style={{ fontSize: "11px", fontWeight: "700", color: "#1e293b" }}>{node.children.length}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "3px", background: "#f1f5f9", padding: "3px 6px", borderRadius: "6px", flexShrink: 0, marginLeft: "6px" }}>
+            <FaUsers size={11} color="#475569" />
+            <span style={{ fontSize: "10px", fontWeight: "700", color: "#1e293b" }}>{node.children.length}</span>
           </div>
         )}
       </div>
 
-      {/* নেস্টেড চাইল্ড লাইন (মোবাইলের জন্য মার্জিন ও প্যাডিং কমানো হয়েছে) */}
+      {/* চাইল্ড লুপ */}
       {hasChildren && isExpanded && (
-        <div style={{ 
-          marginLeft: "18px", 
-          paddingLeft: "14px", 
-          borderLeft: "2px solid #e2e8f0",
-          position: "relative"
-        }}>
+        <div style={{ marginLeft: "12px", paddingLeft: "10px", borderLeft: "1.5px dashed #e2e8f0", boxSizing: "border-box", width: "calc(100% - 12px)" }}>
           {node.children.map((child) => (
             <TreeBranch key={child._id} node={child} searchTerm={searchTerm} level={level + 1} />
           ))}

@@ -105,7 +105,7 @@ const Sidebar = () => {
       hasSubMenu: true,
       subMenuItems: [
         { name: t('sales_forecast'), icon: TrendingUp, path: '/admin-panel/sales/forecast' },
-        { name: t('lead_management'), icon: Target, path: '/admin-panel/sales/leads' },
+        { name: t('commission_payouts'), icon: Target, path: '/admin-panel/sales/commission' },
         { name: t('campaigns'), icon: Megaphone, path: '/admin-panel/sales/campaigns' },
       ]
     },

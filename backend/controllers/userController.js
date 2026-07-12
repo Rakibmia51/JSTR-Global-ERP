@@ -1,6 +1,9 @@
+const mongoose = require("mongoose");
 const User = require('../models/User');
 const generateToken = require('../utils/generateToken');
 const Department = require('../models/Department');
+const Invoice = require('../models/Invoice');
+const Dealer = require('../models/Dealer');
 
 // @desc    Register a new user
 // @route   POST /api/users/register
@@ -249,45 +252,211 @@ const deleteUser = async (req, res) => {
   }
 }
 
-
+//--- 1st Version of Employee Tree Controller ---//
 // Controller function
-const getEmployeeTree = async (req, res) => {
-  try {
-    // ডাটাবেজ থেকে সব এমপ্লয়ি তুলে আনা
-    const employees = await User.find({}).lean();
+// const getEmployeeTree = async (req, res) => {
+//   try {
+//     // 💡 সমাধান ১: ডাটাবেজ থেকে শুধুমাত্র যাদের idNo-এর শুরুতে 'MKT' আছে তাদের তুলে আনা
+//     // ^MKT মানে হলো লেখার শুরুতেই MKT থাকতে হবে (Case-insensitive করার জন্য 'i' ব্যবহার করা হয়েছে)
+//     const employees = await User.find({
+//       idNo: { $regex: /^MKT/i }
+//     }).lean();
 
-    const employeeMap = {};
+//     const employeeMap = {};
+//     const tree = [];
+
+//     // ১. প্রথমে ফিল্টার হওয়া প্রতিটি এমপ্লয়িকে ম্যাপে রাখুন এবং তাদের children অ্যারে খালি করুন
+//     employees.forEach(emp => {
+//       employeeMap[emp.idNo] = { ...emp, children: [] };
+//     });
+
+//     // ২. লুপ চালিয়ে ১ এর নিচে ২,৩,৪ এবং ২ এর নিচে ৫,৬,৭ চেইন তৈরি করা
+//     employees.forEach(emp => {
+//       const currentEmployee = employeeMap[emp.idNo];
+//       const parentIdNo = emp.refIdNo; // বসের আইডি (যেমন: "0" বা "MKT-0001")
+
+//       // 💡 সমাধান ২: যদি কোনো এমপ্লয়ির বস (refIdNo) ডাটাবেজে না থাকে (কারণ বসের আইডি হয়তো MKT নয় এবং সে বাদ পড়েছে), 
+//       // অথবা refIdNo যদি "0" বা খালি হয়, তবে তাকেই মেইন রুট (Top level) হিসেবে ট্রিতে পুশ করা হবে।
+//       if (parentIdNo === "0" || !parentIdNo || !employeeMap[parentIdNo]) {
+//         tree.push(currentEmployee);
+//       } else {
+//         // বসের children অ্যারের ভেতর বর্তমান এমপ্লয়িকে পুশ করা
+//         employeeMap[parentIdNo].children.push(currentEmployee);
+//       }
+//     });
+
+//     // ফ্রন্টএন্ডে ফিল্টার করা নেস্টেড ট্রি পাঠানো
+//     res.status(200).json(tree);
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// };
+
+//--- 2nd Version of Employee Tree Controller ---//
+
+
+// অটোমেটিক পজিশন ইঞ্জিন (Rule 1 to 7)
+const autoDeterminePosition = (totalSales, subNodesSummary = []) => {
+  const amQualifiedCount = subNodesSummary.filter(sub => sub.autoPosition === "AM").length;
+  const rsmQualifiedCount = subNodesSummary.filter(sub => sub.autoPosition === "RSM").length;
+  const dsmQualifiedCount = subNodesSummary.filter(sub => sub.autoPosition === "DSM").length;
+  const nsmQualifiedCount = subNodesSummary.filter(sub => sub.autoPosition === "NSM").length;
+
+  let assignedPosition = "Sales Representative";
+
+  if (nsmQualifiedCount >= 4 && totalSales >= 1600000) assignedPosition = "ED";
+  else if (dsmQualifiedCount >= 4 && totalSales >= 400000) assignedPosition = "NSM";
+  else if (dsmQualifiedCount >= 3 && totalSales >= 300000) assignedPosition = "SM";
+  else if (dsmQualifiedCount >= 2 && totalSales >= 200000) assignedPosition = "SDSM";
+  else if (rsmQualifiedCount >= 1 && amQualifiedCount >= 2 && totalSales >= 150000) assignedPosition = "DSM";
+  else if (amQualifiedCount >= 4 && totalSales >= 100000) assignedPosition = "RSM";
+  else if (totalSales >= 25000) assignedPosition = "AM";
+
+  return assignedPosition;
+};
+
+// মেইন এক্সপোর্ট ফাংশন (ট্রি ভিউ এপিআই এর জন্য)
+const getEmployeeTree = async (req, res) => {
+try {
+    const db = mongoose.connection.db;
+    
+    // ১. ডাটাবেজ থেকে সেলস/ইনভয়েস তুলে আনা
+    let allSales = await db.collection("sales").find({}).toArray();
+    if (!allSales || allSales.length === 0) {
+      allSales = await db.collection("invoices").find({}).toArray();
+    }
+
+    const dealers = await db.collection("dealers").find({}).toArray();
+    const users = await db.collection("users").find({ idNo: { $regex: /^MKT/i } }).toArray();
+
+    // চলতি মাসের ব্রেকপয়েন্ট নির্ধারণ (July 2026)
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth(); 
+    const currentYear = currentDate.getFullYear(); 
+
+    const userSalesMap = {};
     const tree = [];
 
-    // ১. প্রথমে প্রতিটি এমপ্লয়িকে ম্যাপে রাখুন এবং তাদের children অ্যারে খালি করুন
-    employees.forEach(emp => {
-      // আপনার ডাটার idNo (যেমন: "1", "2") কে কী (Key) হিসেবে ব্যবহার করা হচ্ছে
-      employeeMap[emp.idNo] = { ...emp, children: [] };
+    // ২. মেমোরি ম্যাপ তৈরি করা
+    users.forEach(u => {
+      userSalesMap[u.idNo] = { 
+        ...u, 
+        _id: u._id.toString(),
+        directSalesTotal: 0,       
+        directSalesThisMonth: 0,   
+        totalSalesVolume: 0,       
+        thisMonthSalesVolume: 0,   
+        autoPosition: "Sales Representative",
+        children: [] 
+      };
     });
 
-    // ২. লুপ চালিয়ে ১ এর নিচে ২,৩,৪ এবং ২ এর নিচে ৫,৬,৭ চেইন তৈরি করা
-    employees.forEach(emp => {
-      const currentEmployee = employeeMap[emp.idNo];
-      const parentIdNo = emp.refIdNo; // বসের আইডি (যেমন: "1" বা "2")
+    // ৩. ডিলারের মাধ্যমে এমপ্লয়িদের ডাইরেক্ট সেলস ভাগ করা (Total vs This Month)
+    dealers.forEach(dlr => {
+      const dlrSales = allSales.filter(s => s.dealer?.toString() === dlr._id?.toString());
+      
+      dlrSales.forEach(sale => {
+        const saleAmount = sale.grandTotal || 0;
+        const saleDate = new Date(sale.createdAt);
 
-      // refIdNo যদি "0" বা খালি হয়, তবে সে মেইন রুট (যেমন: ID-1)
-      if (parentIdNo === "0" || !parentIdNo || !employeeMap[parentIdNo]) {
-        tree.push(currentEmployee);
-      } else {
-        // বসের children অ্যারের ভেতর বর্তমান এমপ্লয়িকে পুশ করা
-        employeeMap[parentIdNo].children.push(currentEmployee);
+        if (dlr.referenceIdNo && userSalesMap[dlr.referenceIdNo]) {
+          userSalesMap[dlr.referenceIdNo].directSalesTotal += saleAmount;
+          userSalesMap[dlr.referenceIdNo].totalSalesVolume += saleAmount;
+
+          if (saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear) {
+            userSalesMap[dlr.referenceIdNo].directSalesThisMonth += saleAmount;
+            userSalesMap[dlr.referenceIdNo].thisMonthSalesVolume += saleAmount;
+          }
+        }
+      });
+    });
+
+    // 💡 ৪. সমাধান: সঠিক কন্ডিশনাল অর্ডার সিকোয়েন্স (ED থেকে AM এর দিকে)
+    const autoDeterminePosition = (salesVolume, subNodesSummary) => {
+      const amCount = subNodesSummary.filter(sub => sub.autoPosition === "AM").length;
+      const rsmCount = subNodesSummary.filter(sub => sub.autoPosition === "RSM").length;
+      const dsmCount = subNodesSummary.filter(sub => sub.autoPosition === "DSM").length;
+      const nsmCount = subNodesSummary.filter(sub => sub.autoPosition === "NSM").length;
+
+      // ৭. ED: ৪ জন NSM কোয়ালিফাই এবং ১৬ লাখ সেলস হতে হবে
+      if (salesVolume >= 1600000 && nsmCount >= 4) return "ED";
+      
+      // ৬. NSM: ৪ জন DSM কোয়ালিফাই এবং ৪ লাখ সেলস হতে হবে
+      if (salesVolume >= 400000 && dsmCount >= 4) return "NSM";
+      
+      // ৫. SM: ৩ জন DSM কোয়ালিফাই এবং ৩ লাখ সেলস হতে হবে
+      if (salesVolume >= 300000 && dsmCount >= 3) return "SM";
+      
+      // 🎯 ৪. SDSM: ২ জন DSM কোয়ালিফাই এবং ২ লাখ সেলস হতে হবে (আপনার কাঙ্ক্ষিত পজিশন)
+      if (salesVolume >= 200000 && dsmCount >= 2) return "SDSM";
+      
+      // ৩. DSM: ১ জন RSM এবং ২ জন AM কোয়ালিফাই এবং ১.৫ লাখ সেলস হতে হবে
+      if (salesVolume >= 150000 && rsmCount >= 1 && amCount >= 2) return "DSM";
+      
+      // ২. RSM: ৪ জন AM কোয়ালিফাই এবং ১ লাখ সেলস হতে হবে
+      if (salesVolume >= 100000 && amCount >= 4) return "RSM";
+      
+      // ১. AM: ২৫,০০০/- সেলস হলে ১৫% কমিশন
+      if (salesVolume >= 25000) return "AM";
+      
+      return "Sales Representative";
+    };
+
+    // ৫. নিচ থেকে উপরে টোটাল সেলস রোল-আপ (Bottom-Up)
+    const processHierarchySpecs = (currentIdNo) => {
+      const currentEmployee = userSalesMap[currentIdNo];
+      if (!currentEmployee) return;
+
+      const children = users.filter(u => u.refIdNo === currentIdNo);
+      children.forEach(child => processHierarchySpecs(child.idNo));
+
+      const subNodesSummary = children.map(child => ({
+        idNo: child.idNo,
+        autoPosition: userSalesMap[child.idNo]?.autoPosition || "Sales Representative"
+      }));
+
+      const teamSalesSumTotal = children.reduce((sum, child) => sum + (userSalesMap[child.idNo]?.totalSalesVolume || 0), 0);
+      const teamSalesSumMonth = children.reduce((sum, child) => sum + (userSalesMap[child.idNo]?.thisMonthSalesVolume || 0), 0);
+      
+      currentEmployee.totalSalesVolume += teamSalesSumTotal;
+      currentEmployee.thisMonthSalesVolume += teamSalesSumMonth;
+      
+      // সেলস ভলিউম ও চাইল্ড কোয়ালিফিকেশন অনুযায়ী ফাইনাল প্রমোশন
+      currentEmployee.autoPosition = autoDeterminePosition(currentEmployee.thisMonthSalesVolume, subNodesSummary);
+    };
+
+    users.forEach(user => {
+      if (user.refIdNo === "0" || !user.refIdNo || !userSalesMap[user.refIdNo]) {
+        processHierarchySpecs(user.idNo);
       }
     });
 
-    // ফ্রন্টএন্ডে শুধুমাত্র প্যারেন্ট রুট পাঠানো (যার ভেতর সব নেস্টেড চাইল্ড আছে)
+    // ৬. নেস্টেড প্যারেন্ট-CHILD ট্রি স্ট্রাকচার তৈরি
+    users.forEach(user => {
+      const currentEmployee = userSalesMap[user.idNo];
+      currentEmployee.position = currentEmployee.autoPosition;
+      
+      currentEmployee.totalSalesAchieved = currentEmployee.totalSalesVolume;
+      currentEmployee.thisMonthSalesAchieved = currentEmployee.thisMonthSalesVolume;
+
+      const parentIdNo = user.refIdNo;
+      if (parentIdNo === "0" || !parentIdNo || !userSalesMap[parentIdNo]) {
+        tree.push(currentEmployee);
+      } else {
+        userSalesMap[parentIdNo].children.push(currentEmployee);
+      }
+    });
+
     res.status(200).json(tree);
   } catch (error) {
+    console.error("❌ BACKEND CRASH ERROR:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-
-
+module.exports = {
+  getEmployeeTree
+};
 
 
 module.exports = { registerUser, loginUser, getUserProfile, getAllUsers, getAllEmployees, updateUser, deleteUser, getEmployeeById, getEmployeeTree };

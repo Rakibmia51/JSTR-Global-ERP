@@ -31,6 +31,8 @@ const departmentsRoutes = require('./routes/departmentRoutes.js')
 const dealerRoutes = require('./routes/dealerRoutes')
 const invoicesRoutes = require('./routes/invoicesRoutes.js')
 const productRoutes = require('./routes/productRoutes.js')
+const salesRoutes = require('./routes/salesRoutes.js')
+const commissionRoutes = require('./routes/commissionRoutes.js')
 
 
 // এপিআই রাউট লিংক
@@ -46,6 +48,12 @@ app.use('/api/dealers', dealerRoutes);
 app.use('/api/invoices', invoicesRoutes);
 // Api Products
 app.use('/api/products', productRoutes);
+
+// Api Sales
+app.use('/api/sales', salesRoutes);
+
+// Api Commissions
+app.use('/api/commissions', commissionRoutes);
 
 
 

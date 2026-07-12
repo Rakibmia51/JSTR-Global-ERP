@@ -21,6 +21,8 @@ import InvoiceProductSearch from './components/ExampleInvoice';
 import InvoiceAndChallan from './components/InvoiceAndChallan';
 import InvoiceHistoryTable from './components/InvoiceHistory';
 import EmployeeTree from './components/EmployeeTree';
+import SalesTrackingReport from './components/SalesEmployee';
+import CommissionLedger from './components/CommissionLedger';
 
 
 
@@ -71,8 +73,8 @@ function App() {
           <Route path="accounting/reports" element={<ComingSoon/>} />
 
           {/* 📈 Marketing & Sales Modules */}
-          <Route path="sales/forecast" element={<ComingSoon/>} />
-          <Route path="sales/leads" element={<ComingSoon/>} />
+          <Route path="sales/forecast" element={<SalesTrackingReport/>} />
+          <Route path="sales/commission" element={<CommissionLedger/>} />
           <Route path="sales/campaigns" element={<ComingSoon/>} />
 
           {/* ⚙️ Settings */}
