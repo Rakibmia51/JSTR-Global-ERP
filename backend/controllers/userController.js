@@ -379,22 +379,22 @@ try {
       const nsmCount = subNodesSummary.filter(sub => sub.autoPosition === "NSM").length;
 
       // ৭. ED: ৪ জন NSM কোয়ালিফাই এবং ১৬ লাখ সেলস হতে হবে
-      if (salesVolume >= 1600000 && nsmCount >= 4) return "ED";
+      if (salesVolume >= 2600000 && nsmCount >= 4 && dsmCount >= 2) return "ED";
       
-      // ৬. NSM: ৪ জন DSM কোয়ালিফাই এবং ৪ লাখ সেলস হতে হবে
-      if (salesVolume >= 400000 && dsmCount >= 4) return "NSM";
+      // ৬. NSM: ৪ জন DSM কোয়ালিফাই এবং ৪ লাখ সেলস হতে হবে
+      if (salesVolume >= 600000 && dsmCount >= 6) return "NSM";
       
-      // ৫. SM: ৩ জন DSM কোয়ালিফাই এবং ৩ লাখ সেলস হতে হবে
-      if (salesVolume >= 300000 && dsmCount >= 3) return "SM";
+      // ৫. SM: ৩ জন DSM কোয়ালিফাই এবং ৩ লাখ সেলস হতে হবে
+      if (salesVolume >= 400000 && dsmCount >= 4) return "SM";
       
-      // 🎯 ৪. SDSM: ২ জন DSM কোয়ালিফাই এবং ২ লাখ সেলস হতে হবে (আপনার কাঙ্ক্ষিত পজিশন)
+      // 🎯 ৪. SDSM: ২ জন DSM কোয়ালিফাই এবং ২ লাখ সেলস হতে হবে (আপনার কাঙ্ক্ষিত পজিশন)
       if (salesVolume >= 200000 && dsmCount >= 2) return "SDSM";
       
-      // ৩. DSM: ১ জন RSM এবং ২ জন AM কোয়ালিফাই এবং ১.৫ লাখ সেলস হতে হবে
-      if (salesVolume >= 150000 && rsmCount >= 1 && amCount >= 2) return "DSM";
+      // ৩. DSM: ১ জন RSM এবং ২ জন AM কোয়ালিফাই এবং ১.৫ লাখ সেলস হতে হবে
+      if (salesVolume >= 100000) return "DSM";
       
       // ২. RSM: ৪ জন AM কোয়ালিফাই এবং ১ লাখ সেলস হতে হবে
-      if (salesVolume >= 100000 && amCount >= 4) return "RSM";
+      if (salesVolume >= 100000) return "RSM";
       
       // ১. AM: ২৫,০০০/- সেলস হলে ১৫% কমিশন
       if (salesVolume >= 25000) return "AM";
