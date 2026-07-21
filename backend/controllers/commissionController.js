@@ -314,7 +314,7 @@ const autoDeterminePosition = (totalSales, subNodesSummary = []) => {
   const dsmCount = subNodesSummary.filter(sub => sub.autoPosition === "DSM").length;
   const nsmCount = subNodesSummary.filter(sub => sub.autoPosition === "NSM").length;
 
-  if (totalSales >= 1600000 && nsmCount >= 4 && dsmCount >= 2) return "ED";
+  if (totalSales >= 2600000 && nsmCount >= 4 && dsmCount >= 2) return "ED";
   if (totalSales >= 600000 && dsmCount >= 6) return "NSM";
   if (totalSales >= 400000 && dsmCount >= 4) return "SM";
   if (totalSales >= 200000 && dsmCount >= 2) return "SDSM";
