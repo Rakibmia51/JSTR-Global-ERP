@@ -252,6 +252,11 @@ const deleteUser = async (req, res) => {
   }
 }
 
+
+
+
+
+
 //--- 1st Version of Employee Tree Controller ---//
 // Controller function
 // const getEmployeeTree = async (req, res) => {
@@ -295,25 +300,25 @@ const deleteUser = async (req, res) => {
 //--- 2nd Version of Employee Tree Controller ---//
 
 
-// অটোমেটিক পজিশন ইঞ্জিন (Rule 1 to 7)
-const autoDeterminePosition = (totalSales, subNodesSummary = []) => {
-  const amQualifiedCount = subNodesSummary.filter(sub => sub.autoPosition === "AM").length;
-  const rsmQualifiedCount = subNodesSummary.filter(sub => sub.autoPosition === "RSM").length;
-  const dsmQualifiedCount = subNodesSummary.filter(sub => sub.autoPosition === "DSM").length;
-  const nsmQualifiedCount = subNodesSummary.filter(sub => sub.autoPosition === "NSM").length;
+// // অটোমেটিক পজিশন ইঞ্জিন (Rule 1 to 7)
+// const autoDeterminePosition = (totalSales, subNodesSummary = []) => {
+//   const amQualifiedCount = subNodesSummary.filter(sub => sub.autoPosition === "AM").length;
+//   const rsmQualifiedCount = subNodesSummary.filter(sub => sub.autoPosition === "RSM").length;
+//   const dsmQualifiedCount = subNodesSummary.filter(sub => sub.autoPosition === "DSM").length;
+//   const nsmQualifiedCount = subNodesSummary.filter(sub => sub.autoPosition === "NSM").length;
 
-  let assignedPosition = "Sales Representative";
+//   let assignedPosition = "Sales Representative";
 
-  if (nsmQualifiedCount >= 4 && totalSales >= 1600000) assignedPosition = "ED";
-  else if (dsmQualifiedCount >= 4 && totalSales >= 400000) assignedPosition = "NSM";
-  else if (dsmQualifiedCount >= 3 && totalSales >= 300000) assignedPosition = "SM";
-  else if (dsmQualifiedCount >= 2 && totalSales >= 200000) assignedPosition = "SDSM";
-  else if (rsmQualifiedCount >= 1 && amQualifiedCount >= 2 && totalSales >= 150000) assignedPosition = "DSM";
-  else if (amQualifiedCount >= 4 && totalSales >= 100000) assignedPosition = "RSM";
-  else if (totalSales >= 25000) assignedPosition = "AM";
+//   if (nsmQualifiedCount >= 4 && totalSales >= 1600000) assignedPosition = "ED";
+//   else if (dsmQualifiedCount >= 4 && totalSales >= 400000) assignedPosition = "NSM";
+//   else if (dsmQualifiedCount >= 3 && totalSales >= 300000) assignedPosition = "SM";
+//   else if (dsmQualifiedCount >= 2 && totalSales >= 200000) assignedPosition = "SDSM";
+//   else if (rsmQualifiedCount >= 1 && amQualifiedCount >= 2 && totalSales >= 150000) assignedPosition = "DSM";
+//   else if (amQualifiedCount >= 4 && totalSales >= 100000) assignedPosition = "RSM";
+//   else if (totalSales >= 25000) assignedPosition = "AM";
 
-  return assignedPosition;
-};
+//   return assignedPosition;
+// };
 
 // মেইন এক্সপোর্ট ফাংশন (ট্রি ভিউ এপিআই এর জন্য)
 const getEmployeeTree = async (req, res) => {
@@ -377,24 +382,29 @@ try {
       const rsmCount = subNodesSummary.filter(sub => sub.autoPosition === "RSM").length;
       const dsmCount = subNodesSummary.filter(sub => sub.autoPosition === "DSM").length;
       const nsmCount = subNodesSummary.filter(sub => sub.autoPosition === "NSM").length;
+      const edCount = subNodesSummary.filter(sub => sub.autoPosition === "ED").length;
 
-      // ৭. ED: ৪ জন NSM কোয়ালিফাই এবং ১৬ লাখ সেলস হতে হবে
-      if (salesVolume >= 2600000 && nsmCount >= 4 && dsmCount >= 2) return "ED";
+      
+      // ৮. BOM: 2 জন ED কোয়ালিফাই এবং 6400000 লাখ সেলস হতে হবে
+      if (salesVolume >= 6400000 && edCount >= 2) return "BOM";
+
+      // ৭. ED: ৪ জন NSM কোয়ালিফাই এবং ১৬ লাখ সেলস হতে হবে
+      if (salesVolume >= 3200000 && nsmCount >= 4 ) return "ED";
       
       // ৬. NSM: ৪ জন DSM কোয়ালিফাই এবং ৪ লাখ সেলস হতে হবে
-      if (salesVolume >= 600000 && dsmCount >= 6) return "NSM";
+      if (salesVolume >= 800000 && dsmCount >= 4) return "NSM";
       
       // ৫. SM: ৩ জন DSM কোয়ালিফাই এবং ৩ লাখ সেলস হতে হবে
-      if (salesVolume >= 400000 && dsmCount >= 4) return "SM";
+      if (salesVolume >= 600000 && dsmCount >= 3) return "SM";
       
       // 🎯 ৪. SDSM: ২ জন DSM কোয়ালিফাই এবং ২ লাখ সেলস হতে হবে (আপনার কাঙ্ক্ষিত পজিশন)
-      if (salesVolume >= 200000 && dsmCount >= 2) return "SDSM";
+      if (salesVolume >= 400000 && dsmCount >= 2) return "SDSM";
       
       // ৩. DSM: ১ জন RSM এবং ২ জন AM কোয়ালিফাই এবং ১.৫ লাখ সেলস হতে হবে
-      if (salesVolume >= 100000) return "DSM";
+      if (salesVolume >= 200000 && rsmCount >= 2 && amCount >= 2) return "DSM";
       
-      // ২. RSM: ৪ জন AM কোয়ালিফাই এবং ১ লাখ সেলস হতে হবে
-      if (salesVolume >= 100000) return "RSM";
+      // ২. RSM: ৪ জন AM কোয়ালিফাই এবং ১ লাখ সেলস হতে হবে
+      if (salesVolume >= 75000 && amCount >= 3) return "RSM";
       
       // ১. AM: ২৫,০০০/- সেলস হলে ১৫% কমিশন
       if (salesVolume >= 25000) return "AM";
