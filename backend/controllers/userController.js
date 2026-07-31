@@ -62,28 +62,28 @@ const registerUser = async (req, res) => {
 // @access  Public
 const loginUser = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { idNo, password } = req.body;
 
     // ১. ইমেইল ও পাসওয়ার্ড ইনপুট দেওয়া হয়েছে কিনা চেক করা
-    if (!email || !password) {
-      return res.status(400).json({ message: 'please enter email and password' });
+    if (!idNo || !password) {
+      return res.status(400).json({ message: 'please enter ID number and password' });
     }
 
     // ২. ইমেইল অনুযায়ী ইউজার ডাটাবেজে আছে কিনা চেক করা
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ idNo });
 
-    // ৩. ইউজার থাকলে পাসওয়ার্ড ম্যাচ করানো (User মডেলের matchPassword মেথড কল করা)
+    // ৩. ইউজার থাকলে পাসওয়ার্ড ম্যাচ করানো (User মডেলের matchPassword মেথড কল করা)
     if (user && (await user.matchPassword(password))) {
       res.json({
         _id: user._id,
         name: user.name,
-        email: user.email,
+        idNo: user.idNo,
         role: user.role,
         token: generateToken(user._id), // লগইন সফল হলে টোকেন পাঠানো হচ্ছে
         message: 'Login successful!'
       });
     } else {
-      res.status(401).json({ message: 'Invalid email or password' });
+      res.status(401).json({ message: 'Invalid ID number or password' });
     }
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -376,41 +376,65 @@ try {
       });
     });
 
-    // 💡 ৪. সমাধান: সঠিক কন্ডিশনাল অর্ডার সিকোয়েন্স (ED থেকে AM এর দিকে)
-    const autoDeterminePosition = (salesVolume, subNodesSummary) => {
-      const amCount = subNodesSummary.filter(sub => sub.autoPosition === "AM").length;
-      const rsmCount = subNodesSummary.filter(sub => sub.autoPosition === "RSM").length;
-      const dsmCount = subNodesSummary.filter(sub => sub.autoPosition === "DSM").length;
-      const nsmCount = subNodesSummary.filter(sub => sub.autoPosition === "NSM").length;
-      const edCount = subNodesSummary.filter(sub => sub.autoPosition === "ED").length;
+   
+    // পজিশন হায়ারার্কি র্যাংক (সিনিয়র মেম্বারদের কাউন্ট করার জন্য)
+const RANK_MAP = {
+  "SALES REPRESENTATIVE": 0, "AM": 1, "RSM": 2, "DSM": 3, 
+  "SDSM": 4, "SM": 5, "NSM": 6, "ED": 7, "BOM": 8
+};
 
-      
-      // ৮. BOM: 2 জন ED কোয়ালিফাই এবং 6400000 লাখ সেলস হতে হবে
-      if (salesVolume >= 6400000 && edCount >= 2) return "BOM";
+const autoDeterminePosition = (salesVolume, subNodesSummary = []) => {
+  // ১. ওয়ান-পাস অপ্টিমাইজড কাউন্টিং (বারবার ফিল্টার লুপ এড়ানোর জন্য)
+  const counts = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+  
+  subNodesSummary.forEach(sub => {
+    const pos = (sub.autoPosition || "").toUpperCase().trim();
+    if (counts[pos] !== undefined) counts[pos]++;
+  });
 
-      // ৭. ED: ৪ জন NSM কোয়ালিফাই এবং ১৬ লাখ সেলস হতে হবে
-      if (salesVolume >= 3200000 && nsmCount >= 4 ) return "ED";
-      
-      // ৬. NSM: ৪ জন DSM কোয়ালিফাই এবং ৪ লাখ সেলস হতে হবে
-      if (salesVolume >= 800000 && dsmCount >= 4) return "NSM";
-      
-      // ৫. SM: ৩ জন DSM কোয়ালিফাই এবং ৩ লাখ সেলস হতে হবে
-      if (salesVolume >= 600000 && dsmCount >= 3) return "SM";
-      
-      // 🎯 ৪. SDSM: ২ জন DSM কোয়ালিফাই এবং ২ লাখ সেলস হতে হবে (আপনার কাঙ্ক্ষিত পজিশন)
-      if (salesVolume >= 400000 && dsmCount >= 2) return "SDSM";
-      
-      // ৩. DSM: ১ জন RSM এবং ২ জন AM কোয়ালিফাই এবং ১.৫ লাখ সেলস হতে হবে
-      if (salesVolume >= 200000 && rsmCount >= 2 && amCount >= 2) return "DSM";
-      
-      // ২. RSM: ৪ জন AM কোয়ালিফাই এবং ১ লাখ সেলস হতে হবে
-      if (salesVolume >= 75000 && amCount >= 3) return "RSM";
-      
-      // ১. AM: ২৫,০০০/- সেলস হলে ১৫% কমিশন
-      if (salesVolume >= 25000) return "AM";
-      
-      return "Sales Representative";
-    };
+  // ২. কিউমুলেティブ হেল্পার (টার্গেট পজিশন বা তার চেয়ে বড় পজিশনের মেম্বারদেরও গুনবে)
+  const countAtLeast = (targetPos) => {
+    return Object.keys(counts).reduce((total, pos) => {
+      return RANK_MAP[pos] >= RANK_MAP[targetPos] ? total + counts[pos] : total;
+    }, 0);
+  };
+
+  // =======================================================================
+  // ৩. সঠিক কন্ডিশনাল অর্ডার সিকোয়েন্স (Top to Bottom অনুসারে আপনার রিকোয়ারমেন্ট)
+  // =======================================================================
+
+  // ৮. BOM: ২ জন ED কোয়ালিফাই এবং ৬৪ লাখ (৬৪,০০,০০০) সেলস হতে হবে
+  if (salesVolume >= 6400000 && countAtLeast("ED") >= 2) return "BOM";
+
+  // ৭. ED: ৪ জন NSM কোয়ালিফাই এবং ৩২ লাখ (৩২,০০,০০০) সেলস হতে হবে
+  if (salesVolume >= 3200000 && countAtLeast("NSM") >= 4) return "ED";
+  
+  // ৬. NSM: ৪ জন DSM কোয়ালিফাই এবং ৮ লাখ (৮,০০,০০০) সেলস হতে হবে
+  if (salesVolume >= 800000 && countAtLeast("DSM") >= 4) return "NSM";
+  
+  // ৫. SM: ৩ জন DSM কোয়ালিফাই এবং ৬ লাখ (৬,০০,০০০) সেলস হতে হবে
+  if (salesVolume >= 600000 && countAtLeast("DSM") >= 3) return "SM";
+  
+  // ৪. SDSM: ২ জন DSM কোয়ালিফাই এবং ৪ লাখ (৪,০০,০০০) সেলস হতে হবে
+  if (salesVolume >= 400000 && countAtLeast("DSM") >= 2) return "SDSM";
+  
+  // ৩. DSM: (২ জন RSM এবং ২ জন AM) অথবা (৪ জন RSM) কোয়ালিফাই এবং ২ লাখ (২,০০,০০০) সেলস হতে হবে
+  if (salesVolume >= 200000 && (
+      (countAtLeast("RSM") >= 2 && countAtLeast("AM") >= 2) || 
+      countAtLeast("RSM") >= 4
+  )) {
+    return "DSM";
+  }
+  
+  // ২. RSM: ৩ জন AM কোয়ালিফাই এবং ৭৫ হাজার (৭৫,০০০) সেলস হতে হবে
+  if (salesVolume >= 75000 && countAtLeast("AM") >= 3) return "RSM";
+  
+  // ১. AM: ২৫ হাজার (২৫,০০০) সেলস হতে হবে
+  if (salesVolume >= 25000) return "AM";
+  
+  return "SALES REPRESENTATIVE";
+};
+
 
     // ৫. নিচ থেকে উপরে টোটাল সেলস রোল-আপ (Bottom-Up)
     const processHierarchySpecs = (currentIdNo) => {

@@ -5,7 +5,7 @@ import { useLanguage } from '../context/LanguageContext'; // ✅ এটি স�
 
 
 const Login = () => {
-  const [email, setEmail] = useState('');
+  const [idNo, setIdNo] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,10 +19,10 @@ const Login = () => {
     setError('');
 
     try {
-      const response = await API.post('/users/login', { email, password });
+      const response = await API.post('/users/login', { idNo, password });
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('userRole', response.data.role);
-      localStorage.setItem('userEmail', response.data.email);
+      localStorage.setItem('userIdNo', response.data.idNo);
       if(response.data.role === "admin"){
         navigate('/admin-panel'); 
       }else{
@@ -62,8 +62,8 @@ const Login = () => {
         
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">{t.emailLabel}</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@example.com" required className="erp-input" />
+            <label className="block text-sm font-semibold text-slate-700 mb-2">{t.idNoLabel}</label>
+            <input type="text" value={idNo} onChange={(e) => setIdNo(e.target.value)} placeholder="ID Number" required className="erp-input" />
           </div>
           
           <div>

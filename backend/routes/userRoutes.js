@@ -14,7 +14,7 @@ router.post('/register', cpUpload, registerUser);
 router.post('/login', loginUser);
 
 // প্রাইভেট বা সুরক্ষিত রাউট (মাঝখানে protect মিডলওয়্যার ব্যবহার করা হয়েছে)
-router.get('/profile', protect, getUserProfile);
+router.get('/profile', getUserProfile);
 
 // এই রাউটটি শুধু 'admin' বা 'manager' অ্যাক্সেস করতে পারবে
 router.get('/', protect, authorizeRoles('admin', 'manager'), getAllUsers);

@@ -18,7 +18,7 @@ const ERPDashboard = () => {
       name: 'Invoice & Accounting',
       description: 'Automated billing numbers, Mongoose ACID session transactions rollback mechanics, dynamic item selection tools, and real-time ledger accounting.',
       status: 'In Development',
-      percentage: 20,
+      percentage: 80,
       scope: ['ACID Transaction Sessions', 'Auto-Invoice Numbers', 'Financial Ledgers']
     },
     {
@@ -41,8 +41,8 @@ const ERPDashboard = () => {
       id: 5,
       name: 'Marketing & Sales',
       description: 'Targeted distribution logs calculations, real-time conversion metrics tracking, and sales analytics summary tracking arrays.',
-      status: 'Planned',
-      percentage: 0,
+      status: 'In Development',
+      percentage: 40,
       scope: ['Conversion Trackers', 'Campaign Logs', 'Sales Vectors']
     },
     {
