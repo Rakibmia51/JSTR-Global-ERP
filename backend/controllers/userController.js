@@ -436,50 +436,83 @@ const autoDeterminePosition = (salesVolume, subNodesSummary = []) => {
 };
 
 
-    // ৫. নিচ থেকে উপরে টোটাল সেলস রোল-আপ (Bottom-Up)
+
+    // ১. ওয়ান-পাস চাইল্ড ম্যাপ তৈরি (বারবার users.filter লুপ এড়ানোর জন্য)
+    const childMap = {};
+    users.forEach(u => {
+      const parentId = u.refIdNo;
+      if (parentId && parentId !== "0") {
+        if (!childMap[parentId]) childMap[parentId] = [];
+        childMap[parentId].push(u.idNo);
+      }
+    });
+
+    // ২. রিকার্সিভ ফাংশন: নিচ থেকে উপরে সেলস ও পজিশন পুশ করা
     const processHierarchySpecs = (currentIdNo) => {
       const currentEmployee = userSalesMap[currentIdNo];
       if (!currentEmployee) return;
 
-      const children = users.filter(u => u.refIdNo === currentIdNo);
-      children.forEach(child => processHierarchySpecs(child.idNo));
+      // সরাসরি ম্যাপ থেকে চাইল্ড আইডিগুলো নেওয়া (পারফরম্যান্স বুস্ট)
+      const childrenIds = childMap[currentIdNo] || [];
 
-      const subNodesSummary = children.map(child => ({
-        idNo: child.idNo,
-        autoPosition: userSalesMap[child.idNo]?.autoPosition || "Sales Representative"
-      }));
+      // পোস্ট-অর্ডার ট্রাভার্সাল: আগে ডাউনলাইনের শেষ প্রান্তের মেম্বারদের হিসাব শেষ হবে
+      childrenIds.forEach(childId => processHierarchySpecs(childId));
 
-      const teamSalesSumTotal = children.reduce((sum, child) => sum + (userSalesMap[child.idNo]?.totalSalesVolume || 0), 0);
-      const teamSalesSumMonth = children.reduce((sum, child) => sum + (userSalesMap[child.idNo]?.thisMonthSalesVolume || 0), 0);
-      
+      // চাইল্ডদের আপডেটেড পজিশন ও সেলস ভলিউম সংগ্রহ
+      const subNodesSummary = [];
+      let teamSalesSumTotal = 0;
+      let teamSalesSumMonth = 0;
+
+      childrenIds.forEach(childId => {
+        const childData = userSalesMap[childId];
+        if (childData) {
+          subNodesSummary.push({
+            idNo: childId,
+            autoPosition: childData.autoPosition || "Sales Representative"
+          });
+          teamSalesSumTotal += childData.totalSalesVolume;
+          teamSalesSumMonth += childData.thisMonthSalesVolume;
+        }
+      });
+
+      // ডাউনলাইনের লাইফটাইম এবং চলতি মাসের সেলস আপলাইনের সাথে যোগ হবে
       currentEmployee.totalSalesVolume += teamSalesSumTotal;
       currentEmployee.thisMonthSalesVolume += teamSalesSumMonth;
-      
-      // সেলস ভলিউম ও চাইল্ড কোয়ালিফিকেশন অনুযায়ী ফাইনাল প্রমোশন
-      currentEmployee.autoPosition = autoDeterminePosition(currentEmployee.thisMonthSalesVolume, subNodesSummary);
+
+      // 💥 পরিবর্তন ১: পজিশন নির্ধারণের জন্য 'totalSalesVolume' পাঠানো হলো
+      currentEmployee.autoPosition = autoDeterminePosition(currentEmployee.totalSalesVolume, subNodesSummary);
     };
 
+    // ৩. ট্রির রুট নোড (Top Parents) থেকে প্রসেসিং শুরু করা
     users.forEach(user => {
       if (user.refIdNo === "0" || !user.refIdNo || !userSalesMap[user.refIdNo]) {
         processHierarchySpecs(user.idNo);
       }
     });
 
-    // ৬. নেস্টেড প্যারেন্ট-CHILD ট্রি স্ট্রাকচার তৈরি
+    // ৪. ফাইনাল রেসপন্স ট্রি এবং ফরম্যাটিং তৈরি করা
     users.forEach(user => {
       const currentEmployee = userSalesMap[user.idNo];
+      if (!currentEmployee) return;
+
+      // ফ্রন্টএন্ড রিকোয়ারমেন্ট অনুযায়ী ফিল্ড অ্যাসাইন
       currentEmployee.position = currentEmployee.autoPosition;
       
+      // 💥 পরিবর্তন ২: ফাইনাল অ্যাচিভড ভলিউম হিসেবে টোটাল সেলস অ্যাসাইন
       currentEmployee.totalSalesAchieved = currentEmployee.totalSalesVolume;
       currentEmployee.thisMonthSalesAchieved = currentEmployee.thisMonthSalesVolume;
 
       const parentIdNo = user.refIdNo;
       if (parentIdNo === "0" || !parentIdNo || !userSalesMap[parentIdNo]) {
+        // যাদের প্যারেন্ট নেই তারা মেইন রুট ট্রিতে যাবে
         tree.push(currentEmployee);
       } else {
+        // যাদের প্যারেন্ট আছে তারা প্যারেন্টের 'children' অ্যারেতে ঢুকবে
         userSalesMap[parentIdNo].children.push(currentEmployee);
       }
     });
+
+
 
     res.status(200).json(tree);
   } catch (error) {
@@ -488,9 +521,6 @@ const autoDeterminePosition = (salesVolume, subNodesSummary = []) => {
   }
 };
 
-module.exports = {
-  getEmployeeTree
-};
 
 
-module.exports = { registerUser, loginUser, getUserProfile, getAllUsers, getAllEmployees, updateUser, deleteUser, getEmployeeById, getEmployeeTree };
+module.exports = {getEmployeeTree, registerUser, loginUser, getUserProfile, getAllUsers, getAllEmployees, updateUser, deleteUser, getEmployeeById};

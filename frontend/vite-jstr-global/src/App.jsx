@@ -23,6 +23,7 @@ import InvoiceHistoryTable from './components/InvoiceHistory';
 import EmployeeTree from './components/EmployeeTree';
 import SalesTrackingReport from './components/SalesEmployee';
 import CommissionLedger from './components/CommissionLedger';
+import CommissionDesk from './components/CommissionDesk';
 
 
 
@@ -74,7 +75,7 @@ function App() {
 
           {/* 📈 Marketing & Sales Modules */}
           <Route path="sales/forecast" element={<SalesTrackingReport/>} />
-          <Route path="sales/commission" element={<CommissionLedger/>} />
+          <Route path="sales/commission" element={<CommissionDesk/>} />
           <Route path="sales/campaigns" element={<ComingSoon/>} />
 
           {/* ⚙️ Settings */}
