@@ -940,7 +940,7 @@ const RANK_MAP = {
 
 const SALES_SHARE_CONFIG = {
   "BOM": 0.01, "ED": 0.005, "NSM": 0.01, "SM": 0.005,
-  "SDSM": 0.01, "DSM": 0.05, "RSM": 0, "AM": 0
+  "SDSM": 0.01, "DSM": 0.05, "RSM": 0.01, "AM": 0
 };
 
 const ELIGIBLE_POOL_POSITIONS = ["RSM", "DSM", "SDSM", "SM", "NSM", "ED", "BOM"];
