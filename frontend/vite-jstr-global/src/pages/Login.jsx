@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import API from '../api';
 import { useLanguage } from '../context/LanguageContext'; // ✅ এটি সঠিক পাথ
 
-
 const Login = () => {
   const [idNo, setIdNo] = useState('');
   const [password, setPassword] = useState('');
@@ -20,13 +19,27 @@ const Login = () => {
 
     try {
       const response = await API.post('/users/login', { idNo, password });
+      
+      // 💾 লোকাল স্টোরেজে টোকেন ও বেসিক ডেটা সংরক্ষণ
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('userRole', response.data.role);
       localStorage.setItem('userIdNo', response.data.idNo);
-      if(response.data.role === "admin"){
+      localStorage.setItem('userName', response.data.name);
+      
+      // ✅ ফিক্স: ব্যাকএন্ড সরাসরি 'response.data.department' পাঠাচ্ছে (কোনো .user অবজেক্ট ছাড়াই)
+      localStorage.setItem('userDepartmentName', response.data.departmentName || 'N/A');
+      localStorage.setItem('userDepartmentCode', response.data.departmentCode || 'N/A'); 
+
+      // 🔄 ৩ ধরণের ইউজারের রোল অনুযায়ী ডাইনামিক রিডাইরেকশন (কেস-সেন্সিটিভ ফিক্সড)
+      const role = response.data.role;
+      if (role === "Admin" || role === "admin") {
         navigate('/admin-panel'); 
-      }else{
-        navigate('/dashboard'); 
+      } else if (role === "Employee" || role === "employee") {
+        navigate('/employee-panel'); 
+      } else if (role === "Dealer" || role === "dealer") {
+        navigate('/dealer-panel'); 
+      } else {
+        navigate('/'); // কোনো রোল ম্যাচ না করলে ডিফল্ট হোম
       }
       
     } catch (err) {

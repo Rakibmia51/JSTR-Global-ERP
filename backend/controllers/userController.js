@@ -70,7 +70,8 @@ const loginUser = async (req, res) => {
     }
 
     // ২. ইমেইল অনুযায়ী ইউজার ডাটাবেজে আছে কিনা চেক করা
-    const user = await User.findOne({ idNo });
+    const user = await User.findOne({ idNo })
+      .populate('department', 'name code'); // ডিপার্টমেন্টের নাম ও কোডও নিয়ে আসা
 
     // ৩. ইউজার থাকলে পাসওয়ার্ড ম্যাচ করানো (User মডেলের matchPassword মেথড কল করা)
     if (user && (await user.matchPassword(password))) {
@@ -79,6 +80,8 @@ const loginUser = async (req, res) => {
         name: user.name,
         idNo: user.idNo,
         role: user.role,
+        departmentName: user.department ? user.department.name : 'N/A',
+        departmentCode: user.department ? user.department.code : 'N/A',
         token: generateToken(user._id), // লগইন সফল হলে টোকেন পাঠানো হচ্ছে
         message: 'Login successful!'
       });

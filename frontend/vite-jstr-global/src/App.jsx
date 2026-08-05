@@ -78,19 +78,38 @@ function App() {
           <Route path="sales/commission" element={<CommissionDesk/>} />
           <Route path="sales/campaigns" element={<ComingSoon/>} />
 
+
+          {/* Marketing profile */}
+          <Route path="my-sales" element={<SalesTrackingReport/>} />
+          <Route path="team-sales" element={<SalesTrackingReport/>} />
+          <Route path="commission" element={<ComingSoon/>} />
+          <Route path="wallet" element={<ComingSoon/>} />
+          <Route path="tree" element={<EmployeeTree/>} />
+          <Route path="rank" element={<ComingSoon/>} />
+
           {/* ⚙️ Settings */}
           <Route path="settings" element={<ComingSoon/>} />
 
         </Route>
       
         <Route 
-          path="/dashboard" 
+          path="/employee-panel" 
           element={
             <ProtectedRoute allowedRoles={['employee']}>
-              <Sidebar/>
+              <Dashboard/>
             </ProtectedRoute>
-          } 
-        />
+          }>
+          <Route path="/employee-panel" element={<ComingSoon/>} />
+          <Route path="my-sales" element={<SalesTrackingReport/>} />
+          <Route path="team-sales" element={<SalesTrackingReport/>} />
+          <Route path="commission" element={<ComingSoon/>} />
+          <Route path="wallet" element={<ComingSoon/>} />
+          <Route path="tree" element={<EmployeeTree/>} />
+          <Route path="rank" element={<ComingSoon/>} />
+          <Route path="settings" element={<ComingSoon/>} />
+        </Route>
+
+
       </Routes>
 
       

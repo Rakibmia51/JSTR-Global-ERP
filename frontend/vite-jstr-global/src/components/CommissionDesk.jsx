@@ -57,6 +57,7 @@ export default function CommissionDesk() {
 
   // ২. আপনার ব্যাকএন্ড ডাটা থেকে সম্পূর্ণ ফ্ল্যাট বা লিনিয়ার লিস্ট জেনারেট করুন
   const allEmployeesList = data?.data ? flattenEmployees(data.data) : [];
+  //console.log(allEmployeesList)
 
   if (loading) {
     return (
