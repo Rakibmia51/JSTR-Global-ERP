@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { registerUser, loginUser, getUserProfile, getAllUsers, getAllEmployees, updateUser,getEmployeeById, deleteUser, getEmployeeTree } = require('../controllers/userController');
+const { registerUser, loginUser, getUserProfile, getAllUsers, getAllEmployees, updateUser,getEmployeeById, deleteUser, getEmployeeTree, getMyDownlineTree, getEmployeeRankProgress } = require('../controllers/userController');
 const { protect, authorizeRoles } = require('../middleware/authMiddleware');
 const cpUpload = require('../middleware/uploadMiddleware'); // মাল্টার মিডলওয়্যার
 
@@ -20,6 +20,8 @@ router.get('/profile', getUserProfile);
 router.get('/', protect, authorizeRoles('admin', 'manager'), getAllUsers);
 router.get('/all', protect, authorizeRoles('admin', 'manager'), getAllEmployees);
 router.get('/tree', getEmployeeTree);
+router.get('/my-downline-tree', getMyDownlineTree);
+router.get('/rank-progress', getEmployeeRankProgress);
 
 router.get('/:id', getEmployeeById);
 router.put('/:id', protect, authorizeRoles('admin', 'manager'), cpUpload, updateUser);

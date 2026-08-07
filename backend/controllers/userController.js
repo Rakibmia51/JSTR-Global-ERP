@@ -540,4 +540,150 @@ try {
 
 
 
-module.exports = {getEmployeeTree, registerUser, loginUser, getUserProfile, getAllUsers, getAllEmployees, updateUser, deleteUser, getEmployeeById};
+
+
+
+
+
+// 🆕 আলাদা এপিআই: লগইন করা ইউজারের জন্য ডাউনলাইন ট্রি জেনারেশন
+const getMyDownlineTree = async (req, res) => {
+  try {
+    const { idNo } = req.query;
+    if (!idNo) {
+      return res.status(400).json({ success: false, message: "Missing idNo parameter" });
+    }
+
+    const db = mongoose.connection.db;
+
+    // ১. ডাটাবেজ থেকে সব MKT কর্মচারীদের তুলে আনা
+    const users = await db.collection("users").find({ idNo: { $regex: /^MKT/i } }).toArray();
+
+    const userSalesMap = {};
+    const parentToChildrenMap = {};
+
+    // ২. ওয়ান-পাস মেমোরি ইনডেক্সিং ম্যাপ তৈরি
+    users.forEach(u => {
+      userSalesMap[u.idNo] = {
+        _id: u._id.toString(),
+        idNo: u.idNo,
+        name: u.name,
+        role: u.role,
+        department: u.department,
+        children: []
+      };
+
+      const parentId = u.refIdNo || "0";
+      if (!parentToChildrenMap[parentId]) parentToChildrenMap[parentId] = [];
+      parentToChildrenMap[parentId].push(u.idNo);
+    });
+
+    // ৩. রিকার্সিভলি নেস্টেড চাইল্ড ট্রি অবজেক্ট জেনারেটর লজিক
+    const buildNestedTree = (currentIdNo) => {
+      const node = userSalesMap[currentIdNo];
+      if (!node) return null;
+
+      const childrenIds = parentToChildrenMap[currentIdNo] || [];
+      childrenIds.forEach(childId => {
+        const childNode = buildNestedTree(childId);
+        if (childNode) {
+          node.children.push(childNode);
+        }
+      });
+
+      return node;
+    };
+
+    // আমার আইডি দিয়ে নেস্টেড ট্রি জেনারেট করা শুরু
+    const finalMyTree = buildNestedTree(idNo);
+
+    res.status(200).json({
+      success: true,
+      tree: finalMyTree ? [finalMyTree] : []
+    });
+
+  } catch (error) {
+    console.error("Downline Tree API Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// 🆕 আলাদা এপিআই: ইউজারের র্যাংক প্রোগ্রেস ও টার্গেট মেটাস্ট্যাটস গেট করা
+const getEmployeeRankProgress = async (req, res) => {
+  try {
+    const { idNo } = req.query;
+    if (!idNo) {
+      return res.status(400).json({ success: false, message: "Missing idNo parameter" });
+    }
+
+    const db = mongoose.connection.db;
+
+    // ১. গ্লোবাল র্যাংক ম্যাপ ও রিকোয়ারমেন্ট কনফিগারেশন ডিফাইন করা
+    const RANK_MAP = { "SALES REPRESENTATIVE": 0, "AM": 1, "RSM": 2, "DSM": 3, "SDSM": 4, "SM": 5, "NSM": 6, "ED": 7, "BOM": 8 };
+    
+    const RANK_REQUIREMENTS = {
+      "AM": { next: "AM", sales: 25000, condition: "৳২৫,০০০ সেলস" },
+      "RSM": { next: "RSM", sales: 75000, childRank: "AM", childCount: 3, condition: "৳৭৫,০০০ সেলস ও ৩ জন AM" },
+      "DSM": { next: "DSM", sales: 200000, condition: "৳২,০০,০০০ সেলস ও (২ জন RSM + ২ জন AM) অথবা ৪ জন RSM" },
+      "SDSM": { next: "SDSM", sales: 400000, childRank: "DSM", childCount: 2, condition: "৳৪,০০,০০০ সেলস ও ২ জন DSM" },
+      "SM": { next: "SM", sales: 600000, childRank: "DSM", childCount: 3, condition: "৳৬,০০,০০০ সেলস ও ৩ জন DSM" },
+      "NSM": { next: "NSM", sales: 800000, childRank: "DSM", childCount: 4, condition: "৳৮,০০,০০০ সেলস ও ৪ জন DSM" },
+      "ED": { next: "ED", sales: 3200000, childRank: "NSM", childCount: 4, condition: "৳৩২,০০,০০০ সেলস ও ৪ জন NSM" },
+      "BOM": { next: "BOM", sales: 6400000, childRank: "ED", childCount: 2, condition: "৳৬৪,০০,০০০ সেলস ও ২ জন ED" }
+    };
+
+    // ২. লাইভ ডাটা জেনারেট করার জন্য আগের ক্যালকুলেশন মেথড রান করা (চলতি মাসের লাইভ ট্রি ইঞ্জিন কল)
+    // নোট: এখানে getEmployeeTree এর ভেতরের লজিক অনুযায়ী ইউজার অবজেক্ট তুলে আনা হচ্ছে
+    const users = await db.collection("users").find({ idNo: { $regex: /^MKT/i } }).toArray();
+    
+    // লাইভ ড্যাশবোর্ড সেলস থেকে সরাসরি কারেন্ট ডাটা অবজেক্ট ম্যাপ করা হচ্ছে
+    // (আপনার commissionController.js এর executeLedgerCalculationEngine এর মতো ডাটা জেনারেট করে নেওয়া)
+    const systemDate = new Date();
+    const liveData = await calculateLiveCurrentMonthSales(idNo, systemDate.getFullYear(), systemDate.getMonth() + 1);
+
+    const currentRank = liveData.autoPosition || "SALES REPRESENTATIVE";
+    const currentSales = liveData.totalSalesVolume || 0;
+
+    // ৩. পরবর্তী টার্গেট র্যাংক নির্ধারণ করা
+    const rankOrder = ["SALES REPRESENTATIVE", "AM", "RSM", "DSM", "SDSM", "SM", "NSM", "ED", "BOM"];
+    const currentIndex = rankOrder.indexOf(currentRank);
+    const nextRank = currentIndex < rankOrder.length - 1 ? rankOrder[currentIndex + 1] : "MAX";
+
+    const requirements = RANK_REQUIREMENTS[nextRank] || { sales: currentSales, condition: "Maximum rank achieved!" };
+
+    // ৪. প্রোগ্রেস পার্সেন্টেজ ক্যালকুলেশন
+    let salesPercentage = (currentSales / requirements.sales) * 100;
+    if (salesPercentage > 100) salesPercentage = 100;
+
+    res.status(200).json({
+      success: true,
+      currentRank,
+      currentSales,
+      nextRank,
+      targetSales: requirements.sales,
+      conditionText: requirements.condition,
+      progressPercentage: Math.round(salesPercentage),
+      remainingSales: requirements.sales > currentSales ? (requirements.sales - currentSales) : 0
+    });
+
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ⚠️ routes/dashboardRoutes.js ফাইলে এটি রেজিস্টার করে দিন:
+// router.get('/rank-progress', getEmployeeRankProgress);
+
+
+
+module.exports = {
+  getEmployeeTree, 
+  getMyDownlineTree,
+  registerUser, 
+  loginUser, 
+  getUserProfile,
+   getAllUsers, 
+   getAllEmployees, 
+   updateUser, 
+   deleteUser, 
+   getEmployeeById,
+   getEmployeeRankProgress};

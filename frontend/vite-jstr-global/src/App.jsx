@@ -30,6 +30,11 @@ import UserWallet from './components/UserWallet';
 import UserPayoutHistory from './components/UserPayoutHistory';
 import AdminWalletManager from './components/AdminAccountsDashboard';
 import AdminAccountsDashboard from './components/AdminAccountsDashboard';
+import EmployeeStatsGrid from './components/EmployeeStatsGrid';
+import EmployeeMonthlySales from './components/EmployeeMonthlySales';
+import TeamInvoicesLog from './components/TeamInvoicesLog';
+import DownlineTree from './components/DownlineTree';
+import RankProgress from './components/RankProgress';
 
 
 
@@ -89,12 +94,13 @@ function App() {
 
 
           {/* Marketing profile */}
-          <Route path="my-sales" element={<SalesTrackingReport/>} />
-          <Route path="team-sales" element={<SalesTrackingReport/>} />
+          <Route path="my-sales" element={<EmployeeMonthlySales/>} />
+          <Route path="team-sales" element={<TeamInvoicesLog/>} />
           <Route path="commission" element={<ComingSoon/>} />
           <Route path="wallet" element={<UserWallet/>} />
-          <Route path="tree" element={<EmployeeTree/>} />
-          <Route path="rank" element={<ComingSoon/>} />
+          <Route path="wallet/payout-history" element={<ComingSoon/>} />
+          <Route path="tree" element={<DownlineTree/>} />
+          <Route path="rank" element={<RankProgress/>} />
 
           {/* ⚙️ Settings */}
           <Route path="settings" element={<ComingSoon/>} />
@@ -108,14 +114,14 @@ function App() {
               <Dashboard/>
             </ProtectedRoute>
           }>
-          <Route path="/employee-panel" element={<ComingSoon/>} />
-          <Route path="my-sales" element={<SalesTrackingReport/>} />
-          <Route path="team-sales" element={<SalesTrackingReport/>} />
+          <Route path="/employee-panel" element={<EmployeeStatsGrid/>} />
+          <Route path="my-sales" element={<EmployeeMonthlySales/>} />
+          <Route path="team-sales" element={<TeamInvoicesLog/>} />
           <Route path="commission" element={<ComingSoon/>} />
           <Route path="wallet" element={<UserWallet/>} />
           <Route path="wallet/payout-history" element={<ComingSoon/>} />
-          <Route path="tree" element={<EmployeeTree/>} />
-          <Route path="rank" element={<ComingSoon/>} />
+          <Route path="tree" element={<DownlineTree/>} />
+          <Route path="rank" element={<RankProgress/>} />
           <Route path="settings" element={<ComingSoon/>} />
         </Route>
 
