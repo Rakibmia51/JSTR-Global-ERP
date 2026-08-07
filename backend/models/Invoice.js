@@ -1,6 +1,87 @@
 // models/Invoice.js
 const mongoose = require('mongoose');
 
+// 1st version of invoice schema
+// const invoiceSchema = new mongoose.Schema({
+//   invoiceNo: { type: String, unique: true, trim: true },
+  
+//   // কার নামে ইনভয়েস হচ্ছে (Dealer অথবা সাধারণ Customer)
+//   dealer: { type: mongoose.Schema.Types.ObjectId, ref: 'Dealer', default: null },
+//   customerName: { type: String, trim: true },
+//   customerMobile: { type: String, trim: true },
+
+//   // প্রোডাক্টের তালিকা
+//   items: [{
+//     productName: { type: String, required: true },
+//     quantity: { type: Number, required: true, min: 1 },
+//     unitPrice: { type: Number, required: true, min: 0 },
+//     totalPrice: { type: Number, required: true }
+//   }],
+
+//   // হিসাব-নিকাশ
+//   subTotal: { type: Number, default: 0, min: 0 },
+//   discount: { type: Number, default: 0, min: 0 },
+//   tax: { type: Number, default: 0, min: 0 },
+//   grandTotal: { type: Number, default: 0, min: 0 },
+  
+//   // পেমেন্ট ইনফো
+//   paidAmount: { type: Number, default: 0, min: 0 },
+//   dueAmount: { type: Number, default: 0, min: 0 },
+
+//   paymentStatus: { 
+//     type: String, 
+//     enum: ['Paid', 'Partially Paid', 'Due'], 
+//     default: 'Due' 
+//   },
+//   paymentMethod: { 
+//     type: String, 
+//     enum: ['Cash', 'Bank Transfer', 'Mobile Banking', 'Bkash', 'Nagad'], 
+//     default: 'Cash' 
+//   },
+//   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // কোন কর্মচারী ইনভয়েসটি বানালো
+//  // 💡 নতুন যুক্ত করুন: ইনভয়েস হিস্ট্রি ট্র্যাক করার লগ
+//   historyLog: [{
+//     action: { type: String, enum: ['Created', 'Updated'], required: true },
+//     grandTotal: { type: Number, required: true },
+//     paidAmount: { type: Number, required: true },
+//     dueAmount: { type: Number, required: true },
+//     note: { type: String, default: '' },
+//     updatedBy: { type: String, default: 'System Admin' }, // বা User Object ID দিতে পারেন
+//     updatedAt: { type: Date, default: Date.now }
+//   }]
+
+// }, { timestamps: true });
+
+
+// // স্বয়ংক্রিয় ইনভয়েস নম্বর জেনারেশন মিডলওয়্যার
+// invoiceSchema.pre('save', async function () {
+//   if (!this.isNew || this.invoiceNo) return;
+
+//   try {
+//     const currentYear = new Date().getFullYear();
+//     const prefix = 'INV';
+    
+//     const idPattern = new RegExp(`^${prefix}-${currentYear}-`);
+//     const lastInv = await mongoose.model('Invoice').findOne({ invoiceNo: idPattern }, { invoiceNo: 1 }, { sort: { invoiceNo: -1 } });
+
+//     let nextSerial = 1;
+//     if (lastInv && lastInv.invoiceNo) {
+//       const parts = lastInv.invoiceNo.split('-');
+//       nextSerial = parseInt(parts[parts.length - 1], 10) + 1;
+//     }
+
+//     this.invoiceNo = `${prefix}-${currentYear}-${String(nextSerial).padStart(5, '0')}`;
+//   } catch (error) {
+//     throw error;
+//   }
+// });
+
+// module.exports = mongoose.model('Invoice', invoiceSchema);
+
+
+// 2nd version of invoice schema with more features
+// models/Invoice.js
+
 const invoiceSchema = new mongoose.Schema({
   invoiceNo: { type: String, unique: true, trim: true },
   
@@ -8,6 +89,24 @@ const invoiceSchema = new mongoose.Schema({
   dealer: { type: mongoose.Schema.Types.ObjectId, ref: 'Dealer', default: null },
   customerName: { type: String, trim: true },
   customerMobile: { type: String, trim: true },
+
+  // 🔒 🆕 নতুন যুক্ত ফিল্ড: ডিলার এবং কর্মচারীর স্থায়ী রেকর্ড (স্ন্যাপশট)
+  // এটি রেফারেন্স আইডি পরিবর্তনজনিত সমস্যা পুরোপুরি সমাধান করবে
+  archivedSalesData: {
+    dealerSnapshot: {
+      idNo: { type: String },
+      name: { type: String }
+    },
+    employeeSnapshot: {
+      idNo: { type: String }, // MKT-0008
+      name: { type: String },
+      department: { type: String, default: 'MKT' }
+    },
+    archivedAt: { type: Date }
+  },
+  
+  // 🆕 নতুন যুক্ত ফিল্ড: মাসের শেষে প্রসেস ট্র্যাকিং এর জন্য ফ্ল্যাগ
+  isMonthlyArchived: { type: Boolean, default: false },
 
   // প্রোডাক্টের তালিকা
   items: [{
@@ -38,7 +137,8 @@ const invoiceSchema = new mongoose.Schema({
     default: 'Cash' 
   },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // কোন কর্মচারী ইনভয়েসটি বানালো
- // 💡 নতুন যুক্ত করুন: ইনভয়েস হিস্ট্রি ট্র্যাক করার লগ
+  
+  // 💡 নতুন যুক্ত করুন: ইনভয়েস হিস্ট্রি ট্র্যাক করার লগ
   historyLog: [{
     action: { type: String, enum: ['Created', 'Updated'], required: true },
     grandTotal: { type: Number, required: true },
@@ -50,11 +150,6 @@ const invoiceSchema = new mongoose.Schema({
   }]
 
 }, { timestamps: true });
-
-
-
-
-
 
 // স্বয়ংক্রিয় ইনভয়েস নম্বর জেনারেশন মিডলওয়্যার
 invoiceSchema.pre('save', async function () {

@@ -17,5 +17,11 @@
   "total_employees": "Total Employees",
   "active_products": "Active Products",
   "system_status": "System Status",
-  "optimal": "Optimal"
+  "optimal": "Optimal",
+  "archive_monthly_sales": "Archive Monthly Sales",
+  "commission": "Commission",
+  "wallet": "Wallet",
+  "my_payouts": "My Payouts",
+  "request_payout": "Request Payout",
+  "payout_history": "Payout History"
 }

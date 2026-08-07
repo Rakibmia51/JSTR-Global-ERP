@@ -300,7 +300,8 @@ import {
   Wallet,
   Award,
   // Layers,
-  UserCheck
+  UserCheck,
+  Lock
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -382,6 +383,8 @@ const Sidebar = () => {
         { name: t('invoice_history'), id: 'Invoice History', icon: History, path: '/admin-panel/accounting/history' },
         { name: t('expense_tracker'), id: 'Expense Tracker', icon: DollarSign, path: '/admin-panel/accounting/expenses' },
         { name: t('financial_reports'), id: 'Financial Reports', icon: PieChart, path: '/admin-panel/accounting/reports' },
+        { name: t('admin_wallet_manager', 'Admin Wallet Manager'), id: 'Admin Wallet Manager', icon: Wallet, path: '/admin-panel/accounting/wallet-manager' },
+        { name: t('admin_accounts_dashboard', 'Admin Accounts Dashboard'), id: 'Admin Accounts Dashboard', icon: UserCheck, path: '/admin-panel/accounting/admin-accounts-dashboard' },
       ]
     },
     { 
@@ -392,6 +395,7 @@ const Sidebar = () => {
       hasSubMenu: true,
       roles: ['admin'],
       subMenuItems: [
+        { name: t('archive_monthly_sales'), id: 'Monthly Sales Archive', icon: Lock, path: '/admin-panel/sales/archive'},
         { name: t('sales_forecast'), id: 'Sales Forecast', icon: TrendingUp, path: '/admin-panel/sales/forecast' },
         { name: t('commission_payouts'), id: 'Commission Payouts', icon: Target, path: '/admin-panel/sales/commission' },
         { name: t('campaigns'), id: 'Campaigns', icon: Megaphone, path: '/admin-panel/sales/campaigns' },
@@ -445,7 +449,20 @@ const Sidebar = () => {
       icon: Wallet,
       path: `/${userRole.toLowerCase()}-panel/wallet`,
       roles: ['employee', 'dealer', 'admin'], // উভয়েই দেখতে পাবে,
-      userDepartmentCode: ['MKT'] 
+      userDepartmentCode: ['MKT'], 
+      subMenuItems: [
+        { name: t('my_payouts', 'My Payouts'), id: 'My Payouts', icon: DollarSign, path: `/${userRole.toLowerCase()}-panel/wallet/my-payouts` },
+        { name: t('request_payout', 'Request Payout'), id: 'Request Payout', icon: PlusCircle, path: `/${userRole.toLowerCase()}-panel/wallet/request-payout` },
+        { name: t('payout_history', 'Payout History'), id: 'Payout History', icon: History, path: `/${userRole.toLowerCase()}-panel/wallet/payout-history` },
+      ]
+    },
+    { 
+      name: t('payout_history', 'Payout History'), 
+      id: 'Payout History',
+      icon: History,
+      path: `/${userRole.toLowerCase()}-panel/wallet/payout-history`,
+      roles: ['employee', 'dealer', 'admin'], // উভয়েই দেখতে পাবে,
+      userDepartmentCode: ['MKT'], 
     },
     { 
       name: t('downline_tree', 'Downline Tree'), 

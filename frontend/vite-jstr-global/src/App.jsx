@@ -22,8 +22,14 @@ import InvoiceAndChallan from './components/InvoiceAndChallan';
 import InvoiceHistoryTable from './components/InvoiceHistory';
 import EmployeeTree from './components/EmployeeTree';
 import SalesTrackingReport from './components/SalesEmployee';
-import CommissionLedger from './components/CommissionLedger';
+import CommissionLedger from './components/CommissionLedger-2';
 import CommissionDesk from './components/CommissionDesk';
+import SalesArchiveMonthly from './components/SalesArchiveMonthly';
+import AdminArchivePanel from './components/AdminArchivePanel';
+import UserWallet from './components/UserWallet';
+import UserPayoutHistory from './components/UserPayoutHistory';
+import AdminWalletManager from './components/AdminAccountsDashboard';
+import AdminAccountsDashboard from './components/AdminAccountsDashboard';
 
 
 
@@ -71,19 +77,22 @@ function App() {
           <Route path="/admin-panel/accounting/update-invoice/:id" element={<InvoiceForm/>} />
           <Route path="accounting/history" element={<InvoiceHistoryTable/>} />
           <Route path="accounting/expenses" element={<InvoiceAndChallan/>} />
-          <Route path="accounting/reports" element={<ComingSoon/>} />
+          <Route path="accounting/reports" element={<CommissionLedger/>} />
+          <Route path="accounting/wallet-manager" element={<ComingSoon/>} />
+          <Route path="accounting/admin-accounts-dashboard" element={<AdminAccountsDashboard/>} />
 
           {/* 📈 Marketing & Sales Modules */}
+          <Route path="sales/archive" element={<AdminArchivePanel/>} />
           <Route path="sales/forecast" element={<SalesTrackingReport/>} />
           <Route path="sales/commission" element={<CommissionDesk/>} />
-          <Route path="sales/campaigns" element={<ComingSoon/>} />
+          <Route path="sales/campaigns" element={<SalesArchiveMonthly/>} />
 
 
           {/* Marketing profile */}
           <Route path="my-sales" element={<SalesTrackingReport/>} />
           <Route path="team-sales" element={<SalesTrackingReport/>} />
           <Route path="commission" element={<ComingSoon/>} />
-          <Route path="wallet" element={<ComingSoon/>} />
+          <Route path="wallet" element={<UserWallet/>} />
           <Route path="tree" element={<EmployeeTree/>} />
           <Route path="rank" element={<ComingSoon/>} />
 
@@ -103,7 +112,8 @@ function App() {
           <Route path="my-sales" element={<SalesTrackingReport/>} />
           <Route path="team-sales" element={<SalesTrackingReport/>} />
           <Route path="commission" element={<ComingSoon/>} />
-          <Route path="wallet" element={<ComingSoon/>} />
+          <Route path="wallet" element={<UserWallet/>} />
+          <Route path="wallet/payout-history" element={<ComingSoon/>} />
           <Route path="tree" element={<EmployeeTree/>} />
           <Route path="rank" element={<ComingSoon/>} />
           <Route path="settings" element={<ComingSoon/>} />

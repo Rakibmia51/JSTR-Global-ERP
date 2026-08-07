@@ -33,6 +33,7 @@ const invoicesRoutes = require('./routes/invoicesRoutes.js')
 const productRoutes = require('./routes/productRoutes.js')
 const salesRoutes = require('./routes/salesRoutes.js')
 const commissionRoutes = require('./routes/commissionRoutes.js')
+const payoutRoutes = require('./routes/payoutRoutes');
 
 
 // এপিআই রাউট লিংক
@@ -54,6 +55,36 @@ app.use('/api/sales', salesRoutes);
 
 // Api Commissions
 app.use('/api/commissions', commissionRoutes);
+
+// Api Payouts
+app.use('/api/payouts', payoutRoutes);
+
+
+
+// Cron Job Setup for Monthly Sales Archiving 
+// ⏳ প্রতি মাসের শেষ দিন রাত ২৩:৫৯ মিনিটে এই ফাংশনটি অটোমেটিক ব্যাকগ্রাউন্ডে রান হবে
+const cron = require('node-cron');
+const { archiveMonthlySales } = require('./controllers/salesController'); // আপনার কন্ট্রোলারের পাথ
+
+// ⏳ প্রতি মাসের শেষ দিন রাত ২৩:৫৯ মিনিটে এই ফাংশনটি অটোমেটিক ব্যাকগ্রাউন্ডে রান হবে
+cron.schedule('59 23 28-31 * *', async () => {
+  // নিশ্চিত করা যে এটি আসলেই মাসের শেষ দিন
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (tomorrow.getDate() !== 1) return; // যদি আগামীকাল মাসের ১ তারিখ না হয়, তবে স্কিপ করবে
+
+  console.log("⏰ Automatically Running Monthly Sales Archiver Lock...");
+  
+  // আপনার তৈরি করা কন্ট্রোলার ফাংশনটিকেই ক্রন জব সরাসরি কল করবে (mocking res/req)
+  const req = {};
+  const res = {
+    status: () => ({ json: (data) => console.log("Cron Result:", data.message) })
+  };
+  
+  await archiveMonthlySales(req, res);
+});
+
+
 
 
 

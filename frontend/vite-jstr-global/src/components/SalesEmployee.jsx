@@ -66,12 +66,12 @@ const SalesTrackingReport = () => {
                         <FaUserCheck color="#0ea5e9" style={{ flexShrink: 0 }} />
                         <div>
                           <span style={{ fontWeight: "600", color: "#334155", display: "block" }}>{sale.dealer?.name || "Unknown Dealer"}</span>
-                          <span style={{ fontSize: "12px", color: "#64748b" }}>ID: {sale.dealer?.dealerId || "N/A"}</span>
+                          <span style={{ fontSize: "12px", color: "#64748b" }}>ID: {sale.dealer?.dealerId || sale.dealer?.idNo || "N/A"}</span>
                         </div>
                       </div>
                     </td>
 
-                    {/* ৩. রেফারেন্স মার্কেটিং এমপ্লয়ি */}
+                    {/* ৩. রেফারেন্স মার্কেটিং এমপ্লয়ি */}
                     <td style={{ padding: "16px" }} data-label="MKT Reference">
                       {sale.employeeInfo ? (
                         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>

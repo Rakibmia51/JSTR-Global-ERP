@@ -328,10 +328,10 @@ const getEmployeeTree = async (req, res) => {
 try {
     const db = mongoose.connection.db;
     
-    // ১. ডাটাবেজ থেকে সেলস/ইনভয়েস তুলে আনা
-    let allSales = await db.collection("sales").find({}).toArray();
+   // ১. ডাটাবেজ থেকে সেলস/ইনভয়েস, ডিলার এবং MKT ইউজার তুলে আনা
+    let allSales = await db.collection("invoices").find({}).toArray();
     if (!allSales || allSales.length === 0) {
-      allSales = await db.collection("invoices").find({}).toArray();
+      allSales = await db.collection("sales").find({}).toArray();
     }
 
     const dealers = await db.collection("dealers").find({}).toArray();
@@ -359,86 +359,100 @@ try {
       };
     });
 
-    // ৩. ডিলারের মাধ্যমে এমপ্লয়িদের ডাইরেক্ট সেলস ভাগ করা (Total vs This Month)
-    dealers.forEach(dlr => {
-      const dlrSales = allSales.filter(s => s.dealer?.toString() === dlr._id?.toString());
+    // ৩. ডাইনামিক সেলস ক্যালকুলেশন (আর্কাইভড স্ন্যাপশট বনাম লাইভ রিলেশন)
+    allSales.forEach(sale => {
+      const saleAmount = sale.grandTotal || 0;
+      const saleDate = new Date(sale.createdAt);
+      const isCurrentMonth = saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear;
       
-      dlrSales.forEach(sale => {
-        const saleAmount = sale.grandTotal || 0;
-        const saleDate = new Date(sale.createdAt);
+      let targetEmployeeIdNo = null;
 
-        if (dlr.referenceIdNo && userSalesMap[dlr.referenceIdNo]) {
-          userSalesMap[dlr.referenceIdNo].directSalesTotal += saleAmount;
-          userSalesMap[dlr.referenceIdNo].totalSalesVolume += saleAmount;
-
-          if (saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear) {
-            userSalesMap[dlr.referenceIdNo].directSalesThisMonth += saleAmount;
-            userSalesMap[dlr.referenceIdNo].thisMonthSalesVolume += saleAmount;
-          }
+      // ক) ইনভয়েসটি যদি ইতিমধ্যে আর্কাইভড হয়ে থাকে, তবে সরাসরি ভেতরের স্ন্যাপশট আইডি ব্যবহার করব (যা কখনো চেঞ্জ হবে না)
+      if (sale.isMonthlyArchived && sale.archivedSalesData?.employeeSnapshot?.idNo) {
+        targetEmployeeIdNo = sale.archivedSalesData.employeeSnapshot.idNo;
+      } 
+      // খ) যদি ইনভয়েসটি আর্কাইভড না হয় (রানিং মাস), তবে ডিলারের কারেন্ট referenceIdNo দিয়ে ট্র্যাক করব
+      else if (sale.dealer) {
+        const matchingDealer = dealers.find(d => d._id.toString() === sale.dealer.toString());
+        if (matchingDealer && matchingDealer.referenceIdNo) {
+          targetEmployeeIdNo = matchingDealer.referenceIdNo;
         }
-      });
+      }
+
+      // গ) প্রাপ্ত এমপ্লয়ি আইডিতে সেলস অ্যামাউন্ট যোগ করা
+      if (targetEmployeeIdNo && userSalesMap[targetEmployeeIdNo]) {
+        userSalesMap[targetEmployeeIdNo].directSalesTotal += saleAmount;
+        userSalesMap[targetEmployeeIdNo].totalSalesVolume += saleAmount; // রিকিউরসিভ ভলিউমের বেস ভ্যালু
+
+        if (isCurrentMonth) {
+          userSalesMap[targetEmployeeIdNo].directSalesThisMonth += saleAmount;
+          userSalesMap[targetEmployeeIdNo].thisMonthSalesVolume += saleAmount; // রিকিউরসিভ মান্থলি ভলিউমের বেস ভ্যালু
+        }
+      }
     });
 
    
-    // পজিশন হায়ারার্কি র্যাংক (সিনিয়র মেম্বারদের কাউন্ট করার জন্য)
-const RANK_MAP = {
-  "SALES REPRESENTATIVE": 0, "AM": 1, "RSM": 2, "DSM": 3, 
-  "SDSM": 4, "SM": 5, "NSM": 6, "ED": 7, "BOM": 8
-};
+    // পজিশন হায়ারার্কি র্যাংক (সিনিয়র মেম্বারদের কাউন্ট করার জন্য)
+    const RANK_MAP = {
+      "SALES REPRESENTATIVE": 0, "AM": 1, "RSM": 2, "DSM": 3, 
+      "SDSM": 4, "SM": 5, "NSM": 6, "ED": 7, "BOM": 8
+    };
 
-const autoDeterminePosition = (salesVolume, subNodesSummary = []) => {
-  // ১. ওয়ান-পাস অপ্টিমাইজড কাউন্টিং (বারবার ফিল্টার লুপ এড়ানোর জন্য)
-  const counts = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
   
-  subNodesSummary.forEach(sub => {
-    const pos = (sub.autoPosition || "").toUpperCase().trim();
-    if (counts[pos] !== undefined) counts[pos]++;
-  });
+    const autoDeterminePosition = (salesVolume, subNodesSummary = []) => {
+      // ১. ওয়ান-পাস অপ্টিমাইজড কাউন্টিং (বারবার ফিল্টার লুপ এড়ানোর জন্য)
+      const counts = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+      
+      subNodesSummary.forEach(sub => {
+        const pos = (sub.autoPosition || "").toUpperCase().trim();
+        if (counts[pos] !== undefined) counts[pos]++;
+      });
 
-  // ২. কিউমুলেティブ হেল্পার (টার্গেট পজিশন বা তার চেয়ে বড় পজিশনের মেম্বারদেরও গুনবে)
-  const countAtLeast = (targetPos) => {
-    return Object.keys(counts).reduce((total, pos) => {
-      return RANK_MAP[pos] >= RANK_MAP[targetPos] ? total + counts[pos] : total;
-    }, 0);
-  };
+      // ২. কিউমুলেটিভ হেল্পার (টার্গেট পজিশন বা তার চেয়ে বড় পজিশনের মেম্বারদেরও গুনবে)
+      const countAtLeast = (targetPos) => {
+        return Object.keys(counts).reduce((total, pos) => {
+          return RANK_MAP[pos] >= RANK_MAP[targetPos] ? total + counts[pos] : total;
+        }, 0);
+      };
 
-  // =======================================================================
-  // ৩. সঠিক কন্ডিশনাল অর্ডার সিকোয়েন্স (Top to Bottom অনুসারে আপনার রিকোয়ারমেন্ট)
-  // =======================================================================
+      // =======================================================================
+      // ৩. সঠিক কন্ডিশনাল অর্ডার সিকোয়েন্স (Top to Bottom অনুসারে আপনার রিকোয়ারমেন্ট)
+      // =======================================================================
 
-  // ৮. BOM: ২ জন ED কোয়ালিফাই এবং ৬৪ লাখ (৬৪,০০,০০০) সেলস হতে হবে
-  if (salesVolume >= 6400000 && countAtLeast("ED") >= 2) return "BOM";
+      // ৮. BOM: ২ জন ED কোয়ালিফাই এবং ৬৪ লাখ (৬৪,০০,০০০) সেলস হতে হবে
+      if (salesVolume >= 6400000 && countAtLeast("ED") >= 2) return "BOM";
 
-  // ৭. ED: ৪ জন NSM কোয়ালিফাই এবং ৩২ লাখ (৩২,০০,০০০) সেলস হতে হবে
-  if (salesVolume >= 3200000 && countAtLeast("NSM") >= 4) return "ED";
-  
-  // ৬. NSM: ৪ জন DSM কোয়ালিফাই এবং ৮ লাখ (৮,০০,০০০) সেলস হতে হবে
-  if (salesVolume >= 800000 && countAtLeast("DSM") >= 4) return "NSM";
-  
-  // ৫. SM: ৩ জন DSM কোয়ালিফাই এবং ৬ লাখ (৬,০০,০০০) সেলস হতে হবে
-  if (salesVolume >= 600000 && countAtLeast("DSM") >= 3) return "SM";
-  
-  // ৪. SDSM: ২ জন DSM কোয়ালিফাই এবং ৪ লাখ (৪,০০,০০০) সেলস হতে হবে
-  if (salesVolume >= 400000 && countAtLeast("DSM") >= 2) return "SDSM";
-  
-  // ৩. DSM: (২ জন RSM এবং ২ জন AM) অথবা (৪ জন RSM) কোয়ালিফাই এবং ২ লাখ (২,০০,০০০) সেলস হতে হবে
-  if (salesVolume >= 200000 && (
-      (countAtLeast("RSM") >= 2 && countAtLeast("AM") >= 2) || 
-      countAtLeast("RSM") >= 4
-  )) {
-    return "DSM";
-  }
-  
-  // ২. RSM: ৩ জন AM কোয়ালিফাই এবং ৭৫ হাজার (৭৫,০০০) সেলস হতে হবে
-  if (salesVolume >= 75000 && countAtLeast("AM") >= 3) return "RSM";
-  
-  // ১. AM: ২৫ হাজার (২৫,০০০) সেলস হতে হবে
-  if (salesVolume >= 25000) return "AM";
-  
-  return "SALES REPRESENTATIVE";
-};
+      // ৭. ED: ৪ জন NSM কোয়ালিফাই এবং ৩২ লাখ (৩২,০০,০০০) সেলস হতে হবে
+      if (salesVolume >= 3200000 && countAtLeast("NSM") >= 4) return "ED";
+      
+      // ৬. NSM: ৪ জন DSM কোয়ালিফাই এবং ৮ লাখ (৮,০০,০০০) সেলস হতে হবে
+      if (salesVolume >= 800000 && countAtLeast("DSM") >= 4) return "NSM";
+      
+      // ৫. SM: ৩ জন DSM কোয়ালিফাই এবং ৬ লাখ (৬,০০,০০০) সেলস হতে হবে
+      if (salesVolume >= 600000 && countAtLeast("DSM") >= 3) return "SM";
+      
+      // ৪. SDSM: ২ জন DSM কোয়ালিফাই এবং ৪ লাখ (৪,০০,০০০) সেলস হতে হবে
+      if (salesVolume >= 400000 && countAtLeast("DSM") >= 2) return "SDSM";
+      
+      // ৩. DSM: (২ জন RSM এবং ২ জন AM) অথবা (৪ জন RSM) কোয়ালিফাই এবং ২ লাখ (২,০০,০০০) সেলস হতে হবে
+      if (salesVolume >= 200000 && (
+          (countAtLeast("RSM") >= 2 && countAtLeast("AM") >= 2) || 
+          countAtLeast("RSM") >= 4
+      )) {
+        return "DSM";
+      }
+      
+      // ২. RSM: ৩ জন AM কোয়ালিফাই এবং ৭৫ হাজার (৭৫,০০০) সেলস হতে হবে
+      if (salesVolume >= 75000 && countAtLeast("AM") >= 3) return "RSM";
+      
+      // ১. AM: ২৫ হাজার (২৫,০০০) সেলস হতে হবে
+      if (salesVolume >= 25000) return "AM";
+      
+      return "SALES REPRESENTATIVE";
+    };
 
 
+    // thisMonthSalesVolume এবং TotalSalesVolume সহ প্রতিটি এমপ্লয়ির জন্য পজিশন নির্ধারণ করা    
 
     // ১. ওয়ান-পাস চাইল্ড ম্যাপ তৈরি (বারবার users.filter লুপ এড়ানোর জন্য)
     const childMap = {};

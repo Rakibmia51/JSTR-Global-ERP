@@ -3,7 +3,7 @@ const router = express.Router();
 
 // Destructuring the specific middleware from your combined upload file
 const { protect, authorizeRoles } = require('../middleware/authMiddleware.js');
-const { getSalesWithEmployee } = require('../controllers/salesController.js');
+const { getSalesWithEmployee , archiveMonthlySales} = require('../controllers/salesController.js');
 
 
 // --- Routes Definition ---
@@ -13,6 +13,8 @@ const { getSalesWithEmployee } = require('../controllers/salesController.js');
 router.get('/', getSalesWithEmployee);
 
 
+// 🔒 ম্যানুয়াল আর্কাইভ ট্রিগার করার নতুন রুট
+router.post('/archive-monthly', archiveMonthlySales);
 
 
 
