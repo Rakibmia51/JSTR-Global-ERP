@@ -14,6 +14,9 @@ const InvoiceForm2 = () => {
     items: [{ productId: '', productName: '', quantity: 1, unitPrice: 0 }]
   });
 
+  const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'; 
+
+
   // ডাটাবেজে ইনভয়েস সেভ করার ফাংশন
   const handleSubmitInvoice = async (e) => {
     e.preventDefault();
@@ -21,7 +24,7 @@ const InvoiceForm2 = () => {
 
     try {
       // আপনার ব্যাকএন্ড এপিআই এখানে কল করুন
-      const response = await fetch('http://localhost:5000/api/invoices', {
+      const response = await fetch(`${SERVER_URL}/api/invoices`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)

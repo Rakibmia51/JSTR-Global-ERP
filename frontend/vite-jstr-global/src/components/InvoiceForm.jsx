@@ -47,7 +47,7 @@ const InvoiceForm = () => {
     useEffect(() => {
       const loadProducts = async () => {
         try {
-          const response = await fetch('http://localhost:3000/api/products');
+          const response = await fetch(`${SERVER_URL}/api/products`);
           const data = await response.json();
           if (data.success) {
             setProducts(data.data);
@@ -107,7 +107,7 @@ useEffect(() => {
   if (id) {
     const fetchInvoiceData = async () => {
       try {
-        const response = await fetch(`http://localhost:3000/api/invoices/${id}`);
+        const response = await fetch(`${SERVER_URL}/api/invoices/${id}`);
         const result = await response.json();
         
         if (result.success && result.data) {

@@ -19,11 +19,13 @@ export default function CommissionDesk() {
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
 
+   const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'; 
+
   // ব্যাকএন্ড এপিআই থেকে ডেটা ফেচ করার ফাংশন
   const fetchLedgerData = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`http://localhost:3000/api/commissions?year=${year}&month=${month}`);
+      const response = await axios.get(`${SERVER_URL}/api/commissions?year=${year}&month=${month}`);
       setData(response.data);
       console.log("Fetched Ledger Data:", response.data);
     } catch (error) {

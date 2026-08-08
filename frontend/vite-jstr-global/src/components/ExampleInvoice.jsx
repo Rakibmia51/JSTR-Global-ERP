@@ -8,11 +8,13 @@ const InvoiceProductSearch = () => {
   const [isDealer, setIsDealer] = useState(false); // ডিলার হলে TP, কাস্টমার হলে MRP
   const [price, setPrice] = useState(0);
 
+  const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'; 
+
   // ১. পেজ লোড হওয়ার সাথে সাথে ডাটাবেজ থেকে প্রোডাক্ট লিস্ট নিয়ে আসা
   useEffect(() => {
     const loadProducts = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/products');
+        const response = await fetch(`${SERVER_URL}/api/products`);
         const data = await response.json();
         if (data.success) {
           setProducts(data.data);

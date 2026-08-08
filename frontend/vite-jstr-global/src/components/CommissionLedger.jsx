@@ -6,8 +6,10 @@ const CommissionLedger = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("employee"); // employee বা dealer
 
+ const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
+
   useEffect(() => {
-    fetch("http://localhost:3000/api/commissions") // আপনার সঠিক ব্যাকএন্ড এন্ডপয়েন্ট দিন
+    fetch(`${SERVER_URL}/api/commissions`) // আপনার সঠিক ব্যাকএন্ড এন্ডপয়েন্ট দিন
       .then((res) => res.json())
       .then((resData) => {
         setData(resData);

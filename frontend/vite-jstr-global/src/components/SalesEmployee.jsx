@@ -5,8 +5,10 @@ const SalesTrackingReport = () => {
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
+
   useEffect(() => {
-    fetch("http://localhost:3000/api/sales") // আপনার সঠিক এপিআই পাথ
+    fetch(`${SERVER_URL}/api/sales`) // আপনার সঠিক এপিআই পাথ
       .then((res) => res.json())
       .then((data) => {
         setSales(data);

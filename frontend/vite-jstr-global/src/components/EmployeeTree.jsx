@@ -7,6 +7,7 @@ import {
   FaSearch, FaSitemap, FaBuilding, FaUserTie, FaNetworkWired 
 } from "react-icons/fa";
 
+
 const TreeBranch = ({ node, searchTerm, level = 0 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const hasChildren = node.children && node.children.length > 0;
@@ -173,7 +174,8 @@ const EmployeeHierarchyTree = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("http://localhost:3000/api/users/tree")
+    const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'; 
+     fetch(`${SERVER_URL}/api/users/tree`)
       .then((res) => res.json())
       .then((data) => {
         setTreeData(data);

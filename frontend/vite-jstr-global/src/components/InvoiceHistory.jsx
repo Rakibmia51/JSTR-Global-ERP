@@ -9,7 +9,7 @@ const InvoiceList = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const SERVER_URL = "http://localhost:3000"; // আপনার সার্ভার ইউআরএল
+  const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
 
   // ব্যাকএন্ড থেকে ডাটা লোড করা
   useEffect(() => {
