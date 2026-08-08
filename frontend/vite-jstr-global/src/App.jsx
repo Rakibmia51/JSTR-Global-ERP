@@ -35,6 +35,9 @@ import EmployeeMonthlySales from './components/EmployeeMonthlySales';
 import TeamInvoicesLog from './components/TeamInvoicesLog';
 import DownlineTree from './components/DownlineTree';
 import RankProgress from './components/RankProgress';
+import ProductShowroom from './components/ProductShowroom';
+import MyCommission from './components/MyCommission';
+import SalarySheet from './components/SalarySheet';
 
 
 
@@ -103,7 +106,7 @@ function App() {
           <Route path="rank" element={<RankProgress/>} />
 
           {/* ⚙️ Settings */}
-          <Route path="settings" element={<ComingSoon/>} />
+          <Route path="settings" element={<SalarySheet/>} />
 
         </Route>
       
@@ -115,14 +118,15 @@ function App() {
             </ProtectedRoute>
           }>
           <Route path="/employee-panel" element={<EmployeeStatsGrid/>} />
+          <Route path="products" element={<ProductShowroom/>} />
           <Route path="my-sales" element={<EmployeeMonthlySales/>} />
           <Route path="team-sales" element={<TeamInvoicesLog/>} />
-          <Route path="commission" element={<ComingSoon/>} />
+          <Route path="commission" element={<MyCommission/>} />
           <Route path="wallet" element={<UserWallet/>} />
           <Route path="wallet/payout-history" element={<ComingSoon/>} />
           <Route path="tree" element={<DownlineTree/>} />
           <Route path="rank" element={<RankProgress/>} />
-          <Route path="settings" element={<ComingSoon/>} />
+          <Route path="settings" element={<SalarySheet/>} />
         </Route>
 
 

@@ -1,4 +1,5 @@
 const Product = require('../models/Product');
+const mongoose = require('mongoose');
 
 const createProduct = async (req, res) => {
   try {
@@ -19,4 +20,26 @@ const getAllProducts = async (req, res) => {
   }
 };
 
-module.exports = { createProduct, getAllProducts };
+
+// 🆕 ড্যাশবোর্ডে দেখানোর জন্য সব প্রোডাক্ট লিস্ট গেট করা
+const getAllProductsForShowroom = async (req, res) => {
+  try {
+    const db = mongoose.connection.db;
+    
+    // ডাটাবেজের প্রোডাক্ট কালেকশন থেকে সব ডাটা তুলে আনা
+     const products = await db.collection("products").find({}).toArray();
+
+    res.status(200).json({
+      success: true,
+      count: products.length,
+      data: products
+    });
+  } catch (error) {
+    console.error("Fetch Products Showroom Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+
+module.exports = { createProduct, getAllProducts, getAllProductsForShowroom };

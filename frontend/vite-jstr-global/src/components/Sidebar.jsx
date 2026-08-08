@@ -301,7 +301,8 @@ import {
   Award,
   // Layers,
   UserCheck,
-  Lock
+  Lock,
+  Store
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -418,6 +419,14 @@ const Sidebar = () => {
       icon: LayoutDashboard,
       path: '/dealer-panel',
       roles: ['dealer'] 
+    },
+    { 
+      name: t('products', 'Product Store'), 
+      id: 'Product Showroom',
+      icon: Store,
+      path: `/${userRole.toLowerCase()}-panel/products`,
+      roles: ['employee', 'dealer', 'admin'], // উভয়েই দেখতে পাবে
+      userDepartmentCode: ['MKT']
     },
     { 
       name: t('my_sales', 'My Sales'), 

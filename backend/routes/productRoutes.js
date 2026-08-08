@@ -3,7 +3,7 @@ const router = express.Router();
 
 // Destructuring the specific middleware from your combined upload file
 const { protect, authorizeRoles } = require('../middleware/authMiddleware.js');
-const { createProduct, getAllProducts } = require('../controllers/productController.js');
+const { createProduct, getAllProducts, getAllProductsForShowroom } = require('../controllers/productController.js');
 
 
 // --- Routes Definition ---
@@ -13,6 +13,8 @@ router.post('/add', createProduct);
 
 // ২. Get All Products (প্রোডাক্টের লিস্ট)
 router.get('/', getAllProducts);
+
+router.get('/showroom-list', getAllProductsForShowroom);
 
 
 

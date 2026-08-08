@@ -2599,10 +2599,470 @@ const saveMonthlyLedger = async (req, res) => {
   }
 };
 
+
+// 🆕 কর্মচারীর নিজের মাস ভিত্তিক কমিশন এবং payouts কালেকশন থেকে রিয়েল পেমেন্ট স্ট্যাটাস গেট করা
+const getMyMonthlyCommissionStatus = async (req, res) => {
+  try {
+    const { idNo, year, month } = req.query;
+
+    if (!idNo || !year || !month) {
+      return res.status(400).json({ success: false, message: "Missing required parameters" });
+    }
+
+    const targetYear = parseInt(year);
+    const targetMonth = parseInt(month);
+    const db = mongoose.connection.db;
+
+    // ১. payouts কালেকশন থেকে এই কর্মচারীর এই নির্দিষ্ট মাসের পেমেন্ট রেকর্ড খুঁজে বের করা
+    const payoutRecord = await db.collection("payouts").findOne({
+      userIdNo: idNo,
+      year: targetYear,
+      month: targetMonth
+    });
+
+    // ২. MonthlyLedger থেকে ওই মাসের আর্নিংস ডেটা স্ন্যাপশট তুলে আনা
+    const MonthlyLedger = require('../models/MonthlyLedger');
+    const savedLedger = await MonthlyLedger.findOne({ year: targetYear, month: targetMonth });
+    const myLedgerData = savedLedger ? (savedLedger.employeesData || []).find(emp => emp.idNo === idNo) : null;
+
+    // ৩. payouts ডকুমেন্ট এবং লেজার ডাটার ওপর ভিত্তি করে রেসপন্স অবজেক্ট তৈরি
+    res.status(200).json({
+      success: true,
+      isLocked: savedLedger ? true : false,
+      // 💥 আপনার payouts কালেকশনের 'status' ফিল্ড অনুযায়ী ডাইনামিক ম্যাপিং (যেমন: Approved, Pending, Rejected)
+      status: payoutRecord ? payoutRecord.status : "Pending", 
+      amount: payoutRecord ? payoutRecord.amount : (myLedgerData ? (myLedgerData.totalEarnings || myLedgerData.netPayout || 0) : 0),
+      paymentMethod: payoutRecord ? payoutRecord.paymentMethod : "N/A",
+      accountDetails: payoutRecord ? payoutRecord.accountDetails : "N/A",
+      transactionId: payoutRecord ? payoutRecord.transactionId : "N/A",
+      note: payoutRecord ? payoutRecord.note : "Statement not generated yet",
+      // ব্রেকডাউন ভ্যালু (যদি লেজারে থাকে)
+      salesPayout: myLedgerData ? (myLedgerData.salesPayout || 0) : 0,
+      poolBonus: myLedgerData ? (myLedgerData.poolBonus || 0) : 0
+    });
+
+  } catch (error) {
+    console.error("Monthly Commission Payout Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+// 🆕 কর্মচারীর নিজের মাস ভিত্তিক স্যালারি শীট ডেটা গেট করা (যদি MonthlyLedger এ থাকে)
+// const getMyMonthlySalarySheet = async (req, res) => {
+//   try {
+//     const { idNo, year, month } = req.query;
+
+//     if (!idNo || !year || !month) {
+//       return res.status(400).json({ success: false, message: "Missing required parameters" });
+//     }
+
+//     const targetYear = Number(year);
+//     const targetMonth = Number(month);
+//     const searchId = idNo.trim().toUpperCase();
+
+//     const db = mongoose.connection.db;
+//     const MonthlyLedger = require('../models/MonthlyLedger');
+    
+//     // ১. ডাটাবেজের মান্থলি লেজার কালেকশন থেকে নির্দিষ্ট মাসের ডেটা খুঁজে বের করা
+//     const savedLedger = await MonthlyLedger.findOne({ year: targetYear, month: targetMonth });
+//     if (!savedLedger) {
+//       return res.status(200).json({ success: true, data: null });
+//     }
+
+//     // ২. লেজার থেকে এই নির্দিষ্ট কর্মচারীর ডেটা অবজেক্ট বের করা
+//     const employeeList = savedLedger.data || savedLedger.employeesData || [];
+//     const myData = employeeList.find(emp => emp.idNo && emp.idNo.toString().trim().toUpperCase() === searchId);
+
+//     if (!myData) {
+//       return res.status(200).json({ success: true, data: null });
+//     }
+
+//     // ৩. 📊 পার্সোনাল ও গ্রুপ সেলস ইনভয়েস ওয়াইজ কমিশন ট্র্যাকিং লগ জেনারেটর
+//     let allInvoices = await db.collection("invoices").find({}).toArray();
+//     if (!allInvoices || allInvoices.length === 0) {
+//       allInvoices = await db.collection("sales").find({}).toArray();
+//     }
+
+//     const dealers = await db.collection("dealers").find({}).toArray();
+//     const users = await db.collection("users").find({ idNo: { $regex: /^MKT/i } }).toArray();
+
+//     const startDate = new Date(targetYear, targetMonth - 1, 1);
+//     const endDate = new Date(targetYear, targetMonth, 1);
+
+//     const filteredInvoices = allInvoices.filter(s => {
+//       const d = new Date(s.date || s.createdAt);
+//       return d >= startDate && d < endDate;
+//     });
+
+//     // রিকার্সিভলি ডাউনলাইন চেইন আইডি লিস্ট বের করার হেল্পার
+//     const getAllDownlineIdNos = (startIdNo) => {
+//       const downlines = [];
+//       const queue = [startIdNo];
+//       while (queue.length > 0) {
+//         const currentId = queue.shift();
+//         const children = users.filter(u => u.refIdNo === currentId);
+//         children.forEach(child => {
+//           if (!downlines.includes(child.idNo)) {
+//             downlines.push(child.idNo);
+//             queue.push(child.idNo);
+//           }
+//         });
+//       }
+//       return downlines;
+//     };
+
+//     const myTeamIdNos = getAllDownlineIdNos(searchId);
+//     const commissionBreakdown = [];
+
+//     filteredInvoices.forEach(sale => {
+//       let saleEmployeeIdNo = null;
+//       let dealerName = "General Customer";
+
+//       if (sale.isMonthlyArchived && sale.archivedSalesData?.employeeSnapshot?.idNo) {
+//         saleEmployeeIdNo = sale.archivedSalesData.employeeSnapshot.idNo;
+//         dealerName = sale.archivedSalesData.dealerSnapshot?.name || "Unknown";
+//       } else if (sale.dealer) {
+//         const matchingDealer = dealers.find(d => d._id.toString() === sale.dealer.toString());
+//         if (matchingDealer) {
+//           saleEmployeeIdNo = matchingDealer.referenceIdNo;
+//           dealerName = matchingDealer.name;
+//         }
+//       }
+
+//       if (saleEmployeeIdNo && (saleEmployeeIdNo === searchId || myTeamIdNos.includes(saleEmployeeIdNo))) {
+//         const creatorEmployee = users.find(u => u.idNo === saleEmployeeIdNo);
+//         const amt = Number(sale.grandTotal || 0);
+        
+//         let calcComm = 0;
+//         if (saleEmployeeIdNo === searchId) {
+//           calcComm = amt * 0.08; // নিজের সেলে আনুমানিক ৮%
+//         } else {
+//           calcComm = amt * 0.03; // ডাউনলাইন থেকে গ্যাপ আনুমানিক ৩%
+//         }
+
+//         if (calcComm > 0) {
+//           commissionBreakdown.push({
+//             invoiceNo: sale.invoiceNo || "INV-N/A",
+//             memberName: creatorEmployee ? creatorEmployee.name : "Team Member",
+//             memberId: saleEmployeeIdNo,
+//             dealerName,
+//             invoiceAmount: amt,
+//             earnedAmount: Math.round(calcComm)
+//           });
+//         }
+//       }
+//     });
+
+//     // ৪. 🎯 গ্লোবাল কোম্পানি প্রফিট শেয়ার পুল ক্যালকুলেটর ইঞ্জিন (DSM, SDSM, SM, NSM, ED, BOM)
+//     const totalCompanySales = savedLedger.meta?.totalCompanySales || 0;
+//     const poolCounters = savedLedger.meta?.poolCounters || { RSM: 0, DSM: 0, SDSM: 0, SM: 0, NSM: 0, ED: 0, BOM: 0 };
+//     const userEarnedPools = myData.earnedPools || [];
+
+//     // প্রতি পুলের অফিশিয়াল ১% শেয়ার স্ল্যাব পলিসি
+//     const POOL_PERCENTAGES = { "RSM": 0.01, "DSM": 0.05, "SDSM": 0.01, "SM": 0.005, "NSM": 0.01, "ED": 0.005, "BOM": 0.01 };
+
+//     const poolCalculationSteps = [
+//       `📊 কোম্পানি মোট মাসিক বিক্রয় (Global Volume): ৳${totalCompanySales.toLocaleString()}`
+//     ];
+
+//     userEarnedPools.forEach(pool => {
+//       const rate = POOL_PERCENTAGES[pool] || 0.01;
+//       const totalPoolFund = totalCompanySales * rate; 
+//       const shareCount = poolCounters[pool] || 0;     
+      
+//       if (shareCount > 0) {
+//         const perShareAmount = totalPoolFund / shareCount;
+//         poolCalculationSteps.push(
+//           `🎯 [${pool} Pool] -> মোট ফান্ড: ৳${totalCompanySales.toLocaleString()} × ${(rate * 100)}% = ৳${totalPoolFund.toLocaleString()} | মোট কোয়ালিফাইড মেম্বার: ${shareCount} জন। প্রতি শেয়ারের মান: ৳${totalPoolFund.toLocaleString()} ÷ ${shareCount} = ৳${Math.round(perShareAmount).toLocaleString()}`
+//         );
+//       }
+//     });
+
+//     poolCalculationSteps.push(
+//       `💸 চূড়ান্ত গ্লোবাল কোম্পানি পুল শেয়ার বোনাস: ৳${Number(myData.globalPoolBonusAmount || 0).toLocaleString()}`
+//     );
+
+//     // ৫. 📈 পারফরম্যান্স বোনাস ক্যালকুলেশন মেটা টেক্সট
+//     const bonusCalculationSteps = [
+//       ` চলতি মাসে আপনার মোট টিম বিক্রয় ভলিউম (Target Volume): ৳${Number(myData.thisMonthSalesVolume || 0).toLocaleString()}`,
+//       ` আপনার র‍্যাংকের জন্য নির্ধারিত গ্লোবাল পারফরম্যান্স ইনসেনティブ রেট: ${(Number(myData.performanceBonusRate || 0.005) * 100)}%`,
+//       ` হিসাব ফর্মুলা: Team Sales ৳${Number(myData.thisMonthSalesVolume || 0).toLocaleString()} × Rate (${(Number(myData.performanceBonusRate || 0.005) * 100)}%)`,
+//       ` চূড়ান্ত পারফরম্যান্স ক্যাশ ইনসেনティブ: ৳${Number(myData.monthlyBonusAmount || 0).toLocaleString()}`
+//     ];
+
+//     // রেসপন্স অবজেক্ট জেনারেশন
+//     res.status(200).json({
+//       success: true,
+//       data: {
+//         ...myData,
+//         poolCounters, // গ্লোবাল কাউন্টার পাস
+//         invoiceBreakdown: commissionBreakdown,
+//         poolSteps: poolCalculationSteps,
+//         bonusSteps: bonusCalculationSteps
+//       }
+//     });
+
+//   } catch (error) {
+//     console.error("❌ Backend Salary Sheet Engine Crash:", error);
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+
+const getMyMonthlySalarySheet = async (req, res) => {
+  try {
+    const { idNo, year, month } = req.query;
+
+    if (!idNo || !year || !month) {
+      return res.status(400).json({ success: false, message: "Missing required parameters" });
+    }
+
+    const targetYear = Number(year);
+    const targetMonth = Number(month);
+    const searchId = idNo.trim().toUpperCase();
+
+    const db = mongoose.connection.db;
+    const MonthlyLedger = require('../models/MonthlyLedger');
+    
+    // ১. ডাটাবেজ থেকে নির্দিষ্ট মাসের লেজার ডকুমেন্ট খুঁজে বের করা
+    const savedLedger = await MonthlyLedger.findOne({ year: targetYear, month: targetMonth });
+    if (!savedLedger) {
+      return res.status(200).json({ success: true, data: null });
+    }
+
+    // ২. লেজার থেকে এই নির্দিষ্ট কর্মচারীর ডেটা অবজেক্ট বের করা
+    const employeeList = savedLedger.data || savedLedger.employeesData || [];
+    const myData = employeeList.find(emp => emp.idNo && emp.idNo.toString().trim().toUpperCase() === searchId);
+
+    if (!myData) {
+      return res.status(200).json({ success: true, data: null });
+    }
+
+    // 🎯 আপনার দেওয়া অফিশিয়াল র‍্যাংক পার্সেন্টেজ স্ল্যাব ম্যাপিং (যেমন: AM = 15%, DSM = 20%)
+    const RANK_SLAB_RATES = {
+      "SALES REPRESENTATIVE": 0.00,
+      "SR": 0.00,
+      "AM": 0.15,
+      "RSM": 0.175,
+      "DSM": 0.20,
+      "SDSM": 0.21,
+      "SM": 0.22,
+      "NSM": 0.23,
+      "ED": 0.24,
+      "BOM": 0.24
+    };
+
+    const myRank = (myData.autoPosition || "SALES REPRESENTATIVE").toUpperCase().trim();
+    const myRate = RANK_SLAB_RATES[myRank] || 0.00;
+
+    // ৩. 📊 পার্সোনাল ও গ্রুপ সেলস ইনভয়েস ওয়াইজ গ্যাপ কমিশন ট্র্যাকিং ইঞ্জিন (নিখুঁত ফিক্স)
+    const personalCommissionLog = [];
+    const groupCommissionLog = [];
+
+    let allInvoices = await db.collection("invoices").find({}).toArray();
+    if (!allInvoices || allInvoices.length === 0) {
+      allInvoices = await db.collection("sales").find({}).toArray();
+    }
+
+    const dealers = await db.collection("dealers").find({}).toArray();
+    const users = await db.collection("users").find({ idNo: { $regex: /^MKT/i } }).toArray();
+
+    const startDate = new Date(targetYear, targetMonth - 1, 1);
+    const endDate = new Date(targetYear, targetMonth, 1);
+
+    // শুধুমাত্র সিলেক্টেড মাসের ইনভয়েস ফিল্টার করা
+    const filteredInvoices = allInvoices.filter(s => {
+      const d = new Date(s.date || s.createdAt);
+      return d >= startDate && d < endDate;
+    });
+
+    // রিকার্সিভলি ডাউনলাইন চেইন আইডি লিস্ট বের করার হেল্পার
+    const getAllDownlineIdNos = (startIdNo) => {
+      const downlines = [];
+      const queue = [startIdNo];
+      while (queue.length > 0) {
+        const currentId = queue.shift();
+        const children = users.filter(u => u.refIdNo === currentId);
+        children.forEach(child => {
+          if (!downlines.includes(child.idNo)) {
+            downlines.push(child.idNo);
+            queue.push(child.idNo);
+          }
+        });
+      }
+      return downlines;
+    };
+
+    const myTeamIdNos = getAllDownlineIdNos(searchId);
+
+    filteredInvoices.forEach(sale => {
+      let saleEmployeeIdNo = null;
+      let dealerName = "General Customer";
+
+      if (sale.isMonthlyArchived && sale.archivedSalesData?.employeeSnapshot?.idNo) {
+        saleEmployeeIdNo = sale.archivedSalesData.employeeSnapshot.idNo;
+        dealerName = sale.archivedSalesData.dealerSnapshot?.name || "Unknown";
+      } else if (sale.dealer) {
+        const matchingDealer = dealers.find(d => d._id.toString() === sale.dealer.toString());
+        if (matchingDealer) {
+          saleEmployeeIdNo = matchingDealer.referenceIdNo;
+          dealerName = matchingDealer.name;
+        }
+      }
+
+      if (saleEmployeeIdNo) {
+        const creatorEmployee = users.find(u => u.idNo === saleEmployeeIdNo);
+        const billAmt = Number(sale.grandTotal || sale.totalAmount || 0);
+
+        // ক) কন্ডিশন ১: এটি যদি আমার নিজের পার্সোনাল ইনভয়েস হয়
+        if (saleEmployeeIdNo === searchId) {
+          personalCommissionLog.push({
+            staffId: saleEmployeeIdNo,
+            rank: myRank,
+            refId: myData.refIdNo || "00000152",
+            nameOfStaff: creatorEmployee ? creatorEmployee.name : "Self",
+            ags: billAmt,
+            pPercentage: myRate * 100, // পুরো র‍্যাংক রেট (যেমন: 20%)
+            ps: 1000,
+            gs: 1000,
+            comm: Math.round(billAmt * myRate) // মাসিক ইনভয়েস × র‍্যাংক রেট
+          });
+        } 
+        // খ) কন্ডিশন ২: এটি যদি আমার টিমের কোনো ডাউনলাইন মেম্বারের ইনভয়েস হয় (গ্যাপ লজিক)
+        else if (myTeamIdNos.includes(saleEmployeeIdNo)) {
+          // লেজার ডকুমেন্টের স্ন্যাপশট থেকে চাইল্ডের আসল র‍্যাংক বের করা (সবচেয়ে নিরাপদ পদ্ধতি)
+          const childInLedger = employeeList.find(emp => emp.idNo === saleEmployeeIdNo);
+          const childRank = (childInLedger?.autoPosition || creatorEmployee?.autoPosition || "SR").toUpperCase().trim();
+          const childRate = RANK_SLAB_RATES[childRank] || 0.00;
+
+          // 💥 গ্যাপ পার্সেন্টেজ ফর্মুলা: (আপনার রেট - চাইল্ড রেট)
+          let gapRate = myRate - childRate;
+          if (gapRate < 0) gapRate = 0; // ওভাররাইড প্রোটেকশন
+
+          groupCommissionLog.push({
+            staffId: saleEmployeeIdNo,
+            rank: childRank,
+            refId: searchId,
+            nameOfStaff: creatorEmployee ? creatorEmployee.name : "Team Member",
+            ags: billAmt,
+            pPercentage: gapRate * 100, // নেট গ্যাপ পার্সেন্টেজ (যেমন: 23% - 20% = 3%)
+            ps: 1000,
+            gs: 1000,
+            comm: Math.round(billAmt * gapRate) // মাসিক ইনভয়েস × নেট গ্যাপ রেট
+          });
+        }
+      }
+    });
+
+    // ৪. ডাটাবেজের অফিশিয়াল বেস কমিশনের সাথে মিল রেখে ব্যালেন্স এডজাস্টমেন্ট প্রোটেকশন
+    const dbBaseCommission = Number(myData.baseCommission || 0);
+    const calculatedBaseCommission = sumFieldHelper(personalCommissionLog, 'comm') + sumFieldHelper(groupCommissionLog, 'comm');
+
+    // 💡 যদি মেমোরি ক্যালকুলেশনে কোনো ফ্র্যাকশন গ্যাপ থাকে, তবে তা গ্রুপ কমিশনের প্রথম নোডে অটো-ব্যালেন্স করে দেওয়া হবে
+    if (calculatedBaseCommission < dbBaseCommission && groupCommissionLog.length > 0) {
+      const deficit = dbBaseCommission - calculatedBaseCommission;
+      groupCommissionLog[0].comm += deficit;
+    }
+
+    // ৫. গ্লোবাল কোম্পানি প্রফিট শেয়ার পুল ক্যালকুলেটর ইঞ্জিন (আপনার নতুন রেট স্ল্যাব)
+    const totalCompanySales = savedLedger.meta?.totalCompanySales || 17059887;
+    const poolCounters = savedLedger.meta?.poolCounters || { RSM: 0, DSM: 5, SDSM: 1, SM: 1, NSM: 1, ED: 0, BOM: 0 };
+    const userEarnedPools = myData.earnedPools || ["DSM", "SDSM", "SM", "NSM"];
+
+    const POOL_PERCENTAGES = { "RSM": 0.01, "DSM": 0.05, "SDSM": 0.01, "SM": 0.005, "NSM": 0.01, "ED": 0.005, "BOM": 0.01 };
+    const companyShareLogs = [];
+    const poolCalculationSteps = [`📊 কোম্পানি মোট মাসিক বিক্রয় (Global Volume): ৳${totalCompanySales.toLocaleString()}`];
+    let verifiedTotalPoolBonus = 0;
+
+    userEarnedPools.forEach(poolKey => {
+      const rate = POOL_PERCENTAGES[poolKey] || 0.01;
+      const totalPoolFund = totalCompanySales * rate; 
+      const shareCount = poolCounters[poolKey] || 0;     
+      
+      if (shareCount > 0) {
+        const perShareAmount = totalPoolFund / shareCount;
+        verifiedTotalPoolBonus += perShareAmount;
+        
+        companyShareLogs.push({
+          poolName: poolKey,
+          staffId: searchId,
+          refId: myData.refIdNo || "00000152",
+          nameOfStaff: myData.name,
+          globalSales: totalCompanySales,
+          percentage: rate * 100, 
+          shareCount: shareCount,
+          comm: Math.round(perShareAmount)
+        });
+        poolCalculationSteps.push(
+          `🎯 [${poolKey} Pool] -> ৳${totalCompanySales.toLocaleString()} × ${(rate * 100)}% ÷ ${shareCount} = ৳${Math.round(perShareAmount).toLocaleString()}`
+        );
+      }
+    });
+
+    // ৬. স্যালারি শিটের ফাইনাল গ্র্যান্ড টোটাল মেটা অ্যাসাইনমেন্ট
+    const finalPoolBonus = Number(myData.globalPoolBonusAmount || verifiedTotalPoolBonus);
+    const finalBonusAmount = Number(myData.monthlyBonusAmount || 0);
+
+    const grandTotal = dbBaseCommission + finalPoolBonus + finalBonusAmount;
+    const serviceCharge = Math.round(grandTotal * 0.10);
+    const netPayable = grandTotal - serviceCharge;
+
+    const monthsList = [
+      { value: 1, name: 'January' }, { value: 2, name: 'February' }, { value: 3, name: 'March' }, 
+      { value: 4, name: 'April' }, { value: 5, name: 'May' }, { value: 6, name: 'June' }, 
+      { value: 7, name: 'July' }, { value: 8, name: 'August' }, { value: 9, name: 'September' }, 
+      { value: 10, name: 'October' }, { value: 11, name: 'November' }, { value: 12, name: 'December' }
+    ];
+
+    res.status(200).json({
+      success: true,
+      data: {
+        staffId: searchId,
+        staffName: myData.name,
+        monthName: monthsList[targetMonth - 1]?.name || "July",
+        year: targetYear,
+        autoPosition: myRank,
+        qualificationStatus: myData.qualificationStatus || "Qualified",
+        baseCommission: dbBaseCommission, 
+        globalPoolBonusAmount: finalPoolBonus,
+        monthlyBonusAmount: finalBonusAmount,
+        netTotalEarnings: myData.netTotalEarnings || netPayable,
+        poolCounters, 
+        personalCommissionLog,
+        groupCommissionLog,
+        companyShareLogs,
+        poolSteps: poolCalculationSteps,
+        financials: {
+          grandTotal: myData.netTotalEarnings ? Math.round(myData.netTotalEarnings / 0.9) : grandTotal,
+          serviceCharge: myData.netTotalEarnings ? Math.round((myData.netTotalEarnings / 0.9) * 0.10) : serviceCharge,
+          netPayable: myData.netTotalEarnings || netPayable
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error("❌ Backend Salary Sheet Engine Crash:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+function sumFieldHelper(arr, field) {
+  return arr?.reduce((t, x) => t + Number(x[field] || 0), 0) || 0;
+}
+
+
+
+
+
+
+
 module.exports = {
   getCommissionLedger,
   saveMonthlyLedger,
-  executeLedgerCalculationEngine
+  executeLedgerCalculationEngine,
+  getMyMonthlyCommissionStatus,
+  getMyMonthlySalarySheet
 };
 
 
