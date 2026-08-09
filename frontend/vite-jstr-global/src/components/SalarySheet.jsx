@@ -423,7 +423,7 @@ const SalarySheet = () => {
               </div>
             </div>
 
-                       {/* সেগমেন্ট ১: 1 PERSONAL SALES COMMISSION [১.১.১] */}
+            {/* সেগমেন্ট ১: 1 PERSONAL SALES COMMISSION [১.১.১] */}
             <div className="mb-4">
               <div onClick={() => toggleSection('p1')} className="bg-slate-900 text-white text-[11px] font-black px-3 py-2 flex justify-between items-center rounded-t cursor-pointer select-none">
                 <span>1 PERSONAL SALES COMMISSION</span>
@@ -525,7 +525,7 @@ const SalarySheet = () => {
               )}
             </div>
 
-                       {/* সেগমেন্ট ৩: 3 COMPANY SALES SHARE [১.১.২] */}
+            {/* সেগমেন্ট ৩: 3 COMPANY SALES SHARE [১.১.২] */}
             <div className="mb-6">
               <div onClick={() => toggleSection('p3')} className="bg-slate-900 text-white text-[11px] font-black px-3 py-2 flex justify-between items-center rounded-t cursor-pointer select-none">
                 <span>3 COMPANY SALES SHARE / GLOBAL POOL BREAKDOWN</span>
@@ -660,27 +660,46 @@ const SalarySheet = () => {
               )}
             </div>
 
-            {/* 💰 ফাইনal গ্র্যান্ড টোটাল নেট পেয়েবল মেমো স্লিপ (সার্ভিস চার্জ সহ) */}
+                       {/* 💰 ফাইনাল গ্র্যান্ড টোটাল নেট পেয়েবল মেমো স্লিপ (সার্ভিস চার্জ সহ এবং নিখুঁত গাণিতিক ফিক্স) */}
             <div className="border-2 border-dashed border-slate-400 rounded-2xl p-4 bg-slate-50 max-w-md ml-auto text-xs font-bold space-y-2.5 print:border-slate-800 print:bg-white">
+              
+              {/* ১. ৪টি সেগমেন্টের আসল যোগফল (Grand Total Earnings) */}
               <div className="flex justify-between text-slate-600">
                 <span>Grand Total Earnings:</span>
                 <span className="font-mono text-slate-900">
-                  ৳{Number(salaryData.financials?.grandTotal || (Number(salaryData.baseCommission || 0) + Number(salaryData.globalPoolBonusAmount || 0) + Number(salaryData.monthlyBonusAmount || 0))).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  ৳{(
+                    Number(salaryData.baseCommission || 0) + 
+                    Number(salaryData.globalPoolBonusAmount || 0) + 
+                    Number(salaryData.monthlyBonusAmount || 0)
+                  ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
+              
+              {/* ২. মোট ফান্ডের ওপর ১০% সার্ভিস চার্জ কর্তন */}
               <div className="flex justify-between text-rose-600 border-b border-slate-200 pb-2">
                 <span>Less Service Charge (10%):</span>
                 <span className="font-mono">
-                  - ৳{Number(salaryData.financials?.serviceCharge || ((Number(salaryData.baseCommission || 0) + Number(salaryData.globalPoolBonusAmount || 0) + Number(salaryData.monthlyBonusAmount || 0)) * 0.10)).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  - ৳{(
+                    (Number(salaryData.baseCommission || 0) + 
+                     Number(salaryData.globalPoolBonusAmount || 0) + 
+                     Number(salaryData.monthlyBonusAmount || 0)) * 0.10
+                  ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
+              
+              {/* ৩. চূড়ান্ত নিট পেয়েবল অ্যামাউন্ট (Grand Total - Service Charge = Net Payable) */}
               <div className="flex justify-between text-sm font-black text-slate-900 pt-1">
                 <span className="text-slate-800">Net Payable Amount:</span>
                 <span className="font-mono text-emerald-700 text-base">
-                  ৳{Number(salaryData.netTotalEarnings || salaryData.financials?.netPayable || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  ৳{(
+                    (Number(salaryData.baseCommission || 0) + Number(salaryData.globalPoolBonusAmount || 0) + Number(salaryData.monthlyBonusAmount || 0)) - 
+                    ((Number(salaryData.baseCommission || 0) + Number(salaryData.globalPoolBonusAmount || 0) + Number(salaryData.monthlyBonusAmount || 0)) * 0.10)
+                  ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
+
             </div>
+
 
             {/* অফিশিয়াল সিগনেচার সেকশন */}
             <div className="hidden print:flex justify-between items-center mt-16 text-[10px] font-bold text-slate-500 px-6">

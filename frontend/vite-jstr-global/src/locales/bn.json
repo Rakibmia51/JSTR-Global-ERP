@@ -44,5 +44,11 @@
   "total_employees": "মোট কর্মচারী",
   "active_products": "সক্রিয় পণ্য",
   "system_status": "সিস্টেম স্ট্যাটাস",
-  "optimal": "সঠিক আছে"
+  "optimal": "সঠিক আছে",
+"monthly_calculation": "মাসিক হিসাব-নিকাশ",
+"monthly_sales_data_archiver": "মাসিক সেলস ডাটা আর্কাইভ",
+"monthly_commission_ledger_lock": "মাসিক কমিশন লেজার লক"
+
+
+
 }

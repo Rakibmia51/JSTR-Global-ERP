@@ -302,7 +302,14 @@ import {
   // Layers,
   UserCheck,
   Lock,
-  Store
+  Store,
+  Building,
+  Sliders,
+  Database,
+  User,
+  Cpu,
+  PackagePlus,
+  ShieldAlert
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -331,7 +338,12 @@ const Sidebar = () => {
       id: 'Dashboard',
       icon: LayoutDashboard,
       path: '/admin-panel',
-      roles: ['admin'] 
+      hasSubMenu: true,
+      roles: ['admin'],
+      subMenuItems: [
+        { name: t('dashboard_overview'), id: 'Dashboard Overview', icon: LayoutDashboard, path: '/admin-panel' },
+        { name: t('system_status'), id: 'System Status', icon: Database, path: '/admin-panel/system-status' },
+      ] 
     },
     { 
       name: t('employees'), 
@@ -385,7 +397,7 @@ const Sidebar = () => {
         { name: t('expense_tracker'), id: 'Expense Tracker', icon: DollarSign, path: '/admin-panel/accounting/expenses' },
         { name: t('financial_reports'), id: 'Financial Reports', icon: PieChart, path: '/admin-panel/accounting/reports' },
         { name: t('admin_wallet_manager', 'Admin Wallet Manager'), id: 'Admin Wallet Manager', icon: Wallet, path: '/admin-panel/accounting/wallet-manager' },
-        { name: t('admin_accounts_dashboard', 'Admin Accounts Dashboard'), id: 'Admin Accounts Dashboard', icon: UserCheck, path: '/admin-panel/accounting/admin-accounts-dashboard' },
+        { name: t('admin_accounts_dashboard', 'Accounts & Payout Ledger'), id: 'Admin Accounts Dashboard', icon: UserCheck, path: '/admin-panel/accounting/admin-accounts-dashboard' },
       ]
     },
     { 
@@ -398,11 +410,24 @@ const Sidebar = () => {
       subMenuItems: [
         { name: t('archive_monthly_sales'), id: 'Monthly Sales Archive', icon: Lock, path: '/admin-panel/sales/archive'},
         { name: t('sales_forecast'), id: 'Sales Forecast', icon: TrendingUp, path: '/admin-panel/sales/forecast' },
-        { name: t('commission_payouts'), id: 'Commission Payouts', icon: Target, path: '/admin-panel/sales/commission' },
-        { name: t('campaigns'), id: 'Campaigns', icon: Megaphone, path: '/admin-panel/sales/campaigns' },
+        { name: t('qualify_list'), id: 'Qualify List', icon: Target, path: '/admin-panel/sales/commission' },
       ]
     },
-    
+    {
+      name: t('settings'), 
+      id: 'Settings',
+      icon: Settings, // Ensure to import { Settings, Cpu, PackagePlus, ShieldAlert } from 'lucide-react'
+      path: '/admin-panel/settings',
+      hasSubMenu: true,
+      roles: ['admin'],
+      subMenuItems: [
+        { name: t('monthly_calculation'), id: 'Monthly Calculation', icon: Cpu, path: '/admin-panel/settings/calculation' },
+        { name: t('monthly_sales_data_archiver'), id: 'Monthly Sales Data Archiver', icon: PackagePlus, path: '/admin-panel/settings/archiver' },
+        { name: t('monthly_commission_ledger_lock'), id: 'Monthly Commission Ledger Lock', icon: ShieldAlert, path: '/admin-panel/settings/ledger-lock' },
+      ]
+    },
+
+
 
     // ---------------- 🆕 EMPLOYEE & DEALER MODULES ----------------
     { 
@@ -453,6 +478,14 @@ const Sidebar = () => {
       userDepartmentCode: ['MKT'] 
     },
     { 
+      name: t('my_salarySheet', 'My Salary Sheet'), 
+      id: 'My Salary Sheet',
+      icon: FileSpreadsheet,
+      path: `/${userRole.toLowerCase()}-panel/salary-sheet`,
+      roles: ['employee', 'dealer', 'admin'], // উভয়েই দেখতে পাবে,
+      userDepartmentCode: ['MKT'] 
+    },
+    { 
       name: t('wallet', 'Wallet'), 
       id: 'Wallet',
       icon: Wallet,
@@ -492,9 +525,9 @@ const Sidebar = () => {
 
     // ---------------- COMMON MODULES ----------------
     { 
-      name: t('settings'), 
-      id: 'Settings',
-      icon: Settings,
+      name: t('user_settings', 'User Settings'), 
+      id: 'User Settings',
+      icon: User,
       path: `/${userRole.toLowerCase()}-panel/settings`,
       roles: ['admin', 'employee', 'dealer'] 
     },

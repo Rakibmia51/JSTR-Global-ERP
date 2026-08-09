@@ -38,6 +38,7 @@ import RankProgress from './components/RankProgress';
 import ProductShowroom from './components/ProductShowroom';
 import MyCommission from './components/MyCommission';
 import SalarySheet from './components/SalarySheet';
+import DashboardOverview from './components/DashboardOverview';
 
 
 
@@ -57,8 +58,8 @@ function App() {
               <Dashboard/>
             </ProtectedRoute>
           }>
-
-          <Route path="/admin-panel" element={<TaskDashboard/>} />
+          <Route path="/admin-panel" element={<DashboardOverview/>} />
+          <Route path="/admin-panel/system-status" element={<TaskDashboard/>} />
              {/* 👥 Employees Modules */}
           <Route path="employees/all" element={<EmployeeList/>} />
           <Route path="employees/tree" element={<EmployeeTree/>} />
@@ -85,7 +86,7 @@ function App() {
           <Route path="/admin-panel/accounting/update-invoice/:id" element={<InvoiceForm/>} />
           <Route path="accounting/history" element={<InvoiceHistoryTable/>} />
           <Route path="accounting/expenses" element={<InvoiceAndChallan/>} />
-          <Route path="accounting/reports" element={<CommissionLedger/>} />
+          <Route path="accounting/reports" element={<ComingSoon/>} />
           <Route path="accounting/wallet-manager" element={<ComingSoon/>} />
           <Route path="accounting/admin-accounts-dashboard" element={<AdminAccountsDashboard/>} />
 
@@ -97,17 +98,23 @@ function App() {
 
 
           {/* Marketing profile */}
+          <Route path="products" element={<ProductShowroom/>} />
           <Route path="my-sales" element={<EmployeeMonthlySales/>} />
           <Route path="team-sales" element={<TeamInvoicesLog/>} />
-          <Route path="commission" element={<ComingSoon/>} />
+          <Route path="commission" element={<MyCommission/>} />
+          <Route path="salary-sheet" element={<SalarySheet/>} />
           <Route path="wallet" element={<UserWallet/>} />
           <Route path="wallet/payout-history" element={<ComingSoon/>} />
           <Route path="tree" element={<DownlineTree/>} />
           <Route path="rank" element={<RankProgress/>} />
 
           {/* ⚙️ Settings */}
-          <Route path="settings" element={<SalarySheet/>} />
+          <Route path="settings/calculation" element={<AdminArchivePanel/>} />
+          <Route path="settings/archiver" element={<SalesArchiveMonthly/>} />
+          <Route path="settings/ledger-lock" element={<CommissionLedger/>} />
 
+          
+          <Route path="settings" element={<ComingSoon/>} />
         </Route>
       
         <Route 
@@ -122,11 +129,12 @@ function App() {
           <Route path="my-sales" element={<EmployeeMonthlySales/>} />
           <Route path="team-sales" element={<TeamInvoicesLog/>} />
           <Route path="commission" element={<MyCommission/>} />
+          <Route path="salary-sheet" element={<SalarySheet/>} />
           <Route path="wallet" element={<UserWallet/>} />
           <Route path="wallet/payout-history" element={<ComingSoon/>} />
           <Route path="tree" element={<DownlineTree/>} />
           <Route path="rank" element={<RankProgress/>} />
-          <Route path="settings" element={<SalarySheet/>} />
+          <Route path="settings" element={<ComingSoon/>} />
         </Route>
 
 

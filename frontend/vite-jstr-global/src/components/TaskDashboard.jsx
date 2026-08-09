@@ -41,24 +41,24 @@ const ERPDashboard = () => {
       id: 5,
       name: 'Marketing & Sales',
       description: 'Targeted distribution logs calculations, real-time conversion metrics tracking, and sales analytics summary tracking arrays.',
-      status: 'In Development',
-      percentage: 40,
+      status: 'Completed',
+      percentage: 100,
       scope: ['Conversion Trackers', 'Campaign Logs', 'Sales Vectors']
     },
     {
       id: 6,
       name: 'Reports',
       description: 'Dynamic profit/loss evaluation, comprehensive corporate stock logs, and automated auditing statements creation tools.',
-      status: 'Planned',
-      percentage: 0,
+      status: 'In Development',
+      percentage: 80,
       scope: ['Profit & Loss Sheets', 'Audit Engine', 'PDF Exporter']
     },
     {
       id: 7,
       name: 'Settings',
       description: 'System configurations control hubs, security parameters adjustment protocols, and brand identity matrix customizations.',
-      status: 'Planned',
-      percentage: 0,
+      status: 'In Development',
+      percentage: 90,
       scope: ['Security Policies', 'System Variables', 'Branding Toggles']
     }
   ]);

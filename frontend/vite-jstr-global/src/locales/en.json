@@ -23,5 +23,10 @@
   "wallet": "Wallet",
   "my_payouts": "My Payouts",
   "request_payout": "Request Payout",
-  "payout_history": "Payout History"
+  "payout_history": "Payout History",
+"monthly_calculation": "Monthly Calculation",
+"monthly_sales_data_archiver": "Monthly Sales Data Archiver",
+"monthly_commission_ledger_lock": "Monthly Commission Ledger Lock",
+"dashboard_overview": "Dashboard Overview"
+
 }

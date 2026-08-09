@@ -1,6 +1,7 @@
 // controllers/invoiceController.js
 const Invoice = require('../models/Invoice');
 const Transaction = require('../models/Transaction');
+const mongoose = require('mongoose');
 
 const createInvoice = async (req, res) => {
   try {
@@ -210,7 +211,79 @@ const getAllInvoices = async (req, res) => {
 };
 
 
+// Dashboard Overview Stats Controller
+const getDashboardOverviewStats = async (req, res) => {
+  try {
+    const db = mongoose.connection.db;
+    const salesCollection = db.collection("invoices"); // ইনভয়েস কালেকশন থেকে ডাটা পুল করা হচ্ছে
+
+    // 🗓️ রিয়েল-টাইম ডাইনামিক ডেট অবজেক্ট জেনারেশন
+    const now = new Date(); // সিস্টেমের কারেন্ট ডেট অটো ট্র্যাক করবে
+    
+    // আজকের দিন (শুরু এবং শেষ)
+    const todayStart = new Date(now.setHours(0, 0, 0, 0));
+    const todayEnd = new Date(now.setHours(23, 59, 59, 999));
+    
+    // চলতি মাস এবং চলতি বছরের শুরু
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const currentYearStart = new Date(now.getFullYear(), 0, 1);
+
+    // 📊 অপ্টিমাইজড এগ্রিগেশন ফেস can রিয়েল-টাইম ডাটা পুলিং
+    const stats = await salesCollection.aggregate([
+      {
+        $facet: {
+          totalSales: [
+            { $group: { _id: null, amount: { $sum: "$grandTotal" }, totalDue: { $sum: "$dueAmount" } } }
+          ],
+          yearlySales: [
+            { $match: { createdAt: { $gte: currentYearStart } } },
+            { $group: { _id: null, amount: { $sum: "$grandTotal" } } }
+          ],
+          monthlySales: [
+            { $match: { createdAt: { $gte: currentMonthStart } } },
+            { $group: { _id: null, amount: { $sum: "$grandTotal" } } }
+          ],
+          todaySales: [
+            { $match: { createdAt: { $gte: todayStart, $lte: todayEnd } } },
+            { $group: { _id: null, amount: { $sum: "$grandTotal" } } }
+          ]
+        }
+      }
+    ]).toArray();
+
+    // এক্সপেন্সেস ডাটা এগ্রিগেশন
+    const expenseData = await db.collection("expenses").aggregate([
+      { $group: { _id: null, total: { $sum: "$amount" } } }
+    ]).toArray();
+
+    // ডাটাবেজ রিটার্ন ভ্যালু এক্সট্রাক্ট করা (ফেলসেফ ০ হ্যান্ডলিং সহ)
+    const totalSalesAmt = stats[0]?.totalSales[0]?.amount || 0;
+    const totalDueAmt = stats[0]?.totalSales[0]?.totalDue || 0;
+    const yearlySalesAmt = stats[0]?.yearlySales[0]?.amount || 0;
+    const monthlySalesAmt = stats[0]?.monthlySales[0]?.amount || 0;
+    const todaySalesAmt = stats[0]?.todaySales[0]?.amount || 0;
+    const totalExpense = expenseData[0]?.total || 0;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalSales: totalSalesAmt,
+        totalDue: totalDueAmt,
+        yearlySales: yearlySalesAmt,
+        monthlySales: monthlySalesAmt,
+        todaySales: todaySalesAmt,
+        expense: totalExpense,
+        bankBalance: totalSalesAmt - totalExpense // নেট ক্যাশ ইন হ্যান্ড
+      }
+    });
+
+  } catch (error) {
+    console.error("Dashboard core matrix pipeline engine error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 
 
-module.exports = {createInvoice, getNextInvoiceNumber, updateInvoice, getInvoiceById, getInvoiceByInvoiceNo, getAllInvoices};
+
+module.exports = {createInvoice, getNextInvoiceNumber, updateInvoice, getInvoiceById, getInvoiceByInvoiceNo, getAllInvoices, getDashboardOverviewStats};
