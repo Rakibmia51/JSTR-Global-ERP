@@ -39,7 +39,10 @@ import ProductShowroom from './components/ProductShowroom';
 import MyCommission from './components/MyCommission';
 import SalarySheet from './components/SalarySheet';
 import DashboardOverview from './components/DashboardOverview';
+import ChangePassword from './components/ChangePassword';
 
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css'; // সিএসএস ইমপোর্ট করা বাধ্যতামূলক
 
 
 function App() {
@@ -114,7 +117,13 @@ function App() {
           <Route path="settings/ledger-lock" element={<CommissionLedger/>} />
 
           
-          <Route path="settings" element={<ComingSoon/>} />
+          <Route path="settings" element={
+            <>
+            <ChangePassword/>
+            <ToastContainer position="top-right" autoClose={3000} />
+            </>
+            
+            } />
         </Route>
       
         <Route 
@@ -134,7 +143,12 @@ function App() {
           <Route path="wallet/payout-history" element={<ComingSoon/>} />
           <Route path="tree" element={<DownlineTree/>} />
           <Route path="rank" element={<RankProgress/>} />
-          <Route path="settings" element={<ComingSoon/>} />
+          <Route path="settings" element={
+            <>
+              <ChangePassword/>
+              <ToastContainer position="top-right" autoClose={3000} />
+            </>
+            } />
         </Route>
 
 

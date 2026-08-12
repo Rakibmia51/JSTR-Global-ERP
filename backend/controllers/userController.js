@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const User = require('../models/User');
+const bcrypt = require('bcrypt');
 const generateToken = require('../utils/generateToken');
 const Department = require('../models/Department');
 const Invoice = require('../models/Invoice');
@@ -670,8 +671,32 @@ const getEmployeeRankProgress = async (req, res) => {
   }
 };
 
-// ⚠️ routes/dashboardRoutes.js ফাইলে এটি রেজিস্টার করে দিন:
-// router.get('/rank-progress', getEmployeeRankProgress);
+
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const user = await User.findById(req.user._id).select('+password');
+
+    const isMatch = await user.matchPassword(currentPassword);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    // 💡 এটি অত্যন্ত গুরুত্বপূর্ণ (success: true থাকতে হবে)
+    return res.status(200).json({
+      success: true,
+      message: 'Password changed successfully!'
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+
 
 
 
@@ -686,4 +711,7 @@ module.exports = {
    updateUser, 
    deleteUser, 
    getEmployeeById,
-   getEmployeeRankProgress};
+   getEmployeeRankProgress,
+   changePassword
+  
+  };
