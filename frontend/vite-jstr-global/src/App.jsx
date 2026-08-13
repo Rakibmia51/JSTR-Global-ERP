@@ -43,6 +43,7 @@ import ChangePassword from './components/ChangePassword';
 
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css'; // সিএসএস ইমপোর্ট করা বাধ্যতামূলক
+import AdminChangePassword from './components/AdminChangePassword';
 
 
 function App() {
@@ -115,6 +116,12 @@ function App() {
           <Route path="settings/calculation" element={<AdminArchivePanel/>} />
           <Route path="settings/archiver" element={<SalesArchiveMonthly/>} />
           <Route path="settings/ledger-lock" element={<CommissionLedger/>} />
+          <Route path="settings/change-password" element={
+            <>
+              <AdminChangePassword/>
+              <ToastContainer position="top-right" autoClose={3000} />
+            </>
+            } />
 
           
           <Route path="settings" element={

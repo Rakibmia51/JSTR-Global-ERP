@@ -696,7 +696,78 @@ const changePassword = async (req, res) => {
 };
 
 
+// --- ১. আইডি দিয়ে নাম খোঁজার কন্ট্রোলার ---
+const getAccountNameById = async (req, res) => {
+  try {
+    const { targetId } = req.params;
+    if (!targetId) {
+      return res.status(400).json({ success: false, message: 'ID is required' });
+    }
 
+    const trimmedId = targetId.trim().toUpperCase();
+
+    // ১. যদি Employee আইডি হয়
+    if (trimmedId.startsWith('MKT-')) {
+      const user = await User.findOne({ idNo: trimmedId }).select('name');
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'No employee found with this ID' });
+      }
+      return res.status(200).json({ success: true, name: user.name, type: 'Employee' });
+    }
+
+    // ২. যদি Dealer আইডি হয়
+    if (trimmedId.startsWith('DLR-')) {
+      const dealer = await Dealer.findOne({ dealerId: trimmedId }).select('name');
+      if (!dealer) {
+        return res.status(404).json({ success: false, message: 'No dealer found with this ID' });
+      }
+      return res.status(200).json({ success: true, name: dealer.name, type: 'Dealer' });
+    }
+
+    return res.status(400).json({ success: false, message: 'Invalid ID format (Use MKT- or DLR-)' });
+
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// --- ২. পাসওয়ার্ড রিসেট করার মূল কন্ট্রোলার (আগেরটিই) ---
+const adminResetPassword = async (req, res) => {
+  try {
+    const { targetId, newPassword } = req.body;
+
+    if (!targetId || !newPassword) {
+      return res.status(400).json({ success: false, message: 'ID and New Password are required' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
+    }
+
+    const trimmedId = targetId.trim().toUpperCase();
+
+    if (trimmedId.startsWith('MKT-')) {
+      const user = await User.findOne({ idNo: trimmedId });
+      if (!user) return res.status(404).json({ success: false, message: 'Employee not found' });
+      user.password = newPassword;
+      await user.save();
+      return res.status(200).json({ success: true, message: `Employee (${trimmedId}) password updated!` });
+    }
+
+    if (trimmedId.startsWith('DLR-')) {
+      const dealer = await Dealer.findOne({ dealerId: trimmedId });
+      if (!dealer) return res.status(404).json({ success: false, message: 'Dealer not found' });
+      
+      const salt = await bcrypt.genSalt(10);
+      dealer.password = await bcrypt.hash(newPassword, salt);
+      await dealer.save();
+      return res.status(200).json({ success: true, message: `Dealer (${trimmedId}) password updated!` });
+    }
+
+    return res.status(400).json({ success: false, message: 'Invalid ID format' });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 
 
@@ -712,6 +783,8 @@ module.exports = {
    deleteUser, 
    getEmployeeById,
    getEmployeeRankProgress,
-   changePassword
-  
+   changePassword,
+   adminResetPassword,
+   getAccountNameById
+
   };

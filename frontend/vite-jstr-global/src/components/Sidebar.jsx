@@ -424,6 +424,7 @@ const Sidebar = () => {
         { name: t('monthly_calculation'), id: 'Monthly Calculation', icon: Cpu, path: '/admin-panel/settings/calculation' },
         { name: t('monthly_sales_data_archiver'), id: 'Monthly Sales Data Archiver', icon: PackagePlus, path: '/admin-panel/settings/archiver' },
         { name: t('monthly_commission_ledger_lock'), id: 'Monthly Commission Ledger Lock', icon: ShieldAlert, path: '/admin-panel/settings/ledger-lock' },
+        { name: t('change_password'), id: 'Change Password', icon: Lock, path: '/admin-panel/settings/change-password' },
       ]
     },
 

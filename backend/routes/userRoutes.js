@@ -12,7 +12,9 @@ const {
     getEmployeeTree, 
     getMyDownlineTree, 
     getEmployeeRankProgress,
-    changePassword 
+    changePassword,
+    adminResetPassword,
+    getAccountNameById
 
     } = require('../controllers/userController');
 const { protect, authorizeRoles } = require('../middleware/authMiddleware');
@@ -37,6 +39,10 @@ router.get('/tree', getEmployeeTree);
 router.get('/my-downline-tree', getMyDownlineTree);
 router.get('/rank-progress', getEmployeeRankProgress);
 router.put('/change-password', protect, changePassword);
+// এই রুটটি অবশ্যই শুধু অ্যাডমিনদের জন্য প্রটেক্টেড হওয়া উচিত
+router.get('/admin/get-name/:targetId', protect, authorizeRoles('admin'), getAccountNameById);
+router.put('/admin/reset-password', protect, authorizeRoles('admin'), adminResetPassword);
+
 
 router.get('/:id', getEmployeeById);
 router.put('/:id', protect, authorizeRoles('admin', 'manager'), cpUpload, updateUser);

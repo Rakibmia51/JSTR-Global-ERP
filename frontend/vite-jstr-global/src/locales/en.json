@@ -27,6 +27,8 @@
 "monthly_calculation": "Monthly Calculation",
 "monthly_sales_data_archiver": "Monthly Sales Data Archiver",
 "monthly_commission_ledger_lock": "Monthly Commission Ledger Lock",
-"dashboard_overview": "Dashboard Overview"
+"dashboard_overview": "Dashboard Overview",
+"change_password": "Change Password",
+"admin_change_password": "Admin Change Password"
 
 }
