@@ -3,24 +3,71 @@ const Invoice = require('../models/Invoice');
 const Transaction = require('../models/Transaction');
 const mongoose = require('mongoose');
 
+// 1st version of invoice controller with basic CRUD operations 
+// const createInvoice = async (req, res) => {
+//   try {
+//     const data = req.body;
+    
+//     // ১. ডিউ এবং পেমেন্ট স্ট্যাটাস ক্যালকুলেশন
+//     data.dueAmount = data.grandTotal - data.paidAmount;
+//     if (data.dueAmount === 0) data.paymentStatus = 'Paid';
+//     else if (data.paidAmount > 0) data.paymentStatus = 'Partially Paid';
+//     else data.paymentStatus = 'Due';
+
+//     // 💡 ২. ডাটা অবজেক্টের ভেতরেই সরাসরি প্রথম 'Created' লগটি যুক্ত করে দেওয়া
+//     data.historyLog = [{
+//       action: 'Created',
+//       grandTotal: data.grandTotal,
+//       paidAmount: data.paidAmount,
+//       dueAmount: data.dueAmount < 0 ? 0 : data.dueAmount,
+//       note: 'Initial invoice creation',
+//       updatedBy: 'Admin/Staff', // আপনার Auth অনুযায়ী ডাইনামিক করতে পারেন
+//       updatedAt: new Date()
+//     }];
+
+//     // ৩. ইনভয়েস তৈরি এবং ডাটাবেজে সেভ করা
+//     const newInvoice = new Invoice(data);
+//     await newInvoice.save();
+
+//     // ৪. যদি কাস্টমার/ডিলার ক্যাশ পেমেন্ট করে, তবে অ্যাকাউন্টিং ট্রানজেকশনে এন্ট্রি দেওয়া
+//     if (data.paidAmount > 0) {
+//       await Transaction.create({
+//         invoice: newInvoice._id,
+//         dealer: data.dealer || null,
+//         type: 'Credit', // কোম্পানিতে টাকা ঢুকলো
+//         category: 'Sales Income',
+//         amount: data.paidAmount,
+//         description: `Received payment for Invoice No: ${newInvoice.invoiceNo}`
+//       });
+//     }
+
+//     res.status(201).json({ success: true, data: newInvoice });
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+// 2nd version of invoice controller with enhanced features
 const createInvoice = async (req, res) => {
   try {
     const data = req.body;
     
-    // ১. ডিউ এবং পেমেন্ট স্ট্যাটাস ক্যালকুলেশন
+    // ১. ডিউ এবং পেমেন্ট স্ট্যাটাস ক্যালকুলেশন (স্বাভাবিক হিসাব)
     data.dueAmount = data.grandTotal - data.paidAmount;
     if (data.dueAmount === 0) data.paymentStatus = 'Paid';
     else if (data.paidAmount > 0) data.paymentStatus = 'Partially Paid';
     else data.paymentStatus = 'Due';
 
-    // 💡 ২. ডাটা অবজেক্টের ভেতরেই সরাসরি প্রথম 'Created' লগটি যুক্ত করে দেওয়া
+    // ২. ডাটা অবজেক্টের ভেতরে প্রথম 'Created' লগটি যুক্ত করা
     data.historyLog = [{
       action: 'Created',
       grandTotal: data.grandTotal,
       paidAmount: data.paidAmount,
       dueAmount: data.dueAmount < 0 ? 0 : data.dueAmount,
-      note: 'Initial invoice creation',
-      updatedBy: 'Admin/Staff', // আপনার Auth অনুযায়ী ডাইনামিক করতে পারেন
+      note: data.advanceAdjustment?.employeeIdNo 
+        ? `Invoice created. Linked with Employee ID: ${data.advanceAdjustment.employeeIdNo} for month-end adjustment.` 
+        : 'Initial invoice creation',
+      updatedBy: req.user?.name || 'Admin/Staff',
       updatedAt: new Date()
     }];
 
@@ -28,12 +75,12 @@ const createInvoice = async (req, res) => {
     const newInvoice = new Invoice(data);
     await newInvoice.save();
 
-    // ৪. যদি কাস্টমার/ডিলার ক্যাশ পেমেন্ট করে, তবে অ্যাকাউন্টিং ট্রানজেকশনে এন্ট্রি দেওয়া
+    // ৪. কাস্টমার/ডিলার ক্যাশ পেমেন্ট করলে স্বাভাবিক ট্রানজেকশন এন্ট্রি
     if (data.paidAmount > 0) {
       await Transaction.create({
         invoice: newInvoice._id,
         dealer: data.dealer || null,
-        type: 'Credit', // কোম্পানিতে টাকা ঢুকলো
+        type: 'Credit', 
         category: 'Sales Income',
         amount: data.paidAmount,
         description: `Received payment for Invoice No: ${newInvoice.invoiceNo}`
@@ -85,6 +132,74 @@ const getNextInvoiceNumber = async (req, res) => {
   }
 };
 
+// 1st version of updateInvoice controller with basic update functionality
+// const updateInvoice = async (req, res) => {
+//   try {
+//     const { id } = req.params; 
+//     const updatedData = req.body;
+
+//     // ১. নতুন করে ডিউ এবং পেমেন্ট স্ট্যাটাস ক্যালকুলেশন
+//     updatedData.dueAmount = updatedData.grandTotal - updatedData.paidAmount;
+    
+//     if (updatedData.dueAmount === 0) {
+//       updatedData.paymentStatus = 'Paid';
+//     } else if (updatedData.paidAmount > 0) {
+//       updatedData.paymentStatus = 'Partially Paid';
+//     } else {
+//       updatedData.paymentStatus = 'Due';
+//     }
+
+//     // 💡 ২. হিস্ট্রি লগ অবজেক্ট তৈরি করা
+//     const newLog = {
+//       action: 'Updated',
+//       grandTotal: updatedData.grandTotal,
+//       paidAmount: updatedData.paidAmount,
+//       dueAmount: updatedData.dueAmount < 0 ? 0 : updatedData.dueAmount,
+//       note: updatedData.updateNote || 'Invoice details updated',
+//       updatedBy: 'Admin/Staff', // আপনার Auth মেকানিজম থাকলে req.user.name বা id দিতে পারেন
+//       updatedAt: new Date()
+//     };
+
+//     // ৩. ডাটাবেজে ইনভয়েস আপডেট এবং একই সাথে historyLog অ্যারেতে পুশ করা
+//     const updatedInvoice = await Invoice.findByIdAndUpdate(
+//       id, 
+//       { 
+//         $set: updatedData,       // মেইন ইনভয়েস ডাটা আপডেট করবে
+//         $push: { historyLog: newLog } // historyLog অ্যারেতে নতুন অবজেক্ট যোগ করবে
+//       }, 
+//       { new: true, runValidators: true }
+//     );
+
+//     if (!updatedInvoice) {
+//       return res.status(404).json({ success: false, message: 'Invoice not found' });
+//     }
+
+//     // ৪. ট্রানজেকশন হিস্ট্রি (Accounting History) আপডেট করা
+//     await Transaction.deleteMany({ invoice: id });
+
+//     // এখন নতুন পেইড অ্যামাউন্টের ওপর ভিত্তি করে নতুন ট্রানজেকশন এন্ট্রি তৈরি করা
+//     if (updatedData.paidAmount > 0) {
+//       await Transaction.create({
+//         invoice: updatedInvoice._id,
+//         dealer: updatedData.dealer || null,
+//         type: 'Credit', 
+//         category: 'Sales Income',
+//         amount: updatedData.paidAmount,
+//         description: `Updated payment for Invoice No: ${updatedInvoice.invoiceNo} (Edited)`
+//       });
+//     }
+
+//     res.status(200).json({ 
+//       success: true, 
+//       data: updatedInvoice, 
+//       message: 'Invoice, accounts transaction, and change logs updated successfully' 
+//     });
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+// 2nd version of updateInvoice controller with enhanced features
 const updateInvoice = async (req, res) => {
   try {
     const { id } = req.params; 
@@ -93,7 +208,8 @@ const updateInvoice = async (req, res) => {
     // ১. নতুন করে ডিউ এবং পেমেন্ট স্ট্যাটাস ক্যালকুলেশন
     updatedData.dueAmount = updatedData.grandTotal - updatedData.paidAmount;
     
-    if (updatedData.dueAmount === 0) {
+    if (updatedData.dueAmount <= 0) {
+      updatedData.dueAmount = 0;
       updatedData.paymentStatus = 'Paid';
     } else if (updatedData.paidAmount > 0) {
       updatedData.paymentStatus = 'Partially Paid';
@@ -101,14 +217,19 @@ const updateInvoice = async (req, res) => {
       updatedData.paymentStatus = 'Due';
     }
 
-    // 💡 ২. হিস্ট্রি লগ অবজেক্ট তৈরি করা
+    // 💡 ২. ডাইনামিক হিস্ট্রি লগ নোট তৈরি করা (এমপ্লয়ি ট্র্যাকিং সহ)
+    let logNote = updatedData.updateNote || 'Invoice details updated';
+    if (updatedData.advanceAdjustment?.employeeIdNo) {
+      logNote += ` (Linked with Employee ID: ${updatedData.advanceAdjustment.employeeIdNo} for month-end)`;
+    }
+
     const newLog = {
       action: 'Updated',
       grandTotal: updatedData.grandTotal,
       paidAmount: updatedData.paidAmount,
-      dueAmount: updatedData.dueAmount < 0 ? 0 : updatedData.dueAmount,
-      note: updatedData.updateNote || 'Invoice details updated',
-      updatedBy: 'Admin/Staff', // আপনার Auth মেকানিজম থাকলে req.user.name বা id দিতে পারেন
+      dueAmount: updatedData.dueAmount,
+      note: logNote,
+      updatedBy: req.user?.name || 'Admin/Staff', // আপনার Auth মেকানিজম অনুযায়ী ডাইনামিক
       updatedAt: new Date()
     };
 
@@ -116,8 +237,8 @@ const updateInvoice = async (req, res) => {
     const updatedInvoice = await Invoice.findByIdAndUpdate(
       id, 
       { 
-        $set: updatedData,       // মেইন ইনভয়েস ডাটা আপডেট করবে
-        $push: { historyLog: newLog } // historyLog অ্যারেতে নতুন অবজেক্ট যোগ করবে
+        $set: updatedData,            // মেইন ইনভয়েস ডাটা ও advanceAdjustment আপডেট করবে
+        $push: { historyLog: newLog }  // historyLog অ্যারেতে নতুন অবজেক্ট যোগ করবে
       }, 
       { new: true, runValidators: true }
     );
@@ -127,6 +248,7 @@ const updateInvoice = async (req, res) => {
     }
 
     // ৪. ট্রানজেকশন হিস্ট্রি (Accounting History) আপডেট করা
+    // আপনার এক্সিসটিং রুলস অনুযায়ী পুরনো এন্ট্রি ডিলিট করে নতুন কারেন্ট ক্যাশ পেইড এন্ট্রি জেনারেট করা
     await Transaction.deleteMany({ invoice: id });
 
     // এখন নতুন পেইড অ্যামাউন্টের ওপর ভিত্তি করে নতুন ট্রানজেকশন এন্ট্রি তৈরি করা

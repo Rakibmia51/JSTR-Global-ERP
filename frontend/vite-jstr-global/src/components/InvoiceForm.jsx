@@ -27,12 +27,22 @@ const InvoiceForm = () => {
 
   const [nextInvoiceNo, setNextInvoiceNo] = useState('Loading...');
 
-
    // NEW: State to store and show the last successfully saved invoice number inside the form
   const [lastSavedInvoiceNo, setLastSavedInvoiceNo] = useState('None');
 
-
   const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'; 
+
+
+  // 2nd state variables for advance adjustment and reference tracking
+// 🆕 [NEW STATES] এই লাইনগুলো আপনার ফাইলের উপরে useState গুলোর সাথে যুক্ত করুন
+const [advanceEmployeeIdNo, setAdvanceEmployeeIdNo] = useState('');
+const [advanceEmployeeName, setAdvanceEmployeeName] = useState('');
+const [referenceIdNo, setReferenceIdNo] = useState('');
+const [referenceName, setReferenceName] = useState(''); // এটিও যদি নিচে ব্যবহার করে থাকেন
+const [adjustedAmount, setAdjustedAmount] = useState(0); // নতুন অ্যাডজাস্টেড অ্যামাউন্ট স্টেট
+
+// নাম খোঁজার সময় ছোট স্পিনারের লোডিং হ্যান্ডেল করার জন্য এটিও যোগ করুন
+const [nameLoading, setNameLoading] = useState({ emp: false, ref: false });
 
 
 
@@ -87,22 +97,101 @@ const handleProductSelect = (index, selectedOption) => {
   setFormData({ ...formData, items: updatedItems });
 };
 
-  const [formData, setFormData] = useState({
-    invoiceNo: '',
-    dealer: '',
-    customerName: '',
-    customerMobile: '',
-    items: [],
-    discount: 0,
-    tax: 0,
-    paidAmount: 0,
-    paymentMethod: 'Cash',
+// 1. ফর্ম ডাটা স্টেট
+  // const [formData, setFormData] = useState({
+  //   invoiceNo: '',
+  //   dealer: '',
+  //   customerName: '',
+  //   customerMobile: '',
+  //   items: [],
+  //   discount: 0,
+  //   tax: 0,
+  //   paidAmount: 0,
+  //   paymentMethod: 'Cash',
     
-    paymentStatus: 'Due', // Default payment status
-    createdBy: '' // Temporary logged-in User MongoDB ObjectId
-  });
+  //   paymentStatus: 'Due', // Default payment status
+  //   createdBy: '' // Temporary logged-in User MongoDB ObjectId
+  // });
 
-// যদি এডিট মোড হয় (URL-এ id থাকে), তবে ডাটাবেজ থেকে আগের ডাটা লোড করা
+// 2. ফর্ম ডাটা স্টেট
+const [formData, setFormData] = useState({
+  invoiceNo: '',
+  dealer: '',
+  customerName: '',
+  customerMobile: '',
+  items: [],
+  discount: 0,
+  tax: 0,
+  paidAmount: 0,
+  paymentMethod: 'Cash',
+  paymentStatus: 'Due', 
+  createdBy: '',
+  
+  // 💡 [NEW] মাস শেষের হিসাবের জন্য অবজেক্ট ট্র্যাকিং স্টেট
+  advanceAdjustment: {
+    employeeIdNo: '',
+    employeeName: '',
+    adjustedAmount: 0,
+    referenceIdNo: ''
+  }
+});
+
+
+// 1st যদি এডিট মোড হয় (URL-এ id থাকে), তবে ডাটাবেজ থেকে আগের ডাটা লোড করা
+// useEffect(() => {
+//   if (id) {
+//     const fetchInvoiceData = async () => {
+//       try {
+//         const response = await fetch(`${SERVER_URL}/api/invoices/${id}`);
+//         const result = await response.json();
+        
+//         if (result.success && result.data) {
+//           const invoiceData = result.data;
+
+//           // ১. মূল ফর্ম ডাটা সেট করা
+//           setFormData({
+//             invoiceNo: invoiceData.invoiceNo || '',
+//             dealer: invoiceData.dealer?._id || invoiceData.dealer || '', 
+//             customerName: invoiceData.customerName || '',
+//             customerMobile: invoiceData.customerMobile || '',
+
+//            // 💡 সমাধান: আইটেম লোড করার সময় productName বা productId দুটিই ব্যাকআপ হিসেবে রাখুন
+//             items: invoiceData.items ? invoiceData.items.map(item => ({
+//               productName: item.productName || item.product?.name || '', 
+//               // যদি আপনার productOptions-এর value-তে প্রোডাক্টের নাম থাকে, তবে এটি কাজ করবে:
+//               productId: item.productName || item.productId || item.product?._id || item.product ||'', 
+//               quantity: Number(item.quantity) || 1,
+//               unitPrice: Number(item.unitPrice) || 0,
+//               totalPrice: Number(item.totalPrice) || 0
+//             })) : [],
+
+//             discount: invoiceData.discount || 0,
+//             tax: invoiceData.tax || 0,
+//             grandTotal: invoiceData.grandTotal || 0,
+//             paidAmount: invoiceData.paidAmount || 0,
+//             paymentMethod: invoiceData.paymentMethod || 'Cash',
+//             // paymentStatus: invoiceData.paymentStatus || '',
+//              historyLog: invoiceData.historyLog || []
+//           });
+
+//           // ২. 💡 ডিলারের নাম এবং কোড স্টেটগুলো আলাদা করে সেট করা (সমাধান)
+//           if (invoiceData.dealer) {
+//             setIsDealer(true);
+//             // যদি আপনার ব্যাকএন্ডে ডিলার পপুলেট করা থাকে:
+//             setDealerCode(invoiceData.dealer.dealerId || ''); 
+//             setFetchedDealerName(invoiceData.dealer.name || '');
+//           }
+
+//         }
+//       } catch (error) {
+//         console.error("Error fetching invoice data:", error);
+//       }
+//     };
+//     fetchInvoiceData();
+//   }
+// }, [id]);
+
+// 2nd যদি এডিট মোড হয় (URL-এ id থাকে), তবে ডাটাবেজ থেকে আগের ডাটা লোড করা
 useEffect(() => {
   if (id) {
     const fetchInvoiceData = async () => {
@@ -113,17 +202,16 @@ useEffect(() => {
         if (result.success && result.data) {
           const invoiceData = result.data;
 
-          // ১. মূল ফর্ম ডাটা সেট করা
+          // মূল ফর্ম ডাটা সেট করা
           setFormData({
             invoiceNo: invoiceData.invoiceNo || '',
             dealer: invoiceData.dealer?._id || invoiceData.dealer || '', 
             customerName: invoiceData.customerName || '',
             customerMobile: invoiceData.customerMobile || '',
 
-           // 💡 সমাধান: আইটেম লোড করার সময় productName বা productId দুটিই ব্যাকআপ হিসেবে রাখুন
+            // আইটেম লোড করার মেকানিজম (আপনার অরিজিনাল কোড)
             items: invoiceData.items ? invoiceData.items.map(item => ({
               productName: item.productName || item.product?.name || '', 
-              // যদি আপনার productOptions-এর value-তে প্রোডাক্টের নাম থাকে, তবে এটি কাজ করবে:
               productId: item.productName || item.productId || item.product?._id || item.product ||'', 
               quantity: Number(item.quantity) || 1,
               unitPrice: Number(item.unitPrice) || 0,
@@ -135,16 +223,37 @@ useEffect(() => {
             grandTotal: invoiceData.grandTotal || 0,
             paidAmount: invoiceData.paidAmount || 0,
             paymentMethod: invoiceData.paymentMethod || 'Cash',
-            // paymentStatus: invoiceData.paymentStatus || '',
-             historyLog: invoiceData.historyLog || []
+            historyLog: invoiceData.historyLog || [],
+
+            // 🆕 [NEW] ডাটাবেজ থেকে এডিট মোডে অ্যাডভান্স এবং রেফারেন্স ডাটা রিসিভ করা
+            advanceAdjustment: {
+              employeeIdNo: invoiceData.advanceAdjustment?.employeeIdNo || '',
+              employeeName: invoiceData.advanceAdjustment?.employeeName || '',
+              adjustedAmount: invoiceData.advanceAdjustment?.adjustedAmount || 0,
+              referenceIdNo: invoiceData.advanceAdjustment?.referenceIdNo || ''
+            }
           });
 
-          // ২. 💡 ডিলারের নাম এবং কোড স্টেটগুলো আলাদা করে সেট করা (সমাধান)
+          // ডিলারের নাম এবং কোড স্টেট আলাদা করে সেট করা (আপনার অরিজিনাল কোড)
           if (invoiceData.dealer) {
             setIsDealer(true);
-            // যদি আপনার ব্যাকএন্ডে ডিলার পপুলেট করা থাকে:
             setDealerCode(invoiceData.dealer.dealerId || ''); 
             setFetchedDealerName(invoiceData.dealer.name || '');
+          }
+
+          // 🆕 [NEW] লাইভ প্রিভিউ বক্সে নামগুলো সচল রাখার জন্য আপনার আগের গ্লোবাল স্টেটগুলো সিঙ্ক করা
+          if (invoiceData.advanceAdjustment) {
+            setAdvanceEmployeeIdNo && setAdvanceEmployeeIdNo(invoiceData.advanceAdjustment.employeeIdNo || '');
+            setAdvanceEmployeeName && setAdvanceEmployeeName(invoiceData.advanceAdjustment.employeeName || '');
+            setReferenceIdNo && setReferenceIdNo(invoiceData.advanceAdjustment.referenceIdNo || '');
+            setReferenceName && setReferenceName(invoiceData.advanceAdjustment.referenceName || '');
+            setAdjustedAmount && setAdjustedAmount(invoiceData.advanceAdjustment.adjustedAmount || 0);
+
+            // রেফারেন্স আইডি দিয়ে যদি লাইভ নাম লোড করার আলাদা মেথড বা স্টেট থাকে, তবে এখানে তা কল হবে
+            if (invoiceData.advanceAdjustment.referenceIdNo) {
+              // উদাহরণস্বরূপ যদি রেফারেন্সের নাম ডাটাবেজে স্টোর না থাকে, তবে আইডি দিয়ে পুনরায় নাম লোড করা নিরাপদ:
+              verifyIdAndGetName && verifyIdAndGetName(invoiceData.advanceAdjustment.referenceIdNo, 'REF');
+            }
           }
 
         }
@@ -747,7 +856,7 @@ useEffect(() => {
 
 
 
-  // // 4. API Submission
+  // // 1st. API Submission
   // const handleSubmit = async (e) => {
   //    e.preventDefault();
   //   setIsSubmitting(true);
@@ -837,7 +946,122 @@ useEffect(() => {
   //   }
   // };
 
-  const handleSubmit = async (e) => {
+  // 2nd. API Submission with enhanced data handling and print functionality
+//   const handleSubmit = async (e) => {
+//     e.preventDefault();
+//     setIsSubmitting(true);
+  
+//     // ১. প্রোডাক্টের মোট দাম ফ্রন্টএন্ডেই নাম্বার ফরম্যাটে নিশ্চিত করা
+//     const parsedItems = formData.items.map(item => ({
+//       productName: item.productName,
+//       quantity: Number(item.quantity) || 1,
+//       unitPrice: Number(item.unitPrice) || 0,
+//       totalPrice: (Number(item.quantity) || 1) * (Number(item.unitPrice) || 0)
+//     }));
+
+//     // ২. হিসাব-নিকাশগুলো ফ্রন্টএন্ডেই ক্যালকুলেট করে নেওয়া (নিরাপত্তার জন্য)
+//     const calculatedSubTotal = parsedItems.reduce((sum, item) => sum + item.totalPrice, 0);
+//     const calculatedGrandTotal = (calculatedSubTotal + Number(formData.tax)) - Number(formData.discount);
+//     const calculatedDueAmount = calculatedGrandTotal - Number(formData.paidAmount);
+
+//     // 💡 ৩. মোড সিলেক্ট করা: URL-এ id থাকুক অথবা formData-তে _id থাকুক, ২ক্ষেত্রে এটি এডিট/আপডেট মোড
+//     const isEditMode = !!id || !!formData._id;
+//     const finalId = id || formData._id; // আপডেটের জন্য নির্দিষ্ট আইডি
+
+//     // ৩. ফাইনাল পেলোড তৈরি
+//     const payload = {
+//       ...(isEditMode && { invoiceNo: formData.invoiceNo }),
+//       dealer: isDealer && formData.dealer ? formData.dealer : null, 
+//       customerName: isDealer ? null : (formData.customerName || null),
+//       customerMobile: isDealer ? null : (formData.customerMobile || null),
+//       items: parsedItems,
+//       subTotal: calculatedSubTotal,
+//       discount: Number(formData.discount) || 0,
+//       tax: Number(formData.tax) || 0,
+//       grandTotal: calculatedGrandTotal,
+//       paidAmount: Number(formData.paidAmount) || 0,
+//       dueAmount: calculatedDueAmount < 0 ? 0 : calculatedDueAmount,
+//       paymentMethod: formData.paymentMethod,
+//       createdBy: "65f8a123cd456ef789012345" 
+//     };
+
+//     try {
+//       const url = isEditMode 
+//         ? `${SERVER_URL}/api/invoices/${finalId}` 
+//         : `${SERVER_URL}/api/invoices`;
+      
+//       const method = isEditMode ? 'PUT' : 'POST';
+
+//       const response = await fetch(url, {
+//         method: method,
+//         headers: { 'Content-Type': 'application/json' },
+//         body: JSON.stringify(payload)
+//       });
+      
+//       const result = await response.json();
+      
+//       if (result.success) {
+//         if (isEditMode) {
+//           alert('Invoice updated successfully!');
+          
+//           // 💡 এডিট মোডেও যেন রিফ্রেশ ছাড়া সব ডাটা সহ প্রিন্ট হয়
+//           const updatedInvoice = { ...result.data };
+//           if (isDealer) {
+//             updatedInvoice.dealer = {
+//               _id: formData.dealer,
+//               name: fetchedDealerName,
+//               mobilePhoneNo: fetchedDealerPhone,
+//               mobile: fetchedDealerPhone,
+//               address: fetchedDealerAddress
+//             };
+//           } else {
+//             updatedInvoice.customerName = formData.customerName;
+//             updatedInvoice.customerMobile = formData.customerMobile;
+//             updatedInvoice.customerAddress = formData.customerAddress;
+//           }
+//          // handleFormPrint(updatedInvoice);
+
+//         } else {
+//           alert(`Invoice created successfully! Invoice No: ${result.data.invoiceNo}`);
+//           setLastSavedInvoiceNo(result.data.invoiceNo);
+//           fetchNextInvoiceNumber(); 
+
+//           // 💡 মঙ্গোডিবি থেকে আসা তাজা ডাটা একটি ভেরিয়েবলে নেওয়া হলো
+//           const savedInvoice = { ...result.data }; 
+
+//           // 💡 ম্যাজিক পার্ট: ব্যাকএন্ড অবজেক্টে পপুলেট না থাকা ডিলারের মোবাইল ও অ্যাড্রেস ফ্রন্টএন্ড স্টেট থেকে ইনজেক্ট করা
+//           if (isDealer) {
+//             savedInvoice.dealer = {
+//               _id: formData.dealer,
+//               name: fetchedDealerName,
+//               mobilePhoneNo: fetchedDealerPhone,
+//               mobile: fetchedDealerPhone,
+//               address: fetchedDealerAddress
+//             };
+//           } else {
+//             // কাস্টমার মোড হলে ইনপুট ফর্মের ডাটা ব্যাকআপ হিসেবে সেট করা
+//             savedInvoice.customerName = formData.customerName;
+//             savedInvoice.customerMobile = formData.customerMobile;
+//             savedInvoice.customerAddress = formData.customerAddress;
+//           }
+
+//           // 💡 এবার প্রিন্ট ফাংশনে এই কমপ্লিট ডাটা অবজেক্টটি পাস করে দেওয়া হলো
+//           // handleFormPrint(savedInvoice); 
+//         }
+        
+//       } else {
+//         alert(`Error: ${result.message}`);
+//       }
+//     } catch (error) {
+//       console.error('Error submitting invoice:', error);
+//       alert('Unable to connect to the server.');
+//     } finally {
+//       setIsSubmitting(false);
+//     }
+// };
+
+// 3rd. API Submission with enhanced data handling and print functionality
+const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
   
@@ -856,9 +1080,9 @@ useEffect(() => {
 
     // 💡 ৩. মোড সিলেক্ট করা: URL-এ id থাকুক অথবা formData-তে _id থাকুক, ২ক্ষেত্রে এটি এডিট/আপডেট মোড
     const isEditMode = !!id || !!formData._id;
-    const finalId = id || formData._id; // আপডেটের জন্য নির্দিষ্ট আইডি
+    const finalId = id || formData._id; // আপเดটের জন্য নির্দিষ্ট আইডি
 
-    // ৩. ফাইনাল পেলোড তৈরি
+    // ৩. ফাইনাল পেলোড তৈরি (এমপ্লয়ি অ্যাডভান্স ও রেফারেন্স ডাটা সহ)
     const payload = {
       ...(isEditMode && { invoiceNo: formData.invoiceNo }),
       dealer: isDealer && formData.dealer ? formData.dealer : null, 
@@ -872,7 +1096,15 @@ useEffect(() => {
       paidAmount: Number(formData.paidAmount) || 0,
       dueAmount: calculatedDueAmount < 0 ? 0 : calculatedDueAmount,
       paymentMethod: formData.paymentMethod,
-      createdBy: "65f8a123cd456ef789012345" 
+      createdBy: "65f8a123cd456ef789012345", // আপনার Auth অনুযায়ী ডাইনামিক করতে পারেন
+      
+      // 🆕 [FIXED]: এখানে invoiceData এর বদলে ওল্ড ডাটা রিড করতে formData ডিক্লেয়ার করা হয়েছে
+      advanceAdjustment: {
+        employeeIdNo: advanceEmployeeIdNo ? advanceEmployeeIdNo.trim().toUpperCase() : null,
+        employeeName: advanceEmployeeName || null,
+        adjustedAmount: Number(formData.advanceAdjustment?.adjustedAmount) || 0, // 💡 ফিক্সড লাইন
+        referenceIdNo: referenceIdNo ? referenceIdNo.trim().toUpperCase() : null
+      }
     };
 
     try {
@@ -909,7 +1141,7 @@ useEffect(() => {
             updatedInvoice.customerMobile = formData.customerMobile;
             updatedInvoice.customerAddress = formData.customerAddress;
           }
-         // handleFormPrint(updatedInvoice);
+          // handleFormPrint(updatedInvoice);
 
         } else {
           alert(`Invoice created successfully! Invoice No: ${result.data.invoiceNo}`);
@@ -934,6 +1166,12 @@ useEffect(() => {
             savedInvoice.customerMobile = formData.customerMobile;
             savedInvoice.customerAddress = formData.customerAddress;
           }
+
+          // 🆕 নতুন ইনভয়েস সফলভাবে সেভ হবার পর এমপ্লয়ি ও রেফারেন্স ইনপুট স্টেটগুলো খালি করা
+          setAdvanceEmployeeIdNo('');
+          setAdvanceEmployeeName('');
+          setReferenceIdNo('');
+          setReferenceName && setReferenceName(''); 
 
           // 💡 এবার প্রিন্ট ফাংশনে এই কমপ্লিট ডাটা অবজেক্টটি পাস করে দেওয়া হলো
           // handleFormPrint(savedInvoice); 
@@ -990,7 +1228,49 @@ const fetchInvoiceByNumber = async (invoiceNum) => {
   }
 };
 
-// কমন ফাংশন: ব্যাকএন্ডের ডাটা ফর্মে সেট করার জন্য
+
+
+//1st কমন ফাংশন: ব্যাকএন্ডের ডাটা ফর্মে সেট করার জন্য
+// const fillFormData = (invoiceData) => {
+//   setFormData({
+//     _id: invoiceData._id, // 💡 আপডেটের জন্য এটি মাস্ট লাগবে
+//     invoiceNo: invoiceData.invoiceNo || '',
+//     dealer: invoiceData.dealer?._id || invoiceData.dealer || '', 
+//     customerName: invoiceData.customerName || '',
+//     customerMobile: invoiceData.customerMobile || '',
+//     items: invoiceData.items ? invoiceData.items.map(item => ({
+//       productId: item.product?._id || item.productId || item.product || '', 
+//       productName: item.productName || item.product?.name || '', 
+//       quantity: Number(item.quantity) || 1,
+//       unitPrice: Number(item.unitPrice) || 0,
+//       totalPrice: Number(item.totalPrice) || 0
+//     })) : [],
+//     subTotal: invoiceData.subTotal || 0,
+//     discount: invoiceData.discount || 0,
+//     tax: invoiceData.tax || 0,
+//     grandTotal: invoiceData.grandTotal || 0,
+//     paidAmount: invoiceData.paidAmount || 0,
+//     dueAmount: invoiceData.dueAmount || 0,
+//     paymentMethod: invoiceData.paymentMethod || 'Cash',
+//     paymentStatus: invoiceData.paymentStatus || 'Due',
+//      // 💡 হিস্ট্রি টেবিলের জন্য এটিও যোগ করুন
+//     historyLog: invoiceData.historyLog || [] 
+//   });
+
+//   if (invoiceData.dealer) {
+//     setIsDealer(true);
+//     setDealerCode(invoiceData.dealer.dealerId || ''); 
+//     setFetchedDealerName(invoiceData.dealer.name || '');
+
+//     setFetchedDealerPhone(invoiceData.dealer.mobilePhoneNo || invoiceData.dealer.mobile || '');
+//     setFetchedDealerAddress(invoiceData.dealer.address || '');
+//   } else {
+//     setIsDealer(false);+
+//      setFetchedDealerPhone('');
+//      setFetchedDealerAddress('');
+//   }
+// };
+// ২য় কমন ফাংশন: ফর্ম ডাটা পরিবর্তনের জন্য
 const fillFormData = (invoiceData) => {
   setFormData({
     _id: invoiceData._id, // 💡 আপডেটের জন্য এটি মাস্ট লাগবে
@@ -998,6 +1278,8 @@ const fillFormData = (invoiceData) => {
     dealer: invoiceData.dealer?._id || invoiceData.dealer || '', 
     customerName: invoiceData.customerName || '',
     customerMobile: invoiceData.customerMobile || '',
+    
+    // আইটেম ম্যাপিং (আপনার অরিজিনাল কোড)
     items: invoiceData.items ? invoiceData.items.map(item => ({
       productId: item.product?._id || item.productId || item.product || '', 
       productName: item.productName || item.product?.name || '', 
@@ -1005,6 +1287,7 @@ const fillFormData = (invoiceData) => {
       unitPrice: Number(item.unitPrice) || 0,
       totalPrice: Number(item.totalPrice) || 0
     })) : [],
+    
     subTotal: invoiceData.subTotal || 0,
     discount: invoiceData.discount || 0,
     tax: invoiceData.tax || 0,
@@ -1013,23 +1296,52 @@ const fillFormData = (invoiceData) => {
     dueAmount: invoiceData.dueAmount || 0,
     paymentMethod: invoiceData.paymentMethod || 'Cash',
     paymentStatus: invoiceData.paymentStatus || 'Due',
-     // 💡 হিস্ট্রি টেবিলের জন্য এটিও যোগ করুন
-    historyLog: invoiceData.historyLog || [] 
+    historyLog: invoiceData.historyLog || [],
+    
+    // 🆕 [NEW] ডাটাবেজ থেকে আসা এডভান্স ও রেফারেন্স ডাটা মেইন ফর্মে সেট করা
+    advanceAdjustment: {
+      employeeIdNo: invoiceData.advanceAdjustment?.employeeIdNo || '',
+      employeeName: invoiceData.advanceAdjustment?.employeeName || '',
+      adjustedAmount: invoiceData.advanceAdjustment?.adjustedAmount || 0,
+      referenceIdNo: invoiceData.advanceAdjustment?.referenceIdNo || ''
+    }
   });
 
+  // ডিলার প্রোফাইল সিঙ্ক (সিনট্যাক্স এরর ফিক্সড)
   if (invoiceData.dealer) {
     setIsDealer(true);
     setDealerCode(invoiceData.dealer.dealerId || ''); 
     setFetchedDealerName(invoiceData.dealer.name || '');
-
     setFetchedDealerPhone(invoiceData.dealer.mobilePhoneNo || invoiceData.dealer.mobile || '');
     setFetchedDealerAddress(invoiceData.dealer.address || '');
   } else {
-    setIsDealer(false);+
-     setFetchedDealerPhone('');
-     setFetchedDealerAddress('');
+    setIsDealer(false); // 💡 সিনট্যাক্স প্লাস (+) এরর ফিক্স করা হয়েছে
+    setDealerCode('');
+    setFetchedDealerName('');
+    setFetchedDealerPhone('');
+    setFetchedDealerAddress('');
+  }
+
+  // 🆕 [NEW] লাইভ প্রিভিউ এবং ইনপুট বক্সে নামগুলো ভিজিবল রাখার জন্য স্টেট সিঙ্ক
+  if (invoiceData.advanceAdjustment) {
+    setAdvanceEmployeeIdNo && setAdvanceEmployeeIdNo(invoiceData.advanceAdjustment.employeeIdNo || '');
+    setAdvanceEmployeeName && setAdvanceEmployeeName(invoiceData.advanceAdjustment.employeeName || '');
+    setReferenceIdNo && setReferenceIdNo(invoiceData.advanceAdjustment.referenceIdNo || '');
+    setAdjustedAmount && setAdjustedAmount(invoiceData.advanceAdjustment.adjustedAmount || 0);
+
+    // যদি রেফারেন্সের নাম ডাটাবেজে স্টোর না থাকে, তবে আইডি দিয়ে পুনরায় নাম লাইভ কুয়েরি করা
+    if (invoiceData.advanceAdjustment.referenceIdNo) {
+      verifyIdAndGetName && verifyIdAndGetName(invoiceData.advanceAdjustment.referenceIdNo, 'REF');
+    }
+  } else {
+    // যদি কোনো এডভান্স লিংক না থাকে, তবে স্টেটগুলো ক্লিন করা
+    setAdvanceEmployeeIdNo && setAdvanceEmployeeIdNo('');
+    setAdvanceEmployeeName && setAdvanceEmployeeName('');
+    setReferenceIdNo && setReferenceIdNo('');
+    setReferenceName && setReferenceName('');
   }
 };
+
 
   useEffect(() => {
     fillFormData(formData
@@ -1049,150 +1361,424 @@ const fillFormData = (invoiceData) => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md my-10">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800 text-center border-b pb-3">{id ? 'Update Invoice' : 'Create New Invoice'}</h2>
+    // 1st div wrapper for the form with max width and centered
+    // <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md my-10">
+    //   <h2 className="text-2xl font-bold mb-6 text-gray-800 text-center border-b pb-3">{id ? 'Update Invoice' : 'Create New Invoice'}</h2>
       
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* উদাহরণ ইনপুট ফিল্ড */}
-       <div className="relative mb-6 max-w-md">
-          {/* লেবেল ডিজাইন */}
-          <label className="block text-sm font-semibold text-gray-700 mb-2 tracking-wide flex items-center gap-1.5">
-            <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Invoice Searching / No:
-          </label>
+    //   <form onSubmit={handleSubmit} className="space-y-6">
+    //     {/* উদাহরণ ইনপুট ফিল্ড */}
+    //    <div className="relative mb-6 max-w-md">
+    //       {/* লেবেল ডিজাইন */}
+    //       <label className="block text-sm font-semibold text-gray-700 mb-2 tracking-wide flex items-center gap-1.5">
+    //         <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    //           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    //         </svg>
+    //         Invoice Searching / No:
+    //       </label>
 
-          {/* ইনপুট কন্টেইনার */}
-          <div className="relative rounded-xl shadow-sm">
-            {/* বাম পাশের সার্চ আইকন */}
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-              <svg className="h-5 w-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
+    //       {/* ইনপুট কন্টেইনার */}
+    //       <div className="relative rounded-xl shadow-sm">
+    //         {/* বাম পাশের সার্চ আইকন */}
+    //         <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+    //           <svg className="h-5 w-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    //             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+    //           </svg>
+    //         </div>
 
-            {/* মূল ইনপুট ফিল্ড */}
-            <input 
-              type="text" 
-              name="invoiceNo" 
-              value={formData.invoiceNo || ''} 
-              onChange={handleChange} 
-              disabled={!!id} 
-              onBlur={(e) => !id && fetchInvoiceByNumber(e.target.value)} 
-              placeholder="Type Invoice No & press tab/click outside"
-              className={`block w-full pl-11 pr-12 py-3 border rounded-xl text-red-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 sm:text-sm font-medium
-                ${!!id 
-                  ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed shadow-none' 
-                  : 'bg-white border-gray-300 hover:border-gray-400'
-                }`}
-            />
+    //         {/* মূল ইনপুট ফিল্ড */}
+    //         <input 
+    //           type="text" 
+    //           name="invoiceNo" 
+    //           value={formData.invoiceNo || ''} 
+    //           onChange={handleChange} 
+    //           disabled={!!id} 
+    //           onBlur={(e) => !id && fetchInvoiceByNumber(e.target.value)} 
+    //           placeholder="Type Invoice No & press tab/click outside"
+    //           className={`block w-full pl-11 pr-12 py-3 border rounded-xl text-red-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 sm:text-sm font-medium
+    //             ${!!id 
+    //               ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed shadow-none' 
+    //               : 'bg-white border-gray-300 hover:border-gray-400'
+    //             }`}
+    //         />
 
-            {/* ডান পাশের লোডিং স্পিনার (শুধুমাত্র ডাটা ফেচ হওয়ার সময় দেখাবে) */}
-            {isLoading && (
-              <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
-                <svg className="animate-spin h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-              </div>
-            )}
-          </div>
+    //         {/* ডান পাশের লোডিং স্পিনার (শুধুমাত্র ডাটা ফেচ হওয়ার সময় দেখাবে) */}
+    //         {isLoading && (
+    //           <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
+    //             <svg className="animate-spin h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24">
+    //               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+    //               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+    //             </svg>
+    //           </div>
+    //         )}
+    //       </div>
           
-          {/* হেল্পার টেক্সট (ইউজারকে গাইড করার জন্য) */}
-          {!id && (
-            <p className="mt-1.5 text-xs text-gray-500 pl-1">
-              💡 Tip: Type and click outside to auto-load old invoice data.
-            </p>
-          )}
-       </div>
+    //       {/* হেল্পার টেক্সট (ইউজারকে গাইড করার জন্য) */}
+    //       {!id && (
+    //         <p className="mt-1.5 text-xs text-gray-500 pl-1">
+    //           💡 Tip: Type and click outside to auto-load old invoice data.
+    //         </p>
+    //       )}
+    //    </div>
 
 
-         {/* NEW LAYOUT: Dual Serial Numbers Display Fields inside the Form */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-semibold text-gray-500">Expected Invoice No (Next)</label>
-            <input 
-              type="text" 
-              readOnly 
-              value={nextInvoiceNo} 
-              className="mt-1 w-full p-2 border rounded bg-gray-50 font-mono font-bold text-gray-700 tracking-wider text-center" 
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-emerald-600">Last Saved Invoice No (Recent)</label>
-            <input 
-              type="text" 
-              readOnly 
-              value={lastSavedInvoiceNo} 
-              className="mt-1 w-full p-2 border border-emerald-300 rounded bg-emerald-50 font-mono font-bold text-emerald-800 tracking-wider text-center" 
-            />
-          </div>
+    //      {/* NEW LAYOUT: Dual Serial Numbers Display Fields inside the Form */}
+    //     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    //       <div>
+    //         <label className="block text-sm font-semibold text-gray-500">Expected Invoice No (Next)</label>
+    //         <input 
+    //           type="text" 
+    //           readOnly 
+    //           value={nextInvoiceNo} 
+    //           className="mt-1 w-full p-2 border rounded bg-gray-50 font-mono font-bold text-gray-700 tracking-wider text-center" 
+    //         />
+    //       </div>
+    //       <div>
+    //         <label className="block text-sm font-semibold text-emerald-600">Last Saved Invoice No (Recent)</label>
+    //         <input 
+    //           type="text" 
+    //           readOnly 
+    //           value={lastSavedInvoiceNo} 
+    //           className="mt-1 w-full p-2 border border-emerald-300 rounded bg-emerald-50 font-mono font-bold text-emerald-800 tracking-wider text-center" 
+    //         />
+    //       </div>
+    //     </div>
+
+    //     {/* Customer Type Selection */}
+    //     <div className="flex gap-4 p-3 bg-gray-50 rounded">
+    //       <label className="flex items-center gap-2 font-medium cursor-pointer">
+    //         <input type="radio" checked={!isDealer} onChange={() => setIsDealer(false)} className="w-4 h-4" />
+    //         General Customer (MRP)
+    //       </label>
+    //       <label className="flex items-center gap-2 font-medium cursor-pointer">
+    //         <input type="radio" checked={isDealer} onChange={() => setIsDealer(true)} className="w-4 h-4" />
+    //         Dealer (TP)
+    //       </label>
+    //     </div>
+
+    //     {/* Dynamic Context Fields WITHOUT Verify Button */}
+    //     {!isDealer ? (
+    //       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    //         <div>
+    //           <label className="block text-sm font-semibold text-gray-700">Customer Name</label>
+    //           <input type="text" required value={formData.customerName} onChange={(e) => setFormData({...formData, customerName: e.target.value})} className="mt-1 w-full p-2 border rounded" placeholder="Enter customer name" />
+    //         </div>
+    //         <div>
+    //           <label className="block text-sm font-semibold text-gray-700">Mobile Number</label>
+    //           <input type="text" required value={formData.customerMobile} onChange={(e) => setFormData({...formData, customerMobile: e.target.value})} className="mt-1 w-full p-2 border rounded" placeholder="Enter mobile number" />
+    //         </div>
+    //       </div>
+    //     ) : (
+    //       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    //         <div>
+    //           <label className="block text-sm font-semibold text-gray-700">Dealer Code</label>
+    //           <input type="text" value={dealerCode} onChange={(e) => setDealerCode(e.target.value)} className="mt-1 w-full p-2 border rounded text-sm uppercase" placeholder="e.g. DLR-0001" />
+    //         </div>
+    //         <div>
+    //           <label className="block text-sm font-semibold text-gray-500">Verified Dealer Name</label>
+    //           <input type="text" readOnly value={fetchedDealerName} className="mt-1 w-full p-2 border rounded bg-gray-100 text-sm font-medium text-emerald-700 border-emerald-300" placeholder="Type a valid dealer code..." />
+    //         </div>
+    //       </div>
+    //     )}
+
+    //     {/* Product Items Table */}
+    //     <div className="space-y-3">
+    //       <h3 className="text-lg font-semibold text-gray-700">Product Items</h3>
+    //      {formData.items.map((item, index) => (
+    //       <div key={index} className="grid grid-cols-12 gap-2 items-center bg-gray-50 p-2 rounded">
+            
+    //         {/* ১. প্রোডাক্ট সিলেক্ট ড্রপডাউন */}
+    //         <div className="col-span-5">
+    //           <Select
+    //             options={productOptions}
+    //             isClearable
+    //             placeholder="Product Name" 
+    //             required
+    //             // লুপের নির্দিষ্ট আইটেমটি ড্রপডাউনে সিলেক্টেড দেখানোর জন্য value পাস করতে হবে
+    //             value={
+    //                 productOptions.find(opt => opt.value === item.productId || opt.label === item.productName) || null
+    //                 //productOptions.find(opt => opt.value === item.productId || opt.label === item.productName) || null
+                  
+    //               }
+    //             // ইনডেক্স সহ কাস্টম হ্যান্ডলার কল করা হয়েছে
+    //             onChange={(selectedOption) => handleProductSelect(index, selectedOption)} 
+    //             className="w-full text-sm" 
+    //           />
+    //         </div>
+
+    //         {/* ২. কোয়ান্টিটি ইনপুট */}
+    //         <div className="col-span-2">
+    //           <input 
+    //             type="number" 
+    //             placeholder="Qty" 
+    //             min="1" 
+    //             required 
+    //             value={item.quantity || ''} 
+    //             onChange={(e) => handleItemChange(index, 'quantity', Number(e.target.value))} 
+    //             className="w-full p-2 border rounded text-sm" 
+    //           />
+    //         </div>
+
+    //         {/* ৩. ইউনিট প্রাইস ইনপুট (ডাইনামিক আইটেম ওয়াইজ) */}
+    //         <div className="col-span-2">
+    //           <input 
+    //             type="number" 
+    //             placeholder="Price" 
+    //             min="0" 
+    //             required 
+    //             readOnly 
+    //             value={item.unitPrice || ''} // গ্লোবাল price না দিয়ে নির্দিষ্ট item.unitPrice ব্যবহার করা হয়েছে
+    //             onChange={(e) => handleItemChange(index, 'unitPrice', Number(e.target.value))} 
+    //             className="w-full p-2 border rounded text-sm" 
+    //           />
+    //         </div>
+
+    //         {/* ৪. টোটাল প্রাইজ ক্যালকুলেশন */}
+    //         <div className="col-span-2 text-right font-medium text-sm text-gray-600">
+    //           ৳{((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)}
+    //         </div>
+
+    //         {/* ৫. রো ডিলিট বাটন */}
+    //         <div className="col-span-1 text-center">
+    //           <button 
+    //             type="button" 
+    //             onClick={() => removeItemRow(index)} 
+    //             className="text-red-500 hover:text-red-700 font-bold text-lg"
+    //           >
+    //             ×
+    //           </button>
+    //         </div>
+
+    //       </div>
+    //     ))}
+
+    //       <button type="button" onClick={addItemRow} className="text-sm bg-blue-500 text-white px-3 py-1.5 rounded hover:bg-blue-600">+ Add Item</button>
+    //     </div>
+
+    //     {/* Billing & Settlement Summaries */}
+    //     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-4">
+    //       <div className="space-y-3">
+    //         <h4 className="font-semibold text-gray-700">Payment Information</h4>
+    //         <div>
+    //           <label className="block text-xs font-semibold text-gray-600">Payment Method</label>
+    //           <select value={formData.paymentMethod} onChange={(e) => setFormData({...formData, paymentMethod: e.target.value})} className="mt-1 w-full p-2 border rounded text-sm">
+    //             <option value="Cash">Cash</option>
+    //             <option value="Bkash">Bkash</option>
+    //             <option value="Nagad">Nagad</option>
+    //             <option value="Bank Transfer">Bank Transfer</option>
+    //           </select>
+    //         </div>
+    //         <div>
+    //           <label className="block text-xs font-semibold text-gray-600">Paid Amount (Received Today)</label>
+    //           <input type="number" min="0" value={formData.paidAmount} onChange={(e) => setFormData({...formData, paidAmount: e.target.value})} className="mt-1 w-full p-2 border rounded text-sm" />
+    //         </div>
+    //       </div>
+
+    //       <div className="bg-gray-50 p-4 rounded space-y-2 text-sm">
+    //         <div className="flex justify-between"><span>Sub Total:</span><span className="font-medium">${subTotal.toFixed(2)}</span></div>
+    //         <div className="flex justify-between items-center">
+    //           <span>Discount (-):</span>
+    //           <input type="number" min="0" value={formData.discount} onChange={(e) => setFormData({...formData, discount: e.target.value})} className="w-24 p-1 border rounded text-right text-sm" />
+    //         </div>
+    //         <div className="flex justify-between items-center">
+    //           <span>Tax/Vat (+):</span>
+    //           <input type="number" min="0" value={formData.tax} onChange={(e) => setFormData({...formData, tax: e.target.value})} className="w-24 p-1 border rounded text-right text-sm" />
+    //         </div>
+    //         <hr />
+    //         <div className="flex justify-between font-bold text-base text-gray-800"><span>Grand Total:</span><span>${grandTotal.toFixed(2)}</span></div>
+    //         <div className="flex justify-between font-semibold text-red-600"><span>Due Amount:</span><span>${dueAmount.toFixed(2)}</span></div>
+    //       </div>
+    //     </div>
+
+
+    //     {/* Action Row: Save Invoice & New Invoice Buttons Side-by-Side */}
+    //     <div className="flex flex-col sm:flex-row gap-4  pt-4">
+    //       {/* Primary Save Action */}
+    //       <button 
+    //         type="submit" 
+    //         disabled={isSubmitting}
+    //         className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold px-8 py-3 rounded-xl shadow-lg transition transform active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+    //       >
+    //         {isSubmitting ? (
+    //           'Saving Changes...'
+    //         ) : (id || formData?._id) ? (
+    //           // 💡 URL-এ id থাকুক বা formData-তে _id থাকুক, ২ ক্ষেত্রেই 'Update' দেখাবে
+    //           'Update Invoice' 
+    //         ) : (
+    //           'Create Invoice'
+    //         )}
+    //       </button>
+
+          
+    //       {/* Brand New Isolated Reset Button Trigger */}
+    //       <button 
+    //         type="button" 
+    //         onClick={handleNewInvoiceReset}
+             
+    //         className="sm:w-1/3 bg-gray-800 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-900 transition duration-200"
+    //       >
+    //         + New Invoice
+    //       </button>
+
+    //       {/* ১. ইনভয়েস প্রিন্ট বাটন */}
+    //       <button 
+    //         type="button" 
+    //         className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-xl shadow-md flex items-center gap-2 text-sm transition-all"
+    //        onClick={() => handleFormPrint(formData)}
+    //       >
+    //         🖨️ Print Invoice
+    //       </button>
+          
+    //       {/* ২. চালান প্রিন্ট বাটন */}
+    //       <button 
+    //         type="button" 
+    //         className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-5 rounded-xl shadow-md flex items-center gap-2 text-sm transition-all"
+    //         onClick={() => handleFormPrintChallan(formData)}
+    //       >
+    //         📦 Print Challan
+    //       </button>
+
+
+    //     </div>
+
+    //     {/* ফর্মের নিচে হিস্ট্রি লগের টেবিল দেখাবে */}
+    //   <InvoiceHistoryTable logs={formData.historyLog} />
+
+
+    //   </form>
+    // </div>
+
+    // 2nd div wrapper for the form with max width and centered
+    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md my-10">
+  <h2 className="text-2xl font-bold mb-6 text-gray-800 text-center border-b pb-3">
+    {id ? 'Update Invoice' : 'Create New Invoice'}
+  </h2>
+  
+  <form onSubmit={handleSubmit} className="space-y-6">
+    {/* ইনভয়েস সার্চিং এবং নম্বর */}
+    <div className="relative mb-6 max-w-md">
+      <label className="block text-sm font-semibold text-gray-700 mb-2 tracking-wide flex items-center gap-1.5">
+        <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        Invoice Searching / No:
+      </label>
+
+      <div className="relative rounded-xl shadow-sm">
+        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+          <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
         </div>
 
-        {/* Customer Type Selection */}
-        <div className="flex gap-4 p-3 bg-gray-50 rounded">
-          <label className="flex items-center gap-2 font-medium cursor-pointer">
-            <input type="radio" checked={!isDealer} onChange={() => setIsDealer(false)} className="w-4 h-4" />
-            General Customer (MRP)
-          </label>
-          <label className="flex items-center gap-2 font-medium cursor-pointer">
-            <input type="radio" checked={isDealer} onChange={() => setIsDealer(true)} className="w-4 h-4" />
-            Dealer (TP)
-          </label>
-        </div>
+        <input 
+          type="text" 
+          name="invoiceNo" 
+          value={formData.invoiceNo || ''} 
+          onChange={handleChange} 
+          disabled={!!id} 
+          onBlur={(e) => !id && fetchInvoiceByNumber(e.target.value)} 
+          placeholder="Type Invoice No & press tab/click outside"
+          className={`block w-full pl-11 pr-12 py-3 border rounded-xl text-red-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 sm:text-sm font-medium
+            ${!!id ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed shadow-none' : 'bg-white border-gray-300 hover:border-gray-400'}`}
+        />
 
-        {/* Dynamic Context Fields WITHOUT Verify Button */}
-        {!isDealer ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700">Customer Name</label>
-              <input type="text" required value={formData.customerName} onChange={(e) => setFormData({...formData, customerName: e.target.value})} className="mt-1 w-full p-2 border rounded" placeholder="Enter customer name" />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700">Mobile Number</label>
-              <input type="text" required value={formData.customerMobile} onChange={(e) => setFormData({...formData, customerMobile: e.target.value})} className="mt-1 w-full p-2 border rounded" placeholder="Enter mobile number" />
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700">Dealer Code</label>
-              <input type="text" value={dealerCode} onChange={(e) => setDealerCode(e.target.value)} className="mt-1 w-full p-2 border rounded text-sm uppercase" placeholder="e.g. DLR-0001" />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-500">Verified Dealer Name</label>
-              <input type="text" readOnly value={fetchedDealerName} className="mt-1 w-full p-2 border rounded bg-gray-100 text-sm font-medium text-emerald-700 border-emerald-300" placeholder="Type a valid dealer code..." />
-            </div>
+        {isLoading && (
+          <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
+            <svg className="animate-spin h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
           </div>
         )}
+      </div>
+      
+      {!id && (
+        <p className="mt-1.5 text-xs text-gray-500 pl-1">
+          💡 Tip: Type and click outside to auto-load old invoice data.
+        </p>
+      )}
+    </div>
 
-        {/* Product Items Table */}
-        <div className="space-y-3">
-          <h3 className="text-lg font-semibold text-gray-700">Product Items</h3>
-         {formData.items.map((item, index) => (
-          <div key={index} className="grid grid-cols-12 gap-2 items-center bg-gray-50 p-2 rounded">
-            
-            {/* ১. প্রোডাক্ট সিলেক্ট ড্রপডাউন */}
-            <div className="col-span-5">
-              <Select
-                options={productOptions}
-                isClearable
-                placeholder="Product Name" 
-                required
-                // লুপের নির্দিষ্ট আইটেমটি ড্রপডাউনে সিলেক্টেড দেখানোর জন্য value পাস করতে হবে
-                value={
-                    productOptions.find(opt => opt.value === item.productId || opt.label === item.productName) || null
-                    //productOptions.find(opt => opt.value === item.productId || opt.label === item.productName) || null
-                  
-                  }
-                // ইনডেক্স সহ কাস্টম হ্যান্ডলার কল করা হয়েছে
-                onChange={(selectedOption) => handleProductSelect(index, selectedOption)} 
-                className="w-full text-sm" 
-              />
-            </div>
+    {/* ডুপ্লেক্স সিরিয়াল নম্বর ডিসপ্লে */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label className="block text-sm font-semibold text-gray-500">Expected Invoice No (Next)</label>
+        <input 
+          type="text" 
+          readOnly 
+          value={nextInvoiceNo} 
+          className="mt-1 w-full p-2 border rounded bg-gray-50 font-mono font-bold text-gray-700 tracking-wider text-center" 
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-semibold text-emerald-600">Last Saved Invoice No (Recent)</label>
+        <input 
+          type="text" 
+          readOnly 
+          value={lastSavedInvoiceNo} 
+          className="mt-1 w-full p-2 border border-emerald-300 rounded bg-emerald-50 font-mono font-bold text-emerald-800 tracking-wider text-center" 
+        />
+      </div>
+    </div>
 
-            {/* ২. কোয়ান্টিটি ইনপুট */}
+    {/* Customer Type Selection */}
+    <div className="flex gap-4 p-3 bg-gray-50 rounded">
+      <label className="flex items-center gap-2 font-medium cursor-pointer">
+        <input type="radio" checked={!isDealer} onChange={() => setIsDealer(false)} className="w-4 h-4" />
+        General Customer (MRP)
+      </label>
+      <label className="flex items-center gap-2 font-medium cursor-pointer">
+        <input type="radio" checked={isDealer} onChange={() => setIsDealer(true)} className="w-4 h-4" />
+        Dealer (TP)
+      </label>
+    </div>
+
+   {/* advanced: Dynamic Context Fields for Customer or Dealer */}
+
+
+    {/* Dynamic Context Fields */}
+    {!isDealer ? (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-semibold text-gray-700">Customer Name</label>
+          <input type="text" required value={formData.customerName} onChange={(e) => setFormData({...formData, customerName: e.target.value})} className="mt-1 w-full p-2 border rounded" placeholder="Enter customer name" />
+        </div>
+        <div>
+          <label className="block text-sm font-semibold text-gray-700">Mobile Number</label>
+          <input type="text" required value={formData.customerMobile} onChange={(e) => setFormData({...formData, customerMobile: e.target.value})} className="mt-1 w-full p-2 border rounded" placeholder="Enter mobile number" />
+        </div>
+      </div>
+    ) : (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-semibold text-gray-700">Dealer Code</label>
+          <input type="text" value={dealerCode} onChange={(e) => setDealerCode(e.target.value)} className="mt-1 w-full p-2 border rounded text-sm uppercase" placeholder="e.g. DLR-0001" />
+        </div>
+        <div>
+          <label className="block text-sm font-semibold text-gray-500">Verified Dealer Name</label>
+          <input type="text" readOnly value={fetchedDealerName} className="mt-1 w-full p-2 border rounded bg-gray-100 text-sm font-medium text-emerald-700 border-emerald-300" placeholder="Type a valid dealer code..." />
+        </div>
+      </div>
+    )}
+
+    {/* Product Items Table */}
+    <div className="space-y-3">
+      <h3 className="text-lg font-semibold text-gray-700">Product Items</h3>
+      {formData.items.map((item, index) => (
+        <div key={index} className="grid grid-cols-12 gap-2 items-center bg-gray-50 p-2 rounded">
+          <div className="col-span-5">
+            <Select
+              options={productOptions}
+              isClearable
+              placeholder="Product Name" 
+              required
+              value={productOptions.find(opt => opt.value === item.productId || opt.label === item.productName) || null}
+              onChange={(selectedOption) => handleProductSelect(index, selectedOption)} 
+              className="w-full text-sm" 
+            />
+          </div>
+          {/* বাকি কলামগুলো (Quantity, Price, Remove button) আপনার কোড অনুযায়ী নিচে যুক্ত থাকবে */}
+                      {/* ২. কোয়ান্টিটি ইনপুট */}
             <div className="col-span-2">
               <input 
                 type="number" 
@@ -1201,11 +1787,11 @@ const fillFormData = (invoiceData) => {
                 required 
                 value={item.quantity || ''} 
                 onChange={(e) => handleItemChange(index, 'quantity', Number(e.target.value))} 
-                className="w-full p-2 border rounded text-sm" 
+                className="w-full p-2 border rounded-xl text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none" 
               />
             </div>
 
-            {/* ৩. ইউনিট প্রাইস ইনপুট (ডাইনামিক আইটেম ওয়াইজ) */}
+            {/* ৩. ইউনিট精度 প্রাইস ইনপুট (ডাইনামিক আইটেম ওয়াইজ) */}
             <div className="col-span-2">
               <input 
                 type="number" 
@@ -1213,14 +1799,14 @@ const fillFormData = (invoiceData) => {
                 min="0" 
                 required 
                 readOnly 
-                value={item.unitPrice || ''} // গ্লোবাল price না দিয়ে নির্দিষ্ট item.unitPrice ব্যবহার করা হয়েছে
+                value={item.unitPrice || ''} 
                 onChange={(e) => handleItemChange(index, 'unitPrice', Number(e.target.value))} 
-                className="w-full p-2 border rounded text-sm" 
+                className="w-full p-2 border rounded-xl text-sm bg-gray-50 text-gray-600 cursor-not-allowed outline-none" 
               />
             </div>
 
             {/* ৪. টোটাল প্রাইজ ক্যালকুলেশন */}
-            <div className="col-span-2 text-right font-medium text-sm text-gray-600">
+            <div className="col-span-2 text-right font-semibold text-sm text-slate-700">
               ৳{((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)}
             </div>
 
@@ -1229,110 +1815,228 @@ const fillFormData = (invoiceData) => {
               <button 
                 type="button" 
                 onClick={() => removeItemRow(index)} 
-                className="text-red-500 hover:text-red-700 font-bold text-lg"
+                className="text-red-400 hover:text-red-600 font-bold text-xl transition-colors"
               >
                 ×
               </button>
             </div>
-
           </div>
         ))}
 
-          <button type="button" onClick={addItemRow} className="text-sm bg-blue-500 text-white px-3 py-1.5 rounded hover:bg-blue-600">+ Add Item</button>
-        </div>
-
-        {/* Billing & Settlement Summaries */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-4">
-          <div className="space-y-3">
-            <h4 className="font-semibold text-gray-700">Payment Information</h4>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600">Payment Method</label>
-              <select value={formData.paymentMethod} onChange={(e) => setFormData({...formData, paymentMethod: e.target.value})} className="mt-1 w-full p-2 border rounded text-sm">
-                <option value="Cash">Cash</option>
-                <option value="Bkash">Bkash</option>
-                <option value="Nagad">Nagad</option>
-                <option value="Bank Transfer">Bank Transfer</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600">Paid Amount (Received Today)</label>
-              <input type="number" min="0" value={formData.paidAmount} onChange={(e) => setFormData({...formData, paidAmount: e.target.value})} className="mt-1 w-full p-2 border rounded text-sm" />
-            </div>
-          </div>
-
-          <div className="bg-gray-50 p-4 rounded space-y-2 text-sm">
-            <div className="flex justify-between"><span>Sub Total:</span><span className="font-medium">${subTotal.toFixed(2)}</span></div>
-            <div className="flex justify-between items-center">
-              <span>Discount (-):</span>
-              <input type="number" min="0" value={formData.discount} onChange={(e) => setFormData({...formData, discount: e.target.value})} className="w-24 p-1 border rounded text-right text-sm" />
-            </div>
-            <div className="flex justify-between items-center">
-              <span>Tax/Vat (+):</span>
-              <input type="number" min="0" value={formData.tax} onChange={(e) => setFormData({...formData, tax: e.target.value})} className="w-24 p-1 border rounded text-right text-sm" />
-            </div>
-            <hr />
-            <div className="flex justify-between font-bold text-base text-gray-800"><span>Grand Total:</span><span>${grandTotal.toFixed(2)}</span></div>
-            <div className="flex justify-between font-semibold text-red-600"><span>Due Amount:</span><span>${dueAmount.toFixed(2)}</span></div>
-          </div>
-        </div>
-
-
-        {/* Action Row: Save Invoice & New Invoice Buttons Side-by-Side */}
-        <div className="flex flex-col sm:flex-row gap-4  pt-4">
-          {/* Primary Save Action */}
-          <button 
-            type="submit" 
-            disabled={isSubmitting}
-            className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold px-8 py-3 rounded-xl shadow-lg transition transform active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {isSubmitting ? (
-              'Saving Changes...'
-            ) : (id || formData?._id) ? (
-              // 💡 URL-এ id থাকুক বা formData-তে _id থাকুক, ২ ক্ষেত্রেই 'Update' দেখাবে
-              'Update Invoice' 
-            ) : (
-              'Create Invoice'
-            )}
-          </button>
-
-          
-          {/* Brand New Isolated Reset Button Trigger */}
-          <button 
-            type="button" 
-            onClick={handleNewInvoiceReset}
-             
-            className="sm:w-1/3 bg-gray-800 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-900 transition duration-200"
-          >
-            + New Invoice
-          </button>
-
-          {/* ১. ইনভয়েস প্রিন্ট বাটন */}
-          <button 
-            type="button" 
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-xl shadow-md flex items-center gap-2 text-sm transition-all"
-           onClick={() => handleFormPrint(formData)}
-          >
-            🖨️ Print Invoice
-          </button>
-          
-          {/* ২. চালান প্রিন্ট বাটন */}
-          <button 
-            type="button" 
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-5 rounded-xl shadow-md flex items-center gap-2 text-sm transition-all"
-            onClick={() => handleFormPrintChallan(formData)}
-          >
-            📦 Print Challan
-          </button>
-
-
-        </div>
-
-        {/* ফর্মের নিচে হিস্ট্রি লগের টেবিল দেখাবে */}
-      <InvoiceHistoryTable logs={formData.historyLog} />
-
-
-      </form>
+        <button 
+          type="button" 
+          onClick={addItemRow} 
+          className="text-xs bg-teal-50 border border-teal-200 text-teal-700 px-3 py-2 rounded-lg hover:bg-teal-100 transition duration-200 font-semibold flex items-center gap-1"
+        >
+          + Add Product Item
+        </button>
     </div>
+
+        {/* 🆕 [NEW SECTION]: Advance Employee Ledger & Reference Assignment ID Setup */}
+    <div className="p-4 border border-teal-100 bg-slate-50/50 rounded-xl space-y-4 shadow-inner">
+      <h3 className="text-sm font-bold text-teal-800 uppercase tracking-wider flex items-center gap-1.5">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+        Deduction Settings
+      </h3>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* ১. Advance Employee ID Input */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700">Advance Employee ID (MKT-XXXX)</label>
+          <div className="relative mt-1">
+            <input 
+              type="text" 
+              value={advanceEmployeeIdNo} 
+              onChange={(e) => setAdvanceEmployeeIdNo(e.target.value)} 
+              onBlur={() => verifyIdAndGetName(advanceEmployeeIdNo, 'EMP')}
+              className="w-full p-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none uppercase font-medium placeholder-gray-400 text-sm bg-white"
+              placeholder="e.g. MKT-0002" 
+            />
+            {nameLoading.emp && (
+              <span className="absolute right-3 top-2.5 animate-spin h-4 w-4 border-2 border-teal-600 border-t-transparent rounded-full" />
+            )}
+          </div>
+          {advanceEmployeeName && (
+            <div className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1 bg-teal-50 text-teal-700 border border-teal-200 text-xs font-semibold rounded-md shadow-sm w-fit">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
+              Advance Deduct From: {advanceEmployeeName}
+            </div>
+          )}
+        </div>
+
+        {/* ২. Adjusted Amount Entry Field (হাত দিয়ে সরাসরি এন্ট্রি দেওয়ার জন্য) */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700">Adjusted Advance Amount (Entry)</label>
+          <div className="relative mt-1">
+            <input 
+              type="number" 
+              min="0"
+              value={formData.advanceAdjustment?.adjustedAmount || ''} 
+              onChange={(e) => {
+                const val = Number(e.target.value) || 0;
+                setFormData({
+                  ...formData,
+                  advanceAdjustment: {
+                    ...formData.advanceAdjustment,
+                    adjustedAmount: val
+                  }
+                });
+              }}
+              className="w-full p-2 border border-gray-300 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-teal-800 bg-white"
+              placeholder="0.00" 
+            />
+            <span className="absolute right-3 top-2 text-gray-400 font-medium">৳</span>
+          </div>
+          <p className="mt-1.5 text-[11px] text-gray-500 pl-1">
+            💡 এই বিল থেকে সরাসরি কত টাকা অগ্রিম কাটতে চান, তা এখানে টাইপ করুন।
+          </p>
+        </div>
+
+        {/* ৩. [DYNAMIC BANNER]: শুধুমাত্র এডিট মোডে ওল্ড ডাটাবেজ অ্যামাউন্ট মনে করিয়ে দেওয়ার জন্য অ্যালার্ট */}
+        {(id || formData?._id) && formData.advanceAdjustment?.adjustedAmount > 0 && (
+          <div className="md:col-span-2 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-sm text-amber-800 font-medium shadow-sm">
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 11l3-3m0 0l3 3m-3-3v8m0-13a9 9 0 110 18 9 9 0 010-18z" />
+              </svg>
+              <span>এই ইনভয়েসটিতে বর্তমানে সর্বমোট অগ্রিম সমন্বয় করা আছে:</span>
+            </div>
+            <span className="text-base font-bold bg-amber-200/60 px-3 py-1 rounded-lg">
+              ৳{Number(formData.advanceAdjustment.adjustedAmount).toFixed(2)}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+
+
+
+      {/* Billing & Settlement Summaries */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-slate-100 pt-5">
+        <div className="space-y-4">
+          <h4 className="font-bold text-sm text-slate-800 uppercase tracking-wide">Payment Information</h4>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600">Payment Method</label>
+            <select 
+              value={formData.paymentMethod} 
+              onChange={(e) => setFormData({...formData, paymentMethod: e.target.value})} 
+              className="mt-1 w-full p-2 border rounded-xl text-sm bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+            >
+              <option value="Cash">Cash</option>
+              <option value="Bkash">Bkash</option>
+              <option value="Nagad">Nagad</option>
+              <option value="Bank Transfer">Bank Transfer</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600">Paid Amount (Received Today)</label>
+            <input 
+              type="number" 
+              min="0" 
+              value={formData.paidAmount} 
+              onChange={(e) => setFormData({...formData, paidAmount: e.target.value})} 
+              className="mt-1 w-full p-2 border rounded-xl text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none" 
+            />
+          </div>
+        </div>
+
+        {/* Financial Calculation Summary (৳ টাকা কারেন্সিতে কনভার্ট করা হয়েছে) */}
+        <div className="bg-slate-50 border border-slate-100 p-5 rounded-xl space-y-3 text-sm">
+          <div className="flex justify-between text-gray-600">
+            <span>Sub Total:</span>
+            <span className="font-semibold text-slate-800">৳{subTotal.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between items-center text-gray-600">
+            <span>Discount (-):</span>
+            <input 
+              type="number" 
+              min="0" 
+              value={formData.discount} 
+              onChange={(e) => setFormData({...formData, discount: e.target.value})} 
+              className="w-24 p-1.5 border rounded-lg text-right text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none" 
+            />
+          </div>
+          <div className="flex justify-between items-center text-gray-600">
+            <span>Tax/Vat (+):</span>
+            <input 
+              type="number" 
+              min="0" 
+              value={formData.tax} 
+              onChange={(e) => setFormData({...formData, tax: e.target.value})} 
+              className="w-24 p-1.5 border rounded-lg text-right text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none" 
+            />
+          </div>
+          <hr className="border-dashed border-slate-200" />
+          <div className="flex justify-between font-bold text-base text-slate-800">
+            <span>Grand Total:</span>
+            <span className="text-teal-700">৳{grandTotal.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between font-bold text-red-600">
+            <span>Due Amount:</span>
+            <span>৳{dueAmount.toFixed(2)}</span>
+          </div>
+
+          {/* 💡 [NEW NOTICE]: মাস শেষের ডিডাকশনের গাইডবক্স */}
+          {advanceEmployeeName && (
+            <div className="mt-3 text-[11px] leading-relaxed text-teal-800 bg-teal-50/70 border border-teal-100 p-2 rounded-lg font-medium">
+              ℹ️ এই ইনভয়েসটি সফলভাবে সাবমিট বা আপডেট করার পর মাস শেষে <strong>{advanceEmployeeName}</strong>-এর চূড়ান্ত বিল থেকে অগ্রিম ব্যালেন্স সমন্বয় করা হবে।
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Action Row: Save Invoice & Printer Actions */}
+      <div className="flex flex-wrap sm:flex-nowrap gap-3 pt-5 border-t border-slate-100">
+        {/* Primary Save/Update Action (Teal Gradient Theme) */}
+        <button 
+          type="submit" 
+          disabled={isSubmitting}
+          className="w-full sm:w-auto bg-gradient-to-r from-teal-700 to-teal-600 hover:from-teal-800 hover:to-teal-700 text-white font-bold px-8 py-3 rounded-xl shadow-md transition transform active:scale-95 disabled:from-slate-300 disabled:to-slate-300 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm whitespace-nowrap"
+        >
+          {isSubmitting ? (
+            <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+          ) : (id || formData?._id) ? (
+            'Update Invoice' 
+          ) : (
+            'Create Invoice'
+          )}
+        </button>
+
+        {/* Reset / New Invoice Button */}
+        <button 
+          type="button" 
+          onClick={handleNewInvoiceReset}
+          className="w-full sm:w-auto bg-slate-800 text-white font-semibold py-3 px-6 rounded-xl hover:bg-slate-900 transition duration-200 text-sm whitespace-nowrap"
+        >
+          + New Invoice
+        </button>
+
+        {/* ১. ইনভয়েস প্রিন্ট বাটন */}
+        <button 
+          type="button" 
+          className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-5 rounded-xl shadow-sm flex items-center justify-center gap-1.5 text-sm transition-all whitespace-nowrap"
+          onClick={() => handleFormPrint(formData)}
+        >
+          🖨️ Print Invoice
+        </button>
+        
+        {/* ২. চালান প্রিন্ট বাটন */}
+        <button 
+          type="button" 
+          className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-5 rounded-xl shadow-sm flex items-center justify-center gap-1.5 text-sm transition-all whitespace-nowrap"
+          onClick={() => handleFormPrintChallan(formData)}
+        >
+          📦 Print Challan
+        </button>
+      </div>
+
+      {/* ফর্মের নিচে হিস্ট্রি লগের টেবিল দেখাবে */}
+      <InvoiceHistoryTable logs={formData.historyLog || []} />
+    </form>
+  </div>
+
   );
 };
 
