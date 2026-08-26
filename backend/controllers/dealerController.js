@@ -1,22 +1,110 @@
+const fs = require('fs'); // ফাইল ডিলিট করার জন্য কোর Node.js মডিউল
+const bcrypt = require('bcryptjs'); // পাসওয়ার্ড হ্যাশ করার জন্য
 const Dealer = require('../models/Dealer');
 
+// 1st version of dealerController.js with improved error handling, file upload checks, and unique field validation.
+// @desc    Register a new dealer with photos
+// @route   POST /api/dealers/register
+// @access  Public
+// const registerDealer = async (req, res) => {
+//     try {
+//         // ১. রিকোয়েস্ট বডি থেকে ডাটা ডেসট্রাকচারিং করা (এখান থেকে dealerId বাদ দেওয়া হয়েছে)
+//         const {
+//             password, referenceIdNo, district, thana, status,
+//             name, dateOfBirth, nationalIdNo, fathersName, mothersName,
+//             mobilePhoneNo, email, address, photo, nidPhoto
+//         } = req.body;
+
+//         // ২. ফাইল চেকিং লজিক (ফাইল আপলোড হলে সেটির পাথ, নাহলে বডির টেক্সট/ডিফল্ট পাথ নেবে)
+//         const uploadedPhoto = (req.files && req.files.photo) ? req.files.photo[0].path : photo;
+//         const uploadedNidPhoto = (req.files && req.files.nidPhoto) ? req.files.nidPhoto[0].path : nidPhoto;
+
+//         if (!uploadedPhoto || !uploadedNidPhoto) {
+//             return res.status(400).json({ 
+//                 success: false, 
+//                 message: 'Both Photo and NID Photo are required.' 
+//             });
+//         }
+
+//         // ৩. ইউনিক ফিল্ডগুলো ডাটাবেজে আগে থেকে আছে কিনা তা চেক করা 
+//         // (এখানে $or কন্ডিশন থেকে dealerId চেকটি বাদ দেওয়া হয়েছে, কারণ আইডি ব্যাকএন্ডে তৈরি হবে)
+//         const dealerExists = await Dealer.findOne({
+//             $or: [{ nationalIdNo }, { mobilePhoneNo }, { email }]
+//         });
+
+//         if (dealerExists) {
+//             // সুনির্দিষ্ট মেসেজ দেওয়ার জন্য কোন ফিল্ডটি মিলল তা চেক করা
+//             let matchField = 'National ID, Mobile, or Email';
+//             if (dealerExists.nationalIdNo === nationalIdNo) matchField = 'National ID';
+//             else if (dealerExists.mobilePhoneNo === mobilePhoneNo) matchField = 'Mobile Number';
+//             else if (dealerExists.email === email) matchField = 'Email Address';
+
+//             return res.status(400).json({
+//                 success: false,
+//                 message: `A dealer with this ${matchField} already exists.`
+//             });
+//         }
+
+//         // ৪. নতুন ডিলার অবজেক্ট তৈরি করা 
+//         // 💡 লক্ষ্য করুন: এখানে dealerId পাস করা হয়নি, মঙ্গুজ pre-save মিডলওয়্যার এটি নিজে তৈরি করে নেবে
+//         const newDealer = new Dealer({
+//             password, referenceIdNo, district, thana, status,
+//             name, dateOfBirth, nationalIdNo, fathersName, mothersName,
+//             mobilePhoneNo, email, address,
+//             photo: uploadedPhoto,       
+//             nidPhoto: uploadedNidPhoto  
+//         });
+
+//         // ৫. ডাটাবেজে সেভ করা (এটি রান হওয়ার সাথে সাথে pre-save মিডলওয়্যারটি DLR-2026-0001 আইডি বানাবে)
+//         await newDealer.save();
+
+//         res.status(201).json({
+//             success: true,
+//             message: 'Dealer registered successfully.',
+//             data: newDealer
+//         });
+
+//     } catch (error) {
+//         console.error("Dealer Controller Error:", error);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Server error encountered.',
+//             error: error.message
+//         });
+//     }
+// };
+
+// 2nd version of dealerController.js with improved error handling, file upload checks, and unique field validation.
 // @desc    Register a new dealer with photos
 // @route   POST /api/dealers/register
 // @access  Public
 const registerDealer = async (req, res) => {
+    // যেকোনো এরর বা ভ্যালিডেশন ফেইল হলে Multer-এর আপলোড হওয়া ফাইল ডিলিট করার ফাংশন
+    const deleteUploadedFiles = () => {
+        if (req.files) {
+            if (req.files.photo && req.files.photo[0]) {
+                fs.unlink(req.files.photo[0].path, (err) => err && console.error("Photo delete error:", err));
+            }
+            if (req.files.nidPhoto && req.files.nidPhoto[0]) {
+                fs.unlink(req.files.nidPhoto[0].path, (err) => err && console.error("NID Photo delete error:", err));
+            }
+        }
+    };
+
     try {
-        // ১. রিকোয়েস্ট বডি থেকে ডাটা ডেসট্রাকচারিং করা (এখান থেকে dealerId বাদ দেওয়া হয়েছে)
+        // ১. রিকোয়েস্ট বডি থেকে ডাটা ডেসট্রাকচারিং করা (dealerId বাদ দিয়ে)
         const {
             password, referenceIdNo, district, thana, status,
             name, dateOfBirth, nationalIdNo, fathersName, mothersName,
             mobilePhoneNo, email, address, photo, nidPhoto
         } = req.body;
 
-        // ২. ফাইল চেকিং লজিক (ফাইল আপলোড হলে সেটির পাথ, নাহলে বডির টেক্সট/ডিফল্ট পাথ নেবে)
+        // ২. ফাইল চেকিং লজিক (Multer এর Array/Fields অবজেক্ট অনুযায়ী ফিক্সড)
         const uploadedPhoto = (req.files && req.files.photo) ? req.files.photo[0].path : photo;
         const uploadedNidPhoto = (req.files && req.files.nidPhoto) ? req.files.nidPhoto[0].path : nidPhoto;
 
         if (!uploadedPhoto || !uploadedNidPhoto) {
+            deleteUploadedFiles(); // ফাইল রিমুভ
             return res.status(400).json({ 
                 success: false, 
                 message: 'Both Photo and NID Photo are required.' 
@@ -24,13 +112,13 @@ const registerDealer = async (req, res) => {
         }
 
         // ৩. ইউনিক ফিল্ডগুলো ডাটাবেজে আগে থেকে আছে কিনা তা চেক করা 
-        // (এখানে $or কন্ডিশন থেকে dealerId চেকটি বাদ দেওয়া হয়েছে, কারণ আইডি ব্যাকএন্ডে তৈরি হবে)
         const dealerExists = await Dealer.findOne({
             $or: [{ nationalIdNo }, { mobilePhoneNo }, { email }]
         });
 
         if (dealerExists) {
-            // সুনির্দিষ্ট মেসেজ দেওয়ার জন্য কোন ফিল্ডটি মিলল তা চেক করা
+            deleteUploadedFiles(); // ডুপ্লিকেট ডাটা থাকলে আপলোড করা ফাইল সাথে সাথে সার্ভার থেকে মুছে দেওয়া হবে
+
             let matchField = 'National ID, Mobile, or Email';
             if (dealerExists.nationalIdNo === nationalIdNo) matchField = 'National ID';
             else if (dealerExists.mobilePhoneNo === mobilePhoneNo) matchField = 'Mobile Number';
@@ -42,26 +130,36 @@ const registerDealer = async (req, res) => {
             });
         }
 
-        // ৪. নতুন ডিলার অবজেক্ট তৈরি করা 
-        // 💡 লক্ষ্য করুন: এখানে dealerId পাস করা হয়নি, মঙ্গুজ pre-save মিডলওয়্যার এটি নিজে তৈরি করে নেবে
+        // ৪. পাসওয়ার্ড সিকিউরিটি (Bcrypt Hashing)
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        // ۵. নতুন ডিলার অবজেক্ট তৈরি করা 
+        // 💡 মঙ্গুজ pre-save মিডলওয়্যারটি এই 'district' ফিল্ডের উপর ভিত্তি করে ডাইনামিক আইডি (যেমন: CHP-0001) তৈরি করবে
         const newDealer = new Dealer({
-            password, referenceIdNo, district, thana, status,
+            password: hashedPassword, // হ্যাশ করা নিরাপদ পাসওয়ার্ড
+            referenceIdNo, district, thana, status,
             name, dateOfBirth, nationalIdNo, fathersName, mothersName,
             mobilePhoneNo, email, address,
             photo: uploadedPhoto,       
             nidPhoto: uploadedNidPhoto  
         });
 
-        // ৫. ডাটাবেজে সেভ করা (এটি রান হওয়ার সাথে সাথে pre-save মিডলওয়্যারটি DLR-2026-0001 আইডি বানাবে)
+        // ৬. ডাটাবেজে সেভ করা 
         await newDealer.save();
+
+        // রেসপন্স থেকে পাসওয়ার্ড ফিল্ডটি হাইড করা (সিকিউরিটির জন্য)
+        const dealerResponse = newDealer.toObject();
+        delete dealerResponse.password;
 
         res.status(201).json({
             success: true,
             message: 'Dealer registered successfully.',
-            data: newDealer
+            data: dealerResponse
         });
 
     } catch (error) {
+        deleteUploadedFiles(); // যেকোনো সিস্টেম বা ডাটাবেজ এরর হলে ফাইল ডিলিট
         console.error("Dealer Controller Error:", error);
         res.status(500).json({
             success: false,
@@ -70,8 +168,6 @@ const registerDealer = async (req, res) => {
         });
     }
 };
-
-
 
 // @desc    Get all dealers list
 // @route   GET /api/dealers

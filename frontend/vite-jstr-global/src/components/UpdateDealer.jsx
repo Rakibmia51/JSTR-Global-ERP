@@ -212,11 +212,11 @@ const UpdateDealer = () => {
            
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">District</label>
-              <input type="text" name="district" value={formData.district} onChange={handleInputChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30" placeholder="Optional" />
+              <input type="text" name="district" value={formData.district} onChange={handleInputChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30" placeholder="Optional" readOnly/>
             </div>
              <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Thana</label>
-              <input type="text" name="thana" value={formData.thana} onChange={handleInputChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30" placeholder="Optional" />
+              <input type="text" name="thana" value={formData.thana} onChange={handleInputChange} className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition bg-gray-50/30" placeholder="Optional" readOnly/>
             </div>
           </div>
         </div>
