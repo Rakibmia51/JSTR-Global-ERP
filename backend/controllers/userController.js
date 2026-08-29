@@ -828,8 +828,9 @@ const adminResetPassword = async (req, res) => {
       if (!user) return res.status(404).json({ success: false, message: 'Employee not found' });
       
       // পাসওয়ার্ড আপডেট করা (আপনার ইউজার মডেলে pre-save হ্যাশিং থাকলে প্লেইন টেক্সট রাখবেন, না থাকলে নিচে হ্যাশ করবেন)
-      const salt = await bcrypt.genSalt(10);
-      user.password = await bcrypt.hash(newPassword, salt);
+      // const salt = await bcrypt.genSalt(10);
+      // user.password = await bcrypt.hash(newPassword, salt);
+      user.password = newPassword;
       await user.save();
       
       return res.status(200).json({ success: true, message: `Employee (${trimmedId}) password updated successfully!` });
