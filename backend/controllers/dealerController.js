@@ -172,14 +172,77 @@ const registerDealer = async (req, res) => {
 // @desc    Get all dealers list
 // @route   GET /api/dealers
 // @access  Public
+
+// 1st version of getDealers function (commented out for reference)
+// const getDealers = async (req, res) => {
+//     try {
+//         // ডাটাবেজের সব ডিলারের ডাটা নিয়ে আসবে (নতুনগুলো সবার আগে দেখানোর জন্য sort করা হয়েছে)
+//         const dealers = await Dealer.find().sort({ createdAt: -1 });
+
+//         res.status(200).json({
+//             success: true,
+//             count: dealers.length,
+//             data: dealers
+//         });
+//     } catch (error) {
+//         res.status(500).json({
+//             success: false,
+//             message: 'Server error encountered while fetching dealers.',
+//             error: error.message
+//         });
+//     }
+// };
+
+
+
+
+// 2nd version of getDealers function with pagination and search
 const getDealers = async (req, res) => {
     try {
-        // ডাটাবেজের সব ডিলারের ডাটা নিয়ে আসবে (নতুনগুলো সবার আগে দেখানোর জন্য sort করা হয়েছে)
-        const dealers = await Dealer.find().sort({ createdAt: -1 });
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20; 
+        const skip = (page - 1) * limit;
+        
+        const { search, status } = req.query;
+
+        // ডাইনামিক কুয়েরি অবজেক্ট তৈরি
+        let query = {};
+
+        // 🔍 ১. সার্চ ফিল্টার লজিক (ফ্রন্টএন্ডের ফিল্ড নেমগুলোর সাথে সিঙ্ক করা হয়েছে)
+        if (search && search.trim() !== '' && search !== 'undefined') {
+            query.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { dealerId: { $regex: search, $options: 'i' } }, 
+                { district: { $regex: search, $options: 'i' } },
+                { thana: { $regex: search, $options: 'i' } },
+                { email: { $regex: search, $options: 'i' } },
+                { mobilePhoneNo: { $regex: search, $options: 'i' } } // 👈 mobileNo পরিবর্তন করে mobilePhoneNo করা হয়েছে
+            ];
+            
+            // যদি আপনার মডেলে shopName থাকে, তবে নিচের লাইনটি আনকমেন্ট করতে পারেন
+            // query.$or.push({ shopName: { $regex: search, $options: 'i' } });
+        }
+
+        // 🟢 ২. স্ট্যাটাস ফিল্টার লজিক
+        if (status && status.trim() !== '' && status !== 'undefined') {
+            query.status = status; 
+        }
+
+        // ডাটাবেজ থেকে নির্দিষ্ট পেজের ডাটা তুলে আনা
+        const dealers = await Dealer.find(query)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+
+        // ফিল্টার অনুযায়ী মোট ম্যাচিং ডিলারের সংখ্যা কাউন্ট করা
+        const totalDealers = await Dealer.countDocuments(query);
 
         res.status(200).json({
             success: true,
             count: dealers.length,
+            total: totalDealers,
+            totalPages: Math.ceil(totalDealers / limit) || 1,
+            currentPage: page,
             data: dealers
         });
     } catch (error) {
@@ -190,6 +253,8 @@ const getDealers = async (req, res) => {
         });
     }
 };
+
+
 
 // ১. View Dealer Details (একটি নির্দিষ্ট ডিলারের সব তথ্য দেখা)
 const viewDealer = async (req, res) => {

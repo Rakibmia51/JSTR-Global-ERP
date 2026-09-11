@@ -133,6 +133,8 @@ const getAllUsers = async (req, res) => {
 // @desc    Get all employees list
 // @route   GET /api/users
 // @access  Private/Public (আপনার প্রজেক্ট অনুযায়ী)
+
+// 1st version of getAllEmployees function (commented out for reference)
 // const getAllEmployees = async (req, res) => {
 //   try {
 //     // .populate('department', 'name') দিলে শুধু ডিপার্টমেন্টের আইডি না এসে নামও চলে আসবে
@@ -147,9 +149,8 @@ const getAllUsers = async (req, res) => {
 //     res.status(500).json({ success: false, message: 'Server error', error: error.message });
 //   }
 // };
-// আপনার Department মডেলটি উপরে ইমপোর্ট করা থাকতে হবে
-// const Department = require('../models/Department'); 
-
+ 
+// 2nd version of getAllEmployees function with pagination, search, and department filter
 const getAllEmployees = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
