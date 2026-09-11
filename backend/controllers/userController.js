@@ -133,20 +133,79 @@ const getAllUsers = async (req, res) => {
 // @desc    Get all employees list
 // @route   GET /api/users
 // @access  Private/Public (আপনার প্রজেক্ট অনুযায়ী)
+// const getAllEmployees = async (req, res) => {
+//   try {
+//     // .populate('department', 'name') দিলে শুধু ডিপার্টমেন্টের আইডি না এসে নামও চলে আসবে
+//     const employees = await User.find({}).populate('department', 'name').sort({ createdAt: -1 });
+    
+//     res.status(200).json({
+//       success: true,
+//       count: employees.length,
+//       data: employees
+//     });
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: 'Server error', error: error.message });
+//   }
+// };
+// আপনার Department মডেলটি উপরে ইমপোর্ট করা থাকতে হবে
+// const Department = require('../models/Department'); 
+
 const getAllEmployees = async (req, res) => {
   try {
-    // .populate('department', 'name') দিলে শুধু ডিপার্টমেন্টের আইডি না এসে নামও চলে আসবে
-    const employees = await User.find({}).populate('department', 'name').sort({ createdAt: -1 });
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
     
+    const { search, department } = req.query;
+    
+    // মূল কুয়েরি অবজেক্ট
+    let query = {};
+
+    // 🔍 ১. সার্চ লজিক (নাম, আইডি বা মোবাইল দিয়ে)
+    if (search && search.trim() !== '') {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { idNo: { $regex: search, $options: 'i' } },
+        { mobileNo: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // 🏢 ২. ডিপার্টমেন্ট ফিল্টার লজিক (রেফারেন্স অবজেক্ট হ্যান্ডলিং)
+    if (department && department.trim() !== '') {
+      // প্রথমে ডিপার্টমেন্ট কালেকশন থেকে নাম দিয়ে আইডিটি খুঁজে বের করছি
+      const foundDept = await Department.findOne({ name: department });
+      if (foundDept) {
+        query.department = foundDept._id; // ইউজারের department ফিল্ডে আইডি ম্যাচ করানো হচ্ছে
+      } else {
+        // যদি ওই নামের কোনো ডিপার্টমেন্ট না পাওয়া যায়, তবে খালি রেজাল্ট রিটার্ন করবে
+        return res.status(200).json({ success: true, count: 0, totalPages: 0, currentPage: page, data: [] });
+      }
+    }
+
+    // অপ্টিমাইজড ডাটাবেস কুয়েরি
+    const employees = await User.find(query)
+      .select('name idNo mobileNo email department role isActive photo createdAt')
+      .populate('department', 'name')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+    
+    // ফিল্টার অনুযায়ী মোট ম্যাচিং ডাটার সংখ্যা
+    const totalEmployees = await User.countDocuments(query);
+
     res.status(200).json({
       success: true,
       count: employees.length,
+      total: totalEmployees,
+      totalPages: Math.ceil(totalEmployees / limit) || 1,
+      currentPage: page,
       data: employees
     });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
+
 
 //ViewEmployee কন্ট্রোলার কোড
 const getEmployeeById = async (req, res) => {
