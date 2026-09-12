@@ -2493,46 +2493,136 @@ const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
 // =========================================================================
 // 2️⃣ ২. লেজার দেখার গেট কন্ট্রোলার (getCommissionLedger)
 // =========================================================================
+// 1st version
+// const getCommissionLedger = async (req, res) => {
+//   try {
+//     const currentYear = parseInt(req.query.year) || new Date().getFullYear();
+//     const currentMonth = parseInt(req.query.month) || (new Date().getMonth() + 1);
+
+//     const savedLedger = await MonthlyLedger.findOne({ year: currentYear, month: currentMonth });
+//     if (savedLedger) {
+//       return res.status(200).json({
+//         success: true,
+//         isSavedRecord: true,
+//         meta: savedLedger.meta,
+//         summary: savedLedger.summary,
+//         data: savedLedger.employeesData,
+//         dealers: savedLedger.dealersData
+//       });
+//     }
+
+//     const engineResult = await executeLedgerCalculationEngine(currentYear, currentMonth);
+    
+//     const totalEmployeePayout = engineResult.finalLedgerList.reduce((sum, e) => sum + e.netTotalEarnings, 0);
+//     const totalDealerPayout = engineResult.qualifiedDealers.reduce((sum, d) => sum + d.commission, 0);
+
+//     res.status(200).json({
+//       success: true,
+//       isSavedRecord: false,
+//       meta: {
+//         targetYear: currentYear,
+//         targetMonth: currentMonth,
+//         totalCompanySales: engineResult.totalCompanySalesAmount,
+//         poolCounters: engineResult.poolShareCounters,
+//         processedUsersCount: engineResult.finalLedgerList.length,
+//         processedDealersCount: engineResult.qualifiedDealers.length
+//       },
+//       summary: {
+//         totalEmployeePayout: Math.round(totalEmployeePayout),
+//         totalDealerPayout: Math.round(totalDealerPayout),
+//         grandTotalCompanyPayout: Math.round(totalEmployeePayout + totalDealerPayout)
+//       },
+//       data: engineResult.finalLedgerList,
+//       dealers: engineResult.qualifiedDealers
+//     });
+
+//   } catch (error) {
+//     console.error("❌ getCommissionLedger Fatal Error:", error);
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+// 2nd version (optimized)
 const getCommissionLedger = async (req, res) => {
   try {
     const currentYear = parseInt(req.query.year) || new Date().getFullYear();
     const currentMonth = parseInt(req.query.month) || (new Date().getMonth() + 1);
-
-    const savedLedger = await MonthlyLedger.findOne({ year: currentYear, month: currentMonth });
-    if (savedLedger) {
-      return res.status(200).json({
-        success: true,
-        isSavedRecord: true,
-        meta: savedLedger.meta,
-        summary: savedLedger.summary,
-        data: savedLedger.employeesData,
-        dealers: savedLedger.dealersData
-      });
-    }
-
-    const engineResult = await executeLedgerCalculationEngine(currentYear, currentMonth);
     
-    const totalEmployeePayout = engineResult.finalLedgerList.reduce((sum, e) => sum + e.netTotalEarnings, 0);
-    const totalDealerPayout = engineResult.qualifiedDealers.reduce((sum, d) => sum + d.commission, 0);
+    // 📊 ফ্রন্টএন্ড থেকে পেজিনেশন প্যারামিটার নেওয়া (Default: page = 1, limit = 20)
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
 
-    res.status(200).json({
-      success: true,
-      isSavedRecord: false,
-      meta: {
+    let meta = {};
+    let summary = {};
+    let employeesData = [];
+    let dealersData = [];
+    let isSavedRecord = false;
+    let totalEmployees = 0;
+    let totalDealers = 0;
+
+    // ১. চেক করা ডেটাবেজে অলরেডি সেভ করা লিজার আছে কিনা
+    const savedLedger = await MonthlyLedger.findOne({ year: currentYear, month: currentMonth });
+    
+    if (savedLedger) {
+      isSavedRecord = true;
+      meta = savedLedger.meta;
+      summary = savedLedger.summary;
+      
+      // সেভ করা অ্যারে থেকে শুধুমাত্র নির্দিষ্ট পেজের ডাটা স্লাইস (Slice) করা
+      employeesData = savedLedger.employeesData || [];
+      dealersData = savedLedger.dealersData || [];
+    } else {
+      // ২. সেভ করা না থাকলে লাইভ ইঞ্জিন ক্যালকুলেশন রান করা
+      isSavedRecord = false;
+      const engineResult = await executeLedgerCalculationEngine(currentYear, currentMonth);
+      
+      const totalEmployeePayout = engineResult.finalLedgerList.reduce((sum, e) => sum + e.netTotalEarnings, 0);
+      const totalDealerPayout = engineResult.qualifiedDealers.reduce((sum, d) => sum + d.commission, 0);
+
+      meta = {
         targetYear: currentYear,
         targetMonth: currentMonth,
         totalCompanySales: engineResult.totalCompanySalesAmount,
         poolCounters: engineResult.poolShareCounters,
         processedUsersCount: engineResult.finalLedgerList.length,
         processedDealersCount: engineResult.qualifiedDealers.length
-      },
-      summary: {
+      };
+
+      summary = {
         totalEmployeePayout: Math.round(totalEmployeePayout),
         totalDealerPayout: Math.round(totalDealerPayout),
         grandTotalCompanyPayout: Math.round(totalEmployeePayout + totalDealerPayout)
-      },
-      data: engineResult.finalLedgerList,
-      dealers: engineResult.qualifiedDealers
+      };
+
+      employeesData = engineResult.finalLedgerList || [];
+      dealersData = engineResult.qualifiedDealers || [];
+    }
+
+    // ৩. টোটাল কাউন্ট ট্র্যাক করা
+    totalEmployees = employeesData.length;
+    totalDealers = dealersData.length;
+
+    // ৪. ইন-মেমোরি পেজিনেশন স্লাইসিং (Array slicing for instant response)
+    const paginatedEmployees = employeesData.slice(skip, skip + limit);
+    const paginatedDealers = dealersData.slice(skip, skip + limit);
+
+    // ৫. ফ্রন্টএন্ডে স্ট্যান্ডার্ড ফরম্যাটে রেসপন্স পাঠানো
+    res.status(200).json({
+      success: true,
+      isSavedRecord,
+      meta,
+      summary,
+      // পেজ অনুযায়ী শুধু ২০টি করে ডাটা পাঠানো হচ্ছে
+      data: paginatedEmployees, 
+      dealers: paginatedDealers,
+      pagination: {
+        totalEmployees,
+        totalDealers,
+        totalPages: Math.ceil(Math.max(totalEmployees, totalDealers) / limit) || 1,
+        currentPage: page,
+        limit
+      }
     });
 
   } catch (error) {
@@ -2540,6 +2630,7 @@ const getCommissionLedger = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 
 // =========================================================================
 // 3️⃣ ৩. লেজার স্থায়ীভাবে সেভ করার রুট কন্ট্রোলার (saveMonthlyLedger)
