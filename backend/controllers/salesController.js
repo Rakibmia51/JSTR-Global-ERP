@@ -68,73 +68,200 @@ const mongoose = require('mongoose');
 //   getSalesWithEmployee,
 // };
 
-
 // 2nd version of sales controller with mongoose population for simplicity
+// const getSalesWithEmployee = async (req, res) => {
+//   try {
+//     // ১. সরাসরি মঙ্গুজ মডেল ব্যবহার করে সব ইনভয়েস নিয়ে আসা (এটি ফাস্ট এবং সিকিউর)
+//     const allSales = await Invoice.find({}).lean();
 
+//     if (!allSales || allSales.length === 0) {
+//       return res.status(200).json({ message: "No invoices found" });
+//     }
+
+//     // ২. লুপ চালিয়ে আর্কাইভড ও লাইভ ডাটা ডাইনামিকালি মার্চ করা
+//     const enrichedSales = await Promise.all(
+//       allSales.map(async (sale) => {
+        
+//         // ক) যদি ইনভয়েসটি ইতিমধ্যে মাসের শেষে আর্কাইভড হয়ে থাকে (isMonthlyArchived: true)
+//         if (sale.isMonthlyArchived && sale.archivedSalesData) {
+//           return {
+//             ...sale,
+//             _id: sale._id.toString(),
+//             // আর্কাইভড স্ন্যাপশট ডাটাকে আগের ফরম্যাটের সাথে মিল রেখে রিটার্ন করা
+//             dealer: sale.archivedSalesData.dealerSnapshot || null,
+//             employeeInfo: sale.archivedSalesData.employeeSnapshot || null,
+//             isArchivedRecord: true // ফ্রন্টএন্ডে ট্র্যাকিংয়ের জন্য একটি ফ্ল্যাগ
+//           };
+//         }
+
+//         // খ) যদি ইনভয়েসটি রানিং মাসের হয় (এখনো আর্কাইভ করা হয়নি)
+//         let dealerInfo = null;
+//         let employeeInfo = null;
+
+//         if (sale.dealer) {
+//           const dealerId = sale.dealer.toString();
+          
+//           // লাইভ ডিলার ডাটা খোঁজা
+//           dealerInfo = await Dealer.findOne({ 
+//             $or: [
+//               { _id: dealerId },
+//               { _id: new mongoose.Types.ObjectId(dealerId) }
+//             ]
+//           }).lean();
+          
+//           // ডিলারের লাইভ 'referenceIdNo' দিয়ে কারেন্ট এমপ্লয়ি খোঁজা
+//           if (dealerInfo && dealerInfo.referenceIdNo) {
+//             employeeInfo = await User.findOne({ idNo: dealerInfo.referenceIdNo })
+//               .select("name idNo role department")
+//               .lean();
+//           }
+//         }
+
+//         return {
+//           ...sale,
+//           _id: sale._id.toString(),
+//           dealer: dealerInfo,
+//           employeeInfo: employeeInfo,
+//           isArchivedRecord: false
+//         };
+//       })
+//     );
+
+//     res.status(200).json(enrichedSales);
+//   } catch (error) {
+//     console.error("Sales Engine Error:", error);
+//     res.status(500).json({ message: error.message });
+//   }
+// };
+
+// 3rd version of sales controller with mongoose population for simplicity
 const getSalesWithEmployee = async (req, res) => {
   try {
-    // ১. সরাসরি মঙ্গুজ মডেল ব্যবহার করে সব ইনভয়েস নিয়ে আসা (এটি ফাস্ট এবং সিকিউর)
-    const allSales = await Invoice.find({}).lean();
+    // ১. ফ্রন্টএন্ড থেকে পেজিনেশন ও সার্চ প্যারামিটার রিসিভ করা
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20; // প্রতি পেজে ২০টি করে ডাটা
+    const skip = (page - 1) * limit;
+    const { search } = req.query;
 
-    if (!allSales || allSales.length === 0) {
-      return res.status(200).json({ message: "No invoices found" });
+    // ২. ডাইনামিক কুয়েরি অবজেক্ট তৈরি
+    let query = {};
+
+    // 🔍 সার্চ ফিল্টার লজিক (ইনভয়েস নম্বর বা কাস্টমার নেম দিয়ে)
+    if (search && search.trim() !== '' && search !== 'undefined') {
+      query.$or = [
+        { invoiceNo: { $regex: search, $options: 'i' } },
+        { customerName: { $regex: search, $options: 'i' } }
+      ];
     }
 
-    // ২. লুপ চালিয়ে আর্কাইভড ও লাইভ ডাটা ডাইনামিকালি মার্চ করা
-    const enrichedSales = await Promise.all(
-      allSales.map(async (sale) => {
-        
-        // ক) যদি ইনভয়েসটি ইতিমধ্যে মাসের শেষে আর্কাইভড হয়ে থাকে (isMonthlyArchived: true)
-        if (sale.isMonthlyArchived && sale.archivedSalesData) {
-          return {
-            ...sale,
-            _id: sale._id.toString(),
-            // আর্কাইভড স্ন্যাপশট ডাটাকে আগের ফরম্যাটের সাথে মিল রেখে রিটার্ন করা
-            dealer: sale.archivedSalesData.dealerSnapshot || null,
-            employeeInfo: sale.archivedSalesData.employeeSnapshot || null,
-            isArchivedRecord: true // ফ্রন্টএন্ডে ট্র্যাকিংয়ের জন্য একটি ফ্ল্যাগ
-          };
-        }
+    // ৩. মোট কতটি ইনভয়েস আছে তা কাউন্ট করা (ফিল্টার অনুযায়ী)
+    const totalSales = await Invoice.countDocuments(query);
 
-        // খ) যদি ইনভয়েসটি রানিং মাসের হয় (এখনো আর্কাইভ করা হয়নি)
-        let dealerInfo = null;
-        let employeeInfo = null;
+    if (totalSales === 0) {
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        total: 0,
+        totalPages: 1,
+        currentPage: page,
+        data: []
+      });
+    }
 
-        if (sale.dealer) {
-          const dealerId = sale.dealer.toString();
-          
-          // লাইভ ডিলার ডাটা খোঁজা
-          dealerInfo = await Dealer.findOne({ 
-            $or: [
-              { _id: dealerId },
-              { _id: new mongoose.Types.ObjectId(dealerId) }
-            ]
-          }).lean();
-          
-          // ডিলারের লাইভ 'referenceIdNo' দিয়ে কারেন্ট এমপ্লয়ি খোঁজা
-          if (dealerInfo && dealerInfo.referenceIdNo) {
-            employeeInfo = await User.findOne({ idNo: dealerInfo.referenceIdNo })
-              .select("name idNo role department")
-              .lean();
-          }
-        }
+    // ৪. শুধুমাত্র নির্দিষ্ট পেজের (যেমন ২০টি) ইনভয়েস তুলে আনা
+    const allSales = await Invoice.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
 
+    // ⚡ ৫. লুপের ভেতর ৪০০০ কোয়েরি বন্ধ করতে "Bulk Query + Caching" টেকনিক ব্যবহার:
+    // কারেন্ট পেজের ২০টি ইনভয়েসের ডিলার আইডিগুলো একবারে আলাদা করে নেওয়া
+    const liveDealerIds = allSales
+      .filter(sale => !sale.isMonthlyArchived && sale.dealer)
+      .map(sale => sale.dealer.toString());
+
+    let dealerMap = {};
+    let employeeMap = {};
+
+    if (liveDealerIds.length > 0) {
+      // ২০টি ডিলারের ডাটা ডাটাবেজ থেকে মাত্র ১টি রিকোয়েস্টে তুলে আনা (Bulk Find)
+      const liveDealers = await Dealer.find({ _id: { $in: liveDealerIds } }).lean();
+      
+      // দ্রুত খোঁজার জন্য ডিলারদের আইডি দিয়ে অবজেক্ট ম্যাপ তৈরি
+      liveDealers.forEach(d => {
+        dealerMap[d._id.toString()] = d;
+      });
+
+      // ডিলারদের referenceIdNo (Employee ID) গুলো একবারে সংগ্রহ করা
+      const empIdNos = liveDealers
+        .filter(d => d.referenceIdNo)
+        .map(d => d.referenceIdNo);
+
+      if (empIdNos.length > 0) {
+        // সব এমপ্লয়ির ডাটা ডাটাবেজ থেকে মাত্র ১টি রিকোয়েস্টে তুলে আনা (Bulk Find)
+        const liveEmployees = await User.find({ idNo: { $in: empIdNos } })
+          .select("name idNo role department")
+          .lean();
+
+        // দ্রুত খোঁজার জন্য এমপ্লয়িদের idNo দিয়ে অবজেক্ট ম্যাপ তৈরি
+        liveEmployees.forEach(e => {
+          employeeMap[e.idNo] = e;
+        });
+      }
+    }
+
+    // ৬. এখন মেমরিতে মাত্র ২০টি ডাটা মার্চ করা হবে (কোনো ডাটাবেজ কোয়েরি ছাড়াই, ইনস্ট্যান্ট হবে)
+    const enrichedSales = allSales.map((sale) => {
+      // ক) আর্কাইভড রেকর্ড হ্যান্ডলিং
+      if (sale.isMonthlyArchived && sale.archivedSalesData) {
         return {
           ...sale,
           _id: sale._id.toString(),
-          dealer: dealerInfo,
-          employeeInfo: employeeInfo,
-          isArchivedRecord: false
+          dealer: sale.archivedSalesData.dealerSnapshot || null,
+          employeeInfo: sale.archivedSalesData.employeeSnapshot || null,
+          isArchivedRecord: true
         };
-      })
-    );
+      }
 
-    res.status(200).json(enrichedSales);
+      // খ) লাইভ কারেন্ট মাসের রেকর্ড হ্যান্ডলিং (ক্যাশে ম্যাপ থেকে ডাটা নেওয়া)
+      let dealerInfo = null;
+      let employeeInfo = null;
+
+      if (sale.dealer) {
+        const dId = sale.dealer.toString();
+        dealerInfo = dealerMap[dId] || null;
+
+        if (dealerInfo && dealerInfo.referenceIdNo) {
+          employeeInfo = employeeMap[dealerInfo.referenceIdNo] || null;
+        }
+      }
+
+      return {
+        ...sale,
+        _id: sale._id.toString(),
+        dealer: dealerInfo,
+        employeeInfo: employeeInfo,
+        isArchivedRecord: false
+      };
+    });
+
+    // ৭. স্ট্যান্ডার্ড ফরম্যাটে রেসপন্স পাঠানো যাতে ফ্রন্টএন্ডে পেজিনেশন বাটন রিড করতে পারে
+    res.status(200).json({
+      success: true,
+      count: enrichedSales.length,
+      total: totalSales,
+      totalPages: Math.ceil(totalSales / limit) || 1,
+      currentPage: page,
+      data: enrichedSales
+    });
+
   } catch (error) {
     console.error("Sales Engine Error:", error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
+
 
 // 🆕 ৩. প্রতি মাসের শেষে রান করার জন্য ম্যানুয়াল/অটোমেটিক আর্কাইভ ফাংশন
 // এটি কল করলে রানিং মাসের সব ইনভয়েস লক হয়ে যাবে এবং ভবিষ্যতে আইডি চেঞ্জ হলেও ডাটা মুছবে না
