@@ -1,6 +1,7 @@
 // controllers/invoiceController.js
 const Invoice = require('../models/Invoice');
 const Transaction = require('../models/Transaction');
+const Dealer = require('../models/Dealer'); // 👈 এটি অবশ্যই ইম্পোর্ট করা থাকতে হবে
 const mongoose = require('mongoose');
 
 // 1st version of invoice controller with basic CRUD operations 
@@ -318,19 +319,94 @@ const getInvoiceByInvoiceNo = async (req, res) => {
 
 
 // সব ইনভয়েস একসাথে নিয়ে আসার কন্ট্রোলার
+// 1st version of getAllInvoices controller with basic functionality
+
+// const getAllInvoices = async (req, res) => {
+//   try {
+//     // ডিলার এবং কে ক্রিয়েট করেছে তাদের নাম পপুলেট করা হচ্ছে
+//     const invoices = await Invoice.find()
+//       .populate('dealer', 'name dealerId mobilePhoneNo address') // শুধু প্রয়োজনীয় ফিল্ডগুলো পপুলেট করা হচ্ছে
+//       .populate('createdBy', 'name')
+//       .sort({ createdAt: -1 }); // নতুন ইনভয়েস সবার উপরে থাকবে
+
+//     res.status(200).json({ success: true, data: invoices });
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+// 2nd version of getAllInvoices controller with pagination and search functionality
+// যদি ডিলারের নাম দিয়ে সার্চ করতে চান এবং Dealer মডেল আলাদা ফাইলে থাকে, তবে উপরে ইমপোর্ট করে নিবেন
+
 const getAllInvoices = async (req, res) => {
   try {
-    // ডিলার এবং কে ক্রিয়েট করেছে তাদের নাম পপুলেট করা হচ্ছে
-    const invoices = await Invoice.find()
-      .populate('dealer', 'name dealerId mobilePhoneNo address') // শুধু প্রয়োজনীয় ফিল্ডগুলো পপুলেট করা হচ্ছে
-      .populate('createdBy', 'name')
-      .sort({ createdAt: -1 }); // নতুন ইনভয়েস সবার উপরে থাকবে
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20; 
+    const skip = (page - 1) * limit;
+    
+    // ফ্রন্টএন্ড থেকে পাঠানো search এবং status কুয়েরি রিসিভ
+    const { search, status } = req.query;
 
-    res.status(200).json({ success: true, data: invoices });
+    let query = {};
+
+    // 🟢 ১. পেমেন্ট স্ট্যাটাস ফিল্টার লজিক
+    if (status && status.trim() !== '' && status !== 'All' && status !== 'undefined') {
+      query.paymentStatus = status; // ডাটাবেজে paymentStatus বা status মিলিয়ে নিন
+    }
+
+    // 🔍 ২. শক্তিশালী সার্চ ফিল্টার লজিক (ডিলার এবং সাধারণ কাস্টমার সিঙ্ক)
+    if (search && search.trim() !== '' && search !== 'undefined') {
+      let orConditions = [
+        { invoiceNo: { $regex: search, $options: 'i' } },
+        { customerName: { $regex: search, $options: 'i' } }
+      ];
+
+      // ডিলারের নাম, মোবাইল বা আইডি দিয়ে ডিলার কালেকশন থেকে আইডি খুঁজে আনা
+      const matchingDealers = await Dealer.find({
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { mobilePhoneNo: { $regex: search, $options: 'i' } },
+          { dealerId: { $regex: search, $options: 'i' } }
+        ]
+      }).select('_id');
+
+      // যদি ডিলার ম্যাচ করে, তবে তার আইডিগুলো ইনভয়েস কোয়েরির $or কন্ডিশনে পুশ করা
+      if (matchingDealers && matchingDealers.length > 0) {
+        const dealerIds = matchingDealers.map(d => d._id);
+        orConditions.push({ dealer: { $in: dealerIds } });
+      }
+
+      query.$or = orConditions;
+    }
+
+    // অপ্টিমাইজড ডাটাবেস কোয়েরি
+    const invoices = await Invoice.find(query)
+      .populate('dealer', 'name dealerId mobilePhoneNo address')
+      .populate('createdBy', 'name')
+      // .sort({ createdAt: -1 })
+      .sort({ invoiceNo: -1 }) // ইনভয়েস নম্বর অনুযায়ী সাজানো হচ্ছে (নতুন ইনভয়েস উপরে)
+      .skip(skip)
+      .limit(limit);
+
+    // ম্যাচিং ডাটার মোট সংখ্যা
+    const totalInvoices = await Invoice.countDocuments(query);
+
+    res.status(200).json({ 
+      success: true, 
+      count: invoices.length,
+      total: totalInvoices,
+      totalPages: Math.ceil(totalInvoices / limit) || 1,
+      currentPage: page,
+      data: invoices 
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+
+
+
 
 
 // Dashboard Overview Stats Controller

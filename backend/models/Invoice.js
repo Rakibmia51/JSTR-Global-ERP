@@ -242,7 +242,12 @@ const invoiceSchema = new mongoose.Schema({
     default: 'Cash' 
   },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // কোন কর্মচারী ইনভয়েসটি বানালো
-  
+  createdAt: {
+  type: Date,
+  default: Date.now,
+  index: true // এই লাইনটি যোগ করুন
+},
+
   // ইনভয়েস হিস্ট্রি ট্র্যাক করার লগ
   historyLog: [{
     action: { type: String, enum: ['Created', 'Updated'], required: true },
