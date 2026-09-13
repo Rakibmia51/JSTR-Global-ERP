@@ -607,6 +607,68 @@ try {
 
 
 // 🆕 আলাদা এপিআই: লগইন করা ইউজারের জন্য ডাউনলাইন ট্রি জেনারেশন
+// 1st version of getMyDownlineTree function (commented out for reference)
+// const getMyDownlineTree = async (req, res) => {
+//   try {
+//     const { idNo } = req.query;
+//     if (!idNo) {
+//       return res.status(400).json({ success: false, message: "Missing idNo parameter" });
+//     }
+
+//     const db = mongoose.connection.db;
+
+//     // ১. ডাটাবেজ থেকে সব MKT কর্মচারীদের তুলে আনা
+//     const users = await db.collection("users").find({ idNo: { $regex: /^MKT/i } }).toArray();
+
+//     const userSalesMap = {};
+//     const parentToChildrenMap = {};
+
+//     // ২. ওয়ান-পাস মেমোরি ইনডেক্সিং ম্যাপ তৈরি
+//     users.forEach(u => {
+//       userSalesMap[u.idNo] = {
+//         _id: u._id.toString(),
+//         idNo: u.idNo,
+//         name: u.name,
+//         role: u.role,
+//         department: u.department,
+//         children: []
+//       };
+
+//       const parentId = u.refIdNo || "0";
+//       if (!parentToChildrenMap[parentId]) parentToChildrenMap[parentId] = [];
+//       parentToChildrenMap[parentId].push(u.idNo);
+//     });
+
+//     // ৩. রিকার্সিভলি নেস্টেড চাইল্ড ট্রি অবজেক্ট জেনারেটর লজিক
+//     const buildNestedTree = (currentIdNo) => {
+//       const node = userSalesMap[currentIdNo];
+//       if (!node) return null;
+
+//       const childrenIds = parentToChildrenMap[currentIdNo] || [];
+//       childrenIds.forEach(childId => {
+//         const childNode = buildNestedTree(childId);
+//         if (childNode) {
+//           node.children.push(childNode);
+//         }
+//       });
+
+//       return node;
+//     };
+
+//     // আমার আইডি দিয়ে নেস্টেড ট্রি জেনারেট করা শুরু
+//     const finalMyTree = buildNestedTree(idNo);
+
+//     res.status(200).json({
+//       success: true,
+//       tree: finalMyTree ? [finalMyTree] : []
+//     });
+
+//   } catch (error) {
+//     console.error("Downline Tree API Error:", error);
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+// 2nd version of getMyDownlineTree function with sales and position calculation
 const getMyDownlineTree = async (req, res) => {
   try {
     const { idNo } = req.query;
@@ -614,17 +676,64 @@ const getMyDownlineTree = async (req, res) => {
       return res.status(400).json({ success: false, message: "Missing idNo parameter" });
     }
 
-    const db = mongoose.connection.db;
+    const UserCollection = mongoose.connection.db.collection("users");
 
-    // ১. ডাটাবেজ থেকে সব MKT কর্মচারীদের তুলে আনা
-    const users = await db.collection("users").find({ idNo: { $regex: /^MKT/i } }).toArray();
+    // ⚡ ১. শক্তিশালী MongoDB GraphLookup পাইপলাইন (ডাটাবেজ লেভেলে রিকার্সন হ্যান্ডলিంగ్)
+    const treeData = await UserCollection.aggregate([
+      // ক) প্রথমে যে ইউজারের আইডি দেওয়া হয়েছে তাকে খুঁজে বের করা
+      { $match: { idNo: idNo } },
+      
+      // খ) রিকার্সিভলি তার নিচের সকল ডাউনলাইন মেম্বারদের মাত্র ১টি কোয়েরিতে তুলে আনা
+      {
+        $graphLookup: {
+          from: "users",                  // কোন কালেকশন থেকে খুঁজবে
+          startWith: "$idNo",             // কার আইডি দিয়ে শুরু করবে
+          connectFromField: "idNo",        // প্যারেন্ট আইডি ফিল্ড
+          connectToField: "refIdNo",      // চাইল্ডের রেফারেন্স আইডি ফিল্ড
+          as: "downlineMembers",          // কি নামে আউটপুট অ্যারে তৈরি হবে
+          maxDepth: 20,                   // সর্বোচ্চ কত স্তর পর্যন্ত নামবে (প্রয়োজন অনুযায়ী বাড়াতে পারেন)
+          depthField: "level"             // স্তর ট্র্যাকিংয়ের জন্য
+        }
+      },
+      
+      // গ) শুধুমাত্র প্রয়োজনীয় ফিল্ডগুলো প্রোজেকশন করা (র‍্যাম ও ব্যান্ডউইথ বাঁচানোর জন্য)
+      {
+        $project: {
+          _id: 1, name: 1, idNo: 1, role: 1, department: 1, refIdNo: 1,
+          "downlineMembers._id": 1,
+          "downlineMembers.name": 1,
+          "downlineMembers.idNo": 1,
+          "downlineMembers.role": 1,
+          "downlineMembers.department": 1,
+          "downlineMembers.refIdNo": 1
+        }
+      }
+    ]).toArray();
 
-    const userSalesMap = {};
-    const parentToChildrenMap = {};
+    // যদি ওই আইডি দিয়ে কোনো ইউজার না পাওয়া যায়
+    if (!treeData || treeData.length === 0) {
+      return res.status(200).json({ success: true, tree: [] });
+    }
 
-    // ২. ওয়ান-পাস মেমোরি ইনডেক্সিং ম্যাপ তৈরি
-    users.forEach(u => {
-      userSalesMap[u.idNo] = {
+    const rootUser = treeData[0];
+    const allMembers = rootUser.downlineMembers || [];
+
+    // ২. মেমোরি ক্যাশ ইনডেক্সিং ম্যাপ তৈরি (কোনো রিকার্সিভ লুপ ছাড়া ডাটা সাজানো)
+    const userMap = {};
+    
+    // রুট নোড যুক্ত করা
+    userMap[rootUser.idNo] = {
+      _id: rootUser._id.toString(),
+      idNo: rootUser.idNo,
+      name: rootUser.name,
+      role: rootUser.role,
+      department: rootUser.department,
+      children: []
+    };
+
+    // সব ডাউনলাইন মেম্বারদের ম্যাপে যুক্ত করা
+    allMembers.forEach(u => {
+      userMap[u.idNo] = {
         _id: u._id.toString(),
         idNo: u.idNo,
         name: u.name,
@@ -632,34 +741,25 @@ const getMyDownlineTree = async (req, res) => {
         department: u.department,
         children: []
       };
-
-      const parentId = u.refIdNo || "0";
-      if (!parentToChildrenMap[parentId]) parentToChildrenMap[parentId] = [];
-      parentToChildrenMap[parentId].push(u.idNo);
     });
 
-    // ৩. রিকার্সিভলি নেস্টেড চাইল্ড ট্রি অবজেক্ট জেনারেটর লজিক
-    const buildNestedTree = (currentIdNo) => {
-      const node = userSalesMap[currentIdNo];
-      if (!node) return null;
+    // ৩. ওয়ান-পাস ইটারেটিভ চাইল্ড লিঙ্কিং (কোনো রিকার্সন এরর ছাড়া ট্রি তৈরি)
+    allMembers.forEach(u => {
+      const childNode = userMap[u.idNo];
+      const parentNode = userMap[u.refIdNo];
+      
+      // যদি তার প্যারেন্ট এই ডাউনলাইন ট্রির অংশ হয়, তবে তার চিলড্রেন অ্যারেতে পুশ হবে
+      if (parentNode && childNode) {
+        parentNode.children.push(childNode);
+      }
+    });
 
-      const childrenIds = parentToChildrenMap[currentIdNo] || [];
-      childrenIds.forEach(childId => {
-        const childNode = buildNestedTree(childId);
-        if (childNode) {
-          node.children.push(childNode);
-        }
-      });
-
-      return node;
-    };
-
-    // আমার আইডি দিয়ে নেস্টেড ট্রি জেনারেট করা শুরু
-    const finalMyTree = buildNestedTree(idNo);
+    // ফাইনাল রেজাল্ট রুট নোড থেকে পাঠানো
+    const finalTree = userMap[rootUser.idNo];
 
     res.status(200).json({
       success: true,
-      tree: finalMyTree ? [finalMyTree] : []
+      tree: finalTree ? [finalTree] : []
     });
 
   } catch (error) {
@@ -667,6 +767,8 @@ const getMyDownlineTree = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+
 
 // 🆕 আলাদা এপিআই: ইউজারের র্যাংক প্রোগ্রেস ও টার্গেট মেটাস্ট্যাটস গেট করা
 const getEmployeeRankProgress = async (req, res) => {

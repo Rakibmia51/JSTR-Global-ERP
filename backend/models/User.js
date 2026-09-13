@@ -4,8 +4,8 @@ const bcrypt = require('bcryptjs');
 const userSchema = new mongoose.Schema(
   {
     // --- মেইন অ্যাকাউন্ট ইনফো / Main Account Info ---
-    idNo: { type: String, unique: true, trim: true },
-    refIdNo: { type: String, trim: true, default: '' },
+    idNo: { type: String, unique: true, trim: true, index: true },
+    refIdNo: { type: String, trim: true, default: '' ,index: true},
     name: { type: String, required: [true, 'Name of staff is required'] },
     email: { type: String, required: [true, 'Email is required'], unique: true, lowercase: true, trim: true },
     password: { type: String, required: [true, 'Password is required'], minlength: [6, 'Password must be at least 6 characters long'] },
