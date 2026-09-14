@@ -361,9 +361,8 @@ const deleteUser = async (req, res) => {
 //   }
 // };
 
+
 //--- 2nd Version of Employee Tree Controller ---//
-
-
 // // অটোমেটিক পজিশন ইঞ্জিন (Rule 1 to 7)
 // const autoDeterminePosition = (totalSales, subNodesSummary = []) => {
 //   const amQualifiedCount = subNodesSummary.filter(sub => sub.autoPosition === "AM").length;
@@ -384,7 +383,224 @@ const deleteUser = async (req, res) => {
 //   return assignedPosition;
 // };
 
+// 3rd version of Employee Tree Controller with dynamic sales calculation and position assignment
 // মেইন এক্সপোর্ট ফাংশন (ট্রি ভিউ এপিআই এর জন্য)
+// const getEmployeeTree = async (req, res) => {
+// try {
+//     const db = mongoose.connection.db;
+    
+//    // ১. ডাটাবেজ থেকে সেলস/ইনভয়েস, ডিলার এবং MKT ইউজার তুলে আনা
+//     let allSales = await db.collection("invoices").find({}).toArray();
+//     if (!allSales || allSales.length === 0) {
+//       allSales = await db.collection("sales").find({}).toArray();
+//     }
+
+//     const dealers = await db.collection("dealers").find({}).toArray();
+//     const users = await db.collection("users").find({ idNo: { $regex: /^MKT/i } }).toArray();
+
+//     // চলতি মাসের ব্রেকপয়েন্ট নির্ধারণ (July 2026)
+//     const currentDate = new Date();
+//     const currentMonth = currentDate.getMonth(); 
+//     const currentYear = currentDate.getFullYear(); 
+
+//     const userSalesMap = {};
+//     const tree = [];
+
+//     // ২. মেমোরি ম্যাপ তৈরি করা
+//     users.forEach(u => {
+//       userSalesMap[u.idNo] = { 
+//         ...u, 
+//         _id: u._id.toString(),
+//         directSalesTotal: 0,       
+//         directSalesThisMonth: 0,   
+//         totalSalesVolume: 0,       
+//         thisMonthSalesVolume: 0,   
+//         autoPosition: "Sales Representative",
+//         children: [] 
+//       };
+//     });
+
+//     // ৩. ডাইনামিক সেলস ক্যালকুলেশন (আর্কাইভড স্ন্যাপশট বনাম লাইভ রিলেশন)
+//     allSales.forEach(sale => {
+//       const saleAmount = sale.grandTotal || 0;
+//       const saleDate = new Date(sale.createdAt);
+//       const isCurrentMonth = saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear;
+      
+//       let targetEmployeeIdNo = null;
+
+//       // ক) ইনভয়েসটি যদি ইতিমধ্যে আর্কাইভড হয়ে থাকে, তবে সরাসরি ভেতরের স্ন্যাপশট আইডি ব্যবহার করব (যা কখনো চেঞ্জ হবে না)
+//       if (sale.isMonthlyArchived && sale.archivedSalesData?.employeeSnapshot?.idNo) {
+//         targetEmployeeIdNo = sale.archivedSalesData.employeeSnapshot.idNo;
+//       } 
+//       // খ) যদি ইনভয়েসটি আর্কাইভড না হয় (রানিং মাস), তবে ডিলারের কারেন্ট referenceIdNo দিয়ে ট্র্যাক করব
+//       else if (sale.dealer) {
+//         const matchingDealer = dealers.find(d => d._id.toString() === sale.dealer.toString());
+//         if (matchingDealer && matchingDealer.referenceIdNo) {
+//           targetEmployeeIdNo = matchingDealer.referenceIdNo;
+//         }
+//       }
+
+//       // গ) প্রাপ্ত এমপ্লয়ি আইডিতে সেলস অ্যামাউন্ট যোগ করা
+//       if (targetEmployeeIdNo && userSalesMap[targetEmployeeIdNo]) {
+//         userSalesMap[targetEmployeeIdNo].directSalesTotal += saleAmount;
+//         userSalesMap[targetEmployeeIdNo].totalSalesVolume += saleAmount; // রিকিউরসিভ ভলিউমের বেস ভ্যালু
+
+//         if (isCurrentMonth) {
+//           userSalesMap[targetEmployeeIdNo].directSalesThisMonth += saleAmount;
+//           userSalesMap[targetEmployeeIdNo].thisMonthSalesVolume += saleAmount; // রিকিউরসিভ মান্থলি ভলিউমের বেস ভ্যালু
+//         }
+//       }
+//     });
+
+   
+//     // পজিশন হায়ারার্কি র্যাংক (সিনিয়র মেম্বারদের কাউন্ট করার জন্য)
+//     const RANK_MAP = {
+//       "SALES REPRESENTATIVE": 0, "AM": 1, "RSM": 2, "DSM": 3, 
+//       "SDSM": 4, "SM": 5, "NSM": 6, "ED": 7, "BOM": 8
+//     };
+
+  
+//     const autoDeterminePosition = (salesVolume, subNodesSummary = []) => {
+//       // ১. ওয়ান-পাস অপ্টিমাইজড কাউন্টিং (বারবার ফিল্টার লুপ এড়ানোর জন্য)
+//       const counts = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+      
+//       subNodesSummary.forEach(sub => {
+//         const pos = (sub.autoPosition || "").toUpperCase().trim();
+//         if (counts[pos] !== undefined) counts[pos]++;
+//       });
+
+//       // ২. কিউমুলেটিভ হেল্পার (টার্গেট পজিশন বা তার চেয়ে বড় পজিশনের মেম্বারদেরও গুনবে)
+//       const countAtLeast = (targetPos) => {
+//         return Object.keys(counts).reduce((total, pos) => {
+//           return RANK_MAP[pos] >= RANK_MAP[targetPos] ? total + counts[pos] : total;
+//         }, 0);
+//       };
+
+//       // =======================================================================
+//       // ৩. সঠিক কন্ডিশনাল অর্ডার সিকোয়েন্স (Top to Bottom অনুসারে আপনার রিকোয়ারমেন্ট)
+//       // =======================================================================
+
+//       // ৮. BOM: ২ জন ED কোয়ালিফাই এবং ৬৪ লাখ (৬৪,০০,০০০) সেলস হতে হবে
+//       if (salesVolume >= 6400000 && countAtLeast("ED") >= 2) return "BOM";
+
+//       // ৭. ED: ৪ জন NSM কোয়ালিফাই এবং ৩২ লাখ (৩২,০০,০০০) সেলস হতে হবে
+//       if (salesVolume >= 3200000 && countAtLeast("NSM") >= 4) return "ED";
+      
+//       // ৬. NSM: ৪ জন DSM কোয়ালিফাই এবং ৮ লাখ (৮,০০,০০০) সেলস হতে হবে
+//       if (salesVolume >= 800000 && countAtLeast("DSM") >= 4) return "NSM";
+      
+//       // ৫. SM: ৩ জন DSM কোয়ালিফাই এবং ৬ লাখ (৬,০০,০০০) সেলস হতে হবে
+//       if (salesVolume >= 600000 && countAtLeast("DSM") >= 3) return "SM";
+      
+//       // ৪. SDSM: ২ জন DSM কোয়ালিফাই এবং ৪ লাখ (৪,০০,০০০) সেলস হতে হবে
+//       if (salesVolume >= 400000 && countAtLeast("DSM") >= 2) return "SDSM";
+      
+//       // ৩. DSM: (২ জন RSM এবং ২ জন AM) অথবা (৪ জন RSM) কোয়ালিফাই এবং ২ লাখ (২,০০,০০০) সেলস হতে হবে
+//       if (salesVolume >= 200000 && (
+//           (countAtLeast("RSM") >= 2 && countAtLeast("AM") >= 2) || 
+//           countAtLeast("RSM") >= 4
+//       )) {
+//         return "DSM";
+//       }
+      
+//       // ২. RSM: ৩ জন AM কোয়ালিফাই এবং ৭৫ হাজার (৭৫,০০০) সেলস হতে হবে
+//       if (salesVolume >= 75000 && countAtLeast("AM") >= 3) return "RSM";
+      
+//       // ১. AM: ২৫ হাজার (২৫,০০০) সেলস হতে হবে
+//       if (salesVolume >= 25000) return "AM";
+      
+//       return "SALES REPRESENTATIVE";
+//     };
+
+
+//     // thisMonthSalesVolume এবং TotalSalesVolume সহ প্রতিটি এমপ্লয়ির জন্য পজিশন নির্ধারণ করা    
+
+//     // ১. ওয়ান-পাস চাইল্ড ম্যাপ তৈরি (বারবার users.filter লুপ এড়ানোর জন্য)
+//     const childMap = {};
+//     users.forEach(u => {
+//       const parentId = u.refIdNo;
+//       if (parentId && parentId !== "0") {
+//         if (!childMap[parentId]) childMap[parentId] = [];
+//         childMap[parentId].push(u.idNo);
+//       }
+//     });
+
+//     // ২. রিকার্সিভ ফাংশন: নিচ থেকে উপরে সেলস ও পজিশন পুশ করা
+//     const processHierarchySpecs = (currentIdNo) => {
+//       const currentEmployee = userSalesMap[currentIdNo];
+//       if (!currentEmployee) return;
+
+//       // সরাসরি ম্যাপ থেকে চাইল্ড আইডিগুলো নেওয়া (পারফরম্যান্স বুস্ট)
+//       const childrenIds = childMap[currentIdNo] || [];
+
+//       // পোস্ট-অর্ডার ট্রাভার্সাল: আগে ডাউনলাইনের শেষ প্রান্তের মেম্বারদের হিসাব শেষ হবে
+//       childrenIds.forEach(childId => processHierarchySpecs(childId));
+
+//       // চাইল্ডদের আপডেটেড পজিশন ও সেলস ভলিউম সংগ্রহ
+//       const subNodesSummary = [];
+//       let teamSalesSumTotal = 0;
+//       let teamSalesSumMonth = 0;
+
+//       childrenIds.forEach(childId => {
+//         const childData = userSalesMap[childId];
+//         if (childData) {
+//           subNodesSummary.push({
+//             idNo: childId,
+//             autoPosition: childData.autoPosition || "Sales Representative"
+//           });
+//           teamSalesSumTotal += childData.totalSalesVolume;
+//           teamSalesSumMonth += childData.thisMonthSalesVolume;
+//         }
+//       });
+
+//       // ডাউনলাইনের লাইফটাইম এবং চলতি মাসের সেলস আপলাইনের সাথে যোগ হবে
+//       currentEmployee.totalSalesVolume += teamSalesSumTotal;
+//       currentEmployee.thisMonthSalesVolume += teamSalesSumMonth;
+
+//       // 💥 পরিবর্তন ১: পজিশন নির্ধারণের জন্য 'totalSalesVolume' পাঠানো হলো
+//       currentEmployee.autoPosition = autoDeterminePosition(currentEmployee.totalSalesVolume, subNodesSummary);
+//     };
+
+//     // ৩. ট্রির রুট নোড (Top Parents) থেকে প্রসেসিং শুরু করা
+//     users.forEach(user => {
+//       if (user.refIdNo === "0" || !user.refIdNo || !userSalesMap[user.refIdNo]) {
+//         processHierarchySpecs(user.idNo);
+//       }
+//     });
+
+//     // ৪. ফাইনাল রেসপন্স ট্রি এবং ফরম্যাটিং তৈরি করা
+//     users.forEach(user => {
+//       const currentEmployee = userSalesMap[user.idNo];
+//       if (!currentEmployee) return;
+
+//       // ফ্রন্টএন্ড রিকোয়ারমেন্ট অনুযায়ী ফিল্ড অ্যাসাইন
+//       currentEmployee.position = currentEmployee.autoPosition;
+      
+//       // 💥 পরিবর্তন ২: ফাইনাল অ্যাচিভড ভলিউম হিসেবে টোটাল সেলস অ্যাসাইন
+//       currentEmployee.totalSalesAchieved = currentEmployee.totalSalesVolume;
+//       currentEmployee.thisMonthSalesAchieved = currentEmployee.thisMonthSalesVolume;
+
+//       const parentIdNo = user.refIdNo;
+//       if (parentIdNo === "0" || !parentIdNo || !userSalesMap[parentIdNo]) {
+//         // যাদের প্যারেন্ট নেই তারা মেইন রুট ট্রিতে যাবে
+//         tree.push(currentEmployee);
+//       } else {
+//         // যাদের প্যারেন্ট আছে তারা প্যারেন্টের 'children' অ্যারেতে ঢুকবে
+//         userSalesMap[parentIdNo].children.push(currentEmployee);
+//       }
+//     });
+
+
+
+//     res.status(200).json(tree);
+//   } catch (error) {
+//     console.error("❌ BACKEND CRASH ERROR:", error);
+//     res.status(500).json({ message: error.message });
+//   }
+// };
+
+
+//4th version of Employee Tree Controller with dynamic sales calculation and position assignment
 const getEmployeeTree = async (req, res) => {
 try {
     const db = mongoose.connection.db;
@@ -460,42 +676,27 @@ try {
     };
 
   
-    const autoDeterminePosition = (salesVolume, subNodesSummary = []) => {
-      // ১. ওয়ান-পাস অপ্টিমাইজড কাউন্টিং (বারবার ফিল্টার লুপ এড়ানোর জন্য)
-      const counts = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+   // =======================================================================
+    // ১. পজিশন ডিটারমিনেশন কোর রুল ইঞ্জিন (সংশোধিত)
+    // =======================================================================
+    const autoDeterminePosition = (salesVolume, qualifiedLegsCounts = {}) => {
+      // এখানে qualifiedLegsCounts হলো একটি অবজেক্ট যা নির্দেশ করে এই ইউজারের 
+      // ভিন্ন ভিন্ন ডাউনলাইন লেগে (Leg) ন্যূনতম কতজন নির্দিষ্ট পজিশন অর্জন করেছে।
       
-      subNodesSummary.forEach(sub => {
-        const pos = (sub.autoPosition || "").toUpperCase().trim();
-        if (counts[pos] !== undefined) counts[pos]++;
-      });
-
-      // ২. কিউমুলেটিভ হেল্পার (টার্গেট পজিশন বা তার চেয়ে বড় পজিশনের মেম্বারদেরও গুনবে)
       const countAtLeast = (targetPos) => {
-        return Object.keys(counts).reduce((total, pos) => {
-          return RANK_MAP[pos] >= RANK_MAP[targetPos] ? total + counts[pos] : total;
+        // এই ফাংশনটি টার্গেট পজিশন বা তার চেয়ে বড় পজিশন অর্জনকারী লেগের সংখ্যা রিটার্ন করবে
+        return Object.keys(qualifiedLegsCounts).reduce((total, pos) => {
+          return RANK_MAP[pos] >= RANK_MAP[targetPos] ? total + qualifiedLegsCounts[pos] : total;
         }, 0);
       };
 
-      // =======================================================================
-      // ৩. সঠিক কন্ডিশনাল অর্ডার সিকোয়েন্স (Top to Bottom অনুসারে আপনার রিকোয়ারমেন্ট)
-      // =======================================================================
-
-      // ৮. BOM: ২ জন ED কোয়ালিফাই এবং ৬৪ লাখ (৬৪,০০,০০০) সেলস হতে হবে
+      // ৩. আপনার কন্ডিশনাল সিকোয়েন্স (Leg-Wise Count এর ওপর ভিত্তি করে)
       if (salesVolume >= 6400000 && countAtLeast("ED") >= 2) return "BOM";
-
-      // ৭. ED: ৪ জন NSM কোয়ালিফাই এবং ৩২ লাখ (৩২,০০,০০০) সেলস হতে হবে
       if (salesVolume >= 3200000 && countAtLeast("NSM") >= 4) return "ED";
-      
-      // ৬. NSM: ৪ জন DSM কোয়ালিফাই এবং ৮ লাখ (৮,০০,০০০) সেলস হতে হবে
       if (salesVolume >= 800000 && countAtLeast("DSM") >= 4) return "NSM";
-      
-      // ৫. SM: ৩ জন DSM কোয়ালিফাই এবং ৬ লাখ (৬,০০,০০০) সেলস হতে হবে
       if (salesVolume >= 600000 && countAtLeast("DSM") >= 3) return "SM";
-      
-      // ৪. SDSM: ২ জন DSM কোয়ালিফাই এবং ৪ লাখ (৪,০০,০০০) সেলস হতে হবে
       if (salesVolume >= 400000 && countAtLeast("DSM") >= 2) return "SDSM";
       
-      // ৩. DSM: (২ জন RSM এবং ২ জন AM) অথবা (৪ জন RSM) কোয়ালিফাই এবং ২ লাখ (২,০০,০০০) সেলস হতে হবে
       if (salesVolume >= 200000 && (
           (countAtLeast("RSM") >= 2 && countAtLeast("AM") >= 2) || 
           countAtLeast("RSM") >= 4
@@ -503,10 +704,7 @@ try {
         return "DSM";
       }
       
-      // ২. RSM: ৩ জন AM কোয়ালিফাই এবং ৭৫ হাজার (৭৫,০০০) সেলস হতে হবে
       if (salesVolume >= 75000 && countAtLeast("AM") >= 3) return "RSM";
-      
-      // ১. AM: ২৫ হাজার (২৫,০০০) সেলস হতে হবে
       if (salesVolume >= 25000) return "AM";
       
       return "SALES REPRESENTATIVE";
@@ -525,40 +723,71 @@ try {
       }
     });
 
-    // ২. রিকার্সিভ ফাংশন: নিচ থেকে উপরে সেলস ও পজিশন পুশ করা
+   // =======================================================================
+    // ২. রিকার্সিভ ফাংশন: ডিপ লাইন কোয়ালিফিকেশন রোল-আপ (Deep Roll-Up)
+    // =======================================================================
     const processHierarchySpecs = (currentIdNo) => {
       const currentEmployee = userSalesMap[currentIdNo];
-      if (!currentEmployee) return;
+      if (!currentEmployee) return { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
 
-      // সরাসরি ম্যাপ থেকে চাইল্ড আইডিগুলো নেওয়া (পারফরম্যান্স বুস্ট)
       const childrenIds = childMap[currentIdNo] || [];
 
-      // পোস্ট-অর্ডার ট্রাভার্সাল: আগে ডাউনলাইনের শেষ প্রান্তের মেম্বারদের হিসাব শেষ হবে
-      childrenIds.forEach(childId => processHierarchySpecs(childId));
-
-      // চাইল্ডদের আপডেটেড পজিশন ও সেলস ভলিউম সংগ্রহ
-      const subNodesSummary = [];
+      // এই নোডের নিজস্ব ভিন্ন ভিন্ন লেগে (Legs) থাকা কোয়ালিফাইড মেম্বারদের মোট হিসাব
+      const masterLegsCounts = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+      
       let teamSalesSumTotal = 0;
       let teamSalesSumMonth = 0;
 
+      // ১. আগে ডাউনলাইনের শেষ প্রান্তের মেম্বারদের হিসাব শেষ হবে (Post-Order)
       childrenIds.forEach(childId => {
+        // চাইল্ডের নিচের সাব-ট্রির হিসাব নিয়ে আসা
+        const childSubTreeLegs = processHierarchySpecs(childId);
         const childData = userSalesMap[childId];
+        
         if (childData) {
-          subNodesSummary.push({
-            idNo: childId,
-            autoPosition: childData.autoPosition || "Sales Representative"
-          });
           teamSalesSumTotal += childData.totalSalesVolume;
           teamSalesSumMonth += childData.thisMonthSalesVolume;
+
+          // চাইল্ডের নিজস্ব ফাইনাল পজিশন কী দাঁড়িয়েছে তা ট্র্যাক করা
+          const childFinalPos = (childData.autoPosition || "").toUpperCase().trim();
+
+          // গুরুত্বপূর্ণ লজিক 💥: এই লেগে (childId) চাইল্ড নিজে অথবা তার নিচের 
+          // জেনারেশনের কেউ যদি কোয়ালিফাই করে থাকে, তবে সেই লেগের সর্বোচ্চ এচিভমেন্টটি নিতে হবে।
+          const highestAchievedInThisLeg = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+          
+          // চাইল্ডের নিচের লেগের ডেটা কপি করা
+          Object.keys(childSubTreeLegs).forEach(pos => {
+            if (childSubTreeLegs[pos] > 0) highestAchievedInThisLeg[pos] = 1;
+          });
+          // চাইল্ডের নিজের পজিশনও এই লেগে অন্তর্ভুক্ত করা
+          if (highestAchievedInThisLeg[childFinalPos] !== undefined) {
+            highestAchievedInThisLeg[childFinalPos] = 1; 
+          }
+
+          // এবার এই লেগের (Leg) রেজাল্টটি প্যারেন্টের মেইন মাস্টার কাউন্টে যোগ করা
+          Object.keys(highestAchievedInThisLeg).forEach(pos => {
+            masterLegsCounts[pos] += highestAchievedInThisLeg[pos];
+          });
         }
       });
 
-      // ডাউনলাইনের লাইফটাইম এবং চলতি মাসের সেলস আপলাইনের সাথে যোগ হবে
+      // ২. ডাউনলাইনের সেলস ভলিউম আপলাইনে যোগ করা
       currentEmployee.totalSalesVolume += teamSalesSumTotal;
       currentEmployee.thisMonthSalesVolume += teamSalesSumMonth;
 
-      // 💥 পরিবর্তন ১: পজিশন নির্ধারণের জন্য 'totalSalesVolume' পাঠানো হলো
-      currentEmployee.autoPosition = autoDeterminePosition(currentEmployee.totalSalesVolume, subNodesSummary);
+      // ৩. এই নোডের জন্য পজিশন নির্ধারণ (ভলিউম + ভিন্ন ভিন্ন লেগের কোয়ালিফিকেশন সামারি দিয়ে)
+      currentEmployee.autoPosition = autoDeterminePosition(currentEmployee.totalSalesVolume, masterLegsCounts);
+
+      // ৪. কারেন্ট নোডের নিজের পজিশন আপডেট হওয়ার পর তা অবজেক্টে রিফ্লেক্ট করা
+      const myFinalPos = (currentEmployee.autoPosition || "").toUpperCase().trim();
+      
+      // ওপরের প্যারেন্টের কাছে পাঠানোর জন্য এই নোডের নিজস্ব সাব-ট্রি সামারি তৈরি করা
+      const returnLegsSummary = { ...masterLegsCounts };
+      if (returnLegsSummary[myFinalPos] !== undefined) {
+        returnLegsSummary[myFinalPos] = Math.max(returnLegsSummary[myFinalPos], 1);
+      }
+
+      return returnLegsSummary;
     };
 
     // ৩. ট্রির রুট নোড (Top Parents) থেকে প্রসেসিং শুরু করা
@@ -598,7 +827,6 @@ try {
     res.status(500).json({ message: error.message });
   }
 };
-
 
 
 
