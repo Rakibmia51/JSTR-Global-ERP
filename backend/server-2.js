@@ -18,7 +18,7 @@ app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
 // নির্দিষ্ট ডোমেইনকে CORS পারমিশন দিন
 app.use(cors({
-  origin: ['https://erp.successglobalbd.com', 'https://api.successglobalbd.com'], // আপনার ফ্রন্টএন্ড ইউআরএল
+  origin: ['https://erp.jstrglobal.com', 'https://api.jstrglobal.com'], // আপনার ফ্রন্টএন্ড ইউআরএল
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   credentials: true, // কুকি বা টোকেন পাস করার জন্য
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -34,7 +34,6 @@ const productRoutes = require('./routes/productRoutes.js')
 const salesRoutes = require('./routes/salesRoutes.js')
 const commissionRoutes = require('./routes/commissionRoutes.js')
 const payoutRoutes = require('./routes/payoutRoutes');
-
 
 // এপিআই রাউট লিংক
 app.use('/api/users', userRoutes);
@@ -84,16 +83,12 @@ cron.schedule('59 23 28-31 * *', async () => {
   await archiveMonthlySales(req, res);
 });
 
-
-
-
-
 // বেসিক টেস্ট রাউট
 app.get('/', (req, res) => {
   res.send('JSTR Global ERP Backend is running...');
 });
 
-const PORT = process.env.PORT || 9600;
+const PORT = process.env.PORT || 9500;
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on port https://api.successglobalbd.com`);
 });
