@@ -596,11 +596,11 @@ const Sidebar = () => {
           <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-800">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-brand flex items-center justify-center font-bold text-brand-dark text-xl shadow-[0_0_15px_rgba(75,203,250,0.5)] flex-shrink-0">
-                JS
+                SG
               </div>
               {isOpen && (
                 <span className="font-extrabold text-lg tracking-wider text-slate-100 whitespace-nowrap">
-                  JSTR <span className="text-brand">Global</span>
+                  SUCCESS<br/><span className="text-brand">Global bd</span>
                 </span>
               )}
             </div>

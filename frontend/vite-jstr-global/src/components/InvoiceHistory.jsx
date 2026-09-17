@@ -679,10 +679,10 @@ const InvoiceList = () => {
             <!-- কোম্পানি ও ইনভয়েস হেডার -->
             <div class="header">
               <div class="logo-area">
-                <div class="logo-placeholder">M</div>
+                <div class="logo-placeholder">SG</div>
                 <div>
-                  <h1 class="company-title">JSTR Global LTD.</h1>
-                  <p class="company-sub">Motijheel C/A, Dhaka-1000 | Phone: +880 2-9555555<br>Email: info@jstrglobal.com | Web: ://jstrglobal.com</p>
+                  <h1 class="company-title">Success Global LTD.</h1>
+                  <p class="company-sub">Mohakhali C/A, Dhaka-1212 | Phone: +880 2-9555555<br>Email: info@successglobalbd.com | Web: ://successglobalbd.com</p>
                 </div>
               </div>
               <div class="invoice-meta">
@@ -844,10 +844,10 @@ const InvoiceList = () => {
             <!-- হেডার সেকশন -->
             <div class="header">
               <div class="logo-area">
-                <div class="logo-placeholder">M</div>
+                <div class="logo-placeholder">SG</div>
                 <div>
-                    <h1 class="company-title">JSTR Global LTD.</h1>
-                    <p class="company-sub">Motijheel C/A, Dhaka-1000 | Phone: +880 2-9555555<br>Email: info@jstrglobal.com | Web: ://jstrglobal.com</p>
+                    <h1 class="company-title">Success Global LTD.</h1>
+                    <p class="company-sub">Mohakhali C/A, Dhaka-1212 | Phone: +880 2-9555555<br>Email: info@successglobalbd.com | Web:www.successglobalbd.com</p>
                   </div>
               </div>
               <div class="invoice-meta">

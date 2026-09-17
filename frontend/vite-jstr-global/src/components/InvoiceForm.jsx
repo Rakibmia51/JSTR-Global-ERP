@@ -763,10 +763,10 @@ useEffect(() => {
           <div class="invoice-card">
             <div class="header">
               <div class="logo-area">
-                <div class="logo-placeholder">M</div>
+                <div class="logo-placeholder">SG</div>
                 <div>
-                  <h1 class="company-title">JSTR Global LTD.</h1>
-                  <p style="margin:4px 0; font-size:12px; color:#64748b;">Motijheel C/A, Dhaka-1000</p>
+                  <h1 class="company-title">Success Global LTD.</h1>
+                  <p style="margin:4px 0; font-size:12px; color:#64748b;">Mohakhali C/A, Dhaka-1212</p>
                 </div>
               </div>
               <div class="invoice-meta">
