@@ -93,7 +93,7 @@ app.get('/', (req, res) => {
   res.send('JSTR Global ERP Backend is running...');
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 9600;
 app.listen(PORT, () => {
-  console.log(`🚀 Server is running on port https://api.jstrglobal.com`);
+  console.log(`🚀 Server is running on port https://api.successglobalbd.com`);
 });
