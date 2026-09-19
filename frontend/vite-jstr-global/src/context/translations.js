@@ -1,7 +1,7 @@
 // src/context/translations.js
 export const translations = {
   en: {
-    title: "JSTR Global ERP",
+    title: "SUCCESS Global ERP",
     loginSub: "Please sign in to your account",
     emailLabel: "Email Address",
     idNoLabel: "User ID Number",
@@ -20,21 +20,21 @@ export const translations = {
     returnBtn: "Return to Dashboard",
   },
   bn: {
-    title: "জেএসটিআর গ্লোবাল ইআরপি",
+    title: "সাক্সেস গ্লোবাল ইআরপি",
     loginSub: "আপনার অ্যাকাউন্টে লগইন করুন",
     emailLabel: "ইমেইল ঠিকানা",
     idNoLabel: "আইডি নং",
-    passLabel: "পাসওয়ার্ড",
+    passLabel: "পাসওয়ার্ড",
     loginBtn: "লগইন করুন",
     loading: "লোডিং...",
     welcome: "স্বাগতম ইআরপি ড্যাশবোর্ডে!",
     desc: "সাংগঠনিক সম্পদ পরিচালনা করুন, মেট্রিক্স পর্যবেক্ষণ করুন এবং পদ্ধতিগত ক্রিয়াকলাপ নির্বিঘ্নে পরিচালনা করুন।",
     roleLabel: "পদবী",
     logout: "লগআউট",
-    adminPrivilege: "অ্যাডমিনিস্ট্রেティブ প্রিভিলেজ সনাক্ত করা হয়েছে",
+    adminPrivilege: "অ্যাডমিনিস্ট্রেটিভ প্রিভিলেজ সনাক্ত করা হয়েছে",
     adminDesc: "সিস্টেম মডিউলগুলির উপর আপনার ব্যাপক মাস্টার কনফিগারেশন অ্যাক্সেস রয়েছে।",
     adminBtn: "অ্যাডমিন প্যানেলে যান",
-    adminTitle: "অ্যাডমিনিস্ট্রেティブ কন্ট্রোল প্যানেল",
+    adminTitle: "অ্যাডমিনিস্ট্রেটিভ কন্ট্রোল প্যানেল",
     adminPanelDesc: "এই সুরক্ষিত পরিচালন পরিবেশটি কঠোরভাবে যাচাইকৃত অ্যাডমিন রোলের জন্য সীমাবদ্ধ।",
     returnBtn: "ড্যাশবোর্ডে ফিরে যান",
   }

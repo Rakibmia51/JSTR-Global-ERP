@@ -222,7 +222,7 @@ const EmployeeHierarchyTree = () => {
               <FaBuilding size={18} />
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#0f172a" }}>JSTR Global</h2>
+              <h2 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#0f172a" }}>SUCCESS Global</h2>
               <span style={{ fontSize: "11px", color: "#94a3b8", fontWeight: "600", textTransform: "uppercase" }}>ERP Enterprise</span>
             </div>
           </div>
