@@ -33,11 +33,11 @@ const Login = () => {
       // 🔄 ৩ ধরণের ইউজারের রোল অনুযায়ী ডাইনামিক রিডাইরেকশন (কেস-সেন্সিটিভ ফিক্সড)
       const role = response.data.role;
       if (role === "Admin" || role === "admin") {
-        navigate('/admin-panel'); 
+        navigate('/admin-panel/profile'); 
       } else if (role === "Employee" || role === "employee") {
-        navigate('/employee-panel'); 
+        navigate('/employee-panel/profile'); 
       } else if (role === "Dealer" || role === "dealer") {
-        navigate('/dealer-panel'); 
+        navigate('/dealer-panel/profile'); 
       } else {
         navigate('/'); // কোনো রোল ম্যাচ না করলে ডিফল্ট হোম
       }

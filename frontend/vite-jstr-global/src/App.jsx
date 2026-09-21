@@ -44,6 +44,7 @@ import ChangePassword from './components/ChangePassword';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css'; // সিএসএস ইমপোর্ট করা বাধ্যতামূলক
 import AdminChangePassword from './components/AdminChangePassword';
+import UserProfile from './components/profile';
 
 
 function App() {
@@ -63,11 +64,14 @@ function App() {
             </ProtectedRoute>
           }>
           <Route path="/admin-panel" element={<DashboardOverview/>} />
+          <Route path="/admin-panel/profile" element={<UserProfile/>} />
           <Route path="/admin-panel/system-status" element={<TaskDashboard/>} />
+
              {/* 👥 Employees Modules */}
           <Route path="employees/all" element={<EmployeeList/>} />
           <Route path="employees/tree" element={<EmployeeTree/>} />
           <Route path="employees/add" element={<AddEmployee/>} />
+
           {/* 🚀 ডাইনামিক আইডি রুট (অত্যন্ত গুরুত্বপূরণ) */}
           <Route path="/admin-panel/employees/view/:id" element={<ViewEmployee />} />
           <Route path="/admin-panel/employees/edit/:id" element={<EditEmployeePage/>} />
@@ -141,6 +145,7 @@ function App() {
             </ProtectedRoute>
           }>
           <Route path="/employee-panel" element={<EmployeeStatsGrid/>} />
+          <Route path="/employee-panel/profile" element={<UserProfile/>} />
           <Route path="products" element={<ProductShowroom/>} />
           <Route path="my-sales" element={<EmployeeMonthlySales/>} />
           <Route path="team-sales" element={<TeamInvoicesLog/>} />

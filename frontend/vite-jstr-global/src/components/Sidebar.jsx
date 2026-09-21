@@ -698,7 +698,7 @@ const Sidebar = () => {
           
           {/* 👤 ডাইনামিক ইউজার প্রোফাইল কার্ড */}
           <div 
-            onClick={() => navigate(`/${userRole.toLowerCase()}-panel/settings`)}
+            onClick={() => navigate(`/${userRole.toLowerCase()}-panel/profile`)}
             className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-800/50 cursor-pointer transition-all duration-200"
           >
             <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold text-brand uppercase border border-slate-600 flex-shrink-0">

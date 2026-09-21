@@ -316,6 +316,38 @@ const deleteUser = async (req, res) => {
   }
 }
 
+// @desc    Get profile by idNo
+// @route   GET /api/profile/user/:idNo
+// @access  Private/Public (Depending on your middleware)
+const getProfileByIdNo = async (req, res) => {
+ try {
+    const { idNo } = req.params;
+
+    // Search query using the string 'idNo' property instead of standard _id
+    const user = await User.findOne({ idNo })
+      .select('-password -__v')
+      .populate('department', 'name');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: `Profile with ID ${idNo} not found`
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: user
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Server error retrieving profile data',
+      error: error.message
+    });
+  }
+};
+
 
 
 
@@ -1263,6 +1295,7 @@ module.exports = {
    getEmployeeRankProgress,
    changePassword,
    adminResetPassword,
-   getAccountNameById
+   getAccountNameById,
+   getProfileByIdNo
 
   };
