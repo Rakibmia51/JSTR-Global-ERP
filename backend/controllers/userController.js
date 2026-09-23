@@ -633,28 +633,259 @@ const getProfileByIdNo = async (req, res) => {
 
 
 //4th version of Employee Tree Controller with dynamic sales calculation and position assignment
+// const getEmployeeTree = async (req, res) => {
+// try {
+//     const db = mongoose.connection.db;
+    
+//    // ১. ডাটাবেজ থেকে সেলস/ইনভয়েস, ডিলার এবং MKT ইউজার তুলে আনা
+//     let allSales = await db.collection("invoices").find({}).toArray();
+//     // if (!allSales || allSales.length === 0) {
+//     //   allSales = await db.collection("sales").find({}).toArray();
+//     // }
+
+//     const dealers = await db.collection("dealers").find({}).toArray();
+//     const users = await db.collection("users").find({ idNo: { $regex: /^MKT/i } }).toArray();
+
+//     // চলতি মাসের ব্রেকপয়েন্ট নির্ধারণ (July 2026)
+//     const currentDate = new Date();
+//     const currentMonth = currentDate.getMonth(); 
+//     const currentYear = currentDate.getFullYear(); 
+
+//     const userSalesMap = {};
+//     const tree = [];
+
+//     // ২. মেমোরি ম্যাপ তৈরি করা
+//     users.forEach(u => {
+//       userSalesMap[u.idNo] = { 
+//         ...u, 
+//         _id: u._id.toString(),
+//         directSalesTotal: 0,       
+//         directSalesThisMonth: 0,   
+//         totalSalesVolume: 0,       
+//         thisMonthSalesVolume: 0,   
+//         autoPosition: "Sales Representative",
+//         children: [] 
+//       };
+//     });
+
+//     // ৩. ডাইনামিক সেলস ক্যালকুলেশন (আর্কাইভড স্ন্যাপশট বনাম লাইভ রিলেশন)
+//     allSales.forEach(sale => {
+//       const saleAmount = sale.grandTotal || 0;
+//       const saleDate = new Date(sale.createdAt);
+//       const isCurrentMonth = saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear;
+      
+//       let targetEmployeeIdNo = null;
+
+//       // ক) ইনভয়েসটি যদি ইতিমধ্যে আর্কাইভড হয়ে থাকে, তবে সরাসরি ভেতরের স্ন্যাপশট আইডি ব্যবহার করব (যা কখনো চেঞ্জ হবে না)
+//       if (sale.isMonthlyArchived && sale.archivedSalesData?.employeeSnapshot?.idNo) {
+//         targetEmployeeIdNo = sale.archivedSalesData.employeeSnapshot.idNo;
+//       } 
+//       // খ) যদি ইনভয়েসটি আর্কাইভড না হয় (রানিং মাস), তবে ডিলারের কারেন্ট referenceIdNo দিয়ে ট্র্যাক করব
+//       else if (sale.dealer) {
+//         const matchingDealer = dealers.find(d => d._id.toString() === sale.dealer.toString());
+//         if (matchingDealer && matchingDealer.referenceIdNo) {
+//           targetEmployeeIdNo = matchingDealer.referenceIdNo;
+//         }
+//       }
+
+//       // গ) প্রাপ্ত এমপ্লয়ি আইডিতে সেলস অ্যামাউন্ট যোগ করা
+//       if (targetEmployeeIdNo && userSalesMap[targetEmployeeIdNo]) {
+//         userSalesMap[targetEmployeeIdNo].directSalesTotal += saleAmount;
+//         userSalesMap[targetEmployeeIdNo].totalSalesVolume += saleAmount; // রিকিউরসিভ ভলিউমের বেস ভ্যালু
+
+//         if (isCurrentMonth) {
+//           userSalesMap[targetEmployeeIdNo].directSalesThisMonth += saleAmount;
+//           userSalesMap[targetEmployeeIdNo].thisMonthSalesVolume += saleAmount; // রিকিউরসিভ মান্থলি ভলিউমের বেস ভ্যালু
+//         }
+//       }
+//     });
+
+   
+//     // পজিশন হায়ারার্কি র্যাংক (সিনিয়র মেম্বারদের কাউন্ট করার জন্য)
+//     const RANK_MAP = {
+//       "SALES REPRESENTATIVE": 0, "AM": 1, "RSM": 2, "DSM": 3, 
+//       "SDSM": 4, "SM": 5, "NSM": 6, "ED": 7, "BOM": 8
+//     };
+
+  
+//    // =======================================================================
+//     // ১. পজিশন ডিটারমিনেশন কোর রুল ইঞ্জিন (সংশোধিত)
+//     // =======================================================================
+//     const autoDeterminePosition = (salesVolume, qualifiedLegsCounts = {}) => {
+//       // এখানে qualifiedLegsCounts হলো একটি অবজেক্ট যা নির্দেশ করে এই ইউজারের 
+//       // ভিন্ন ভিন্ন ডাউনলাইন লেগে (Leg) ন্যূনতম কতজন নির্দিষ্ট পজিশন অর্জন করেছে।
+      
+//       const countAtLeast = (targetPos) => {
+//         // এই ফাংশনটি টার্গেট পজিশন বা তার চেয়ে বড় পজিশন অর্জনকারী লেগের সংখ্যা রিটার্ন করবে
+//         return Object.keys(qualifiedLegsCounts).reduce((total, pos) => {
+//           return RANK_MAP[pos] >= RANK_MAP[targetPos] ? total + qualifiedLegsCounts[pos] : total;
+//         }, 0);
+//       };
+
+//       // ৩. আপনার কন্ডিশনাল সিকোয়েন্স (Leg-Wise Count এর ওপর ভিত্তি করে)
+//       if (salesVolume >= 6400000 && countAtLeast("ED") >= 2) return "BOM";
+//       if (salesVolume >= 3200000 && countAtLeast("NSM") >= 4) return "ED";
+//       if (salesVolume >= 800000 && countAtLeast("DSM") >= 4) return "NSM";
+//       if (salesVolume >= 600000 && countAtLeast("DSM") >= 3) return "SM";
+//       if (salesVolume >= 400000 && countAtLeast("DSM") >= 2) return "SDSM";
+      
+//       if (salesVolume >= 200000 && (
+//           (countAtLeast("RSM") >= 2 && countAtLeast("AM") >= 2) || 
+//           countAtLeast("RSM") >= 4
+//       )) {
+//         return "DSM";
+//       }
+      
+//       if (salesVolume >= 75000 && countAtLeast("AM") >= 3) return "RSM";
+//       if (salesVolume >= 25000) return "AM";
+      
+//       return "SALES REPRESENTATIVE";
+//     };
+
+
+//     // thisMonthSalesVolume এবং TotalSalesVolume সহ প্রতিটি এমপ্লয়ির জন্য পজিশন নির্ধারণ করা    
+
+//     // ১. ওয়ান-পাস চাইল্ড ম্যাপ তৈরি (বারবার users.filter লুপ এড়ানোর জন্য)
+//     const childMap = {};
+//     users.forEach(u => {
+//       const parentId = u.refIdNo;
+//       if (parentId && parentId !== "0") {
+//         if (!childMap[parentId]) childMap[parentId] = [];
+//         childMap[parentId].push(u.idNo);
+//       }
+//     });
+
+//    // =======================================================================
+//     // ২. রিকার্সিভ ফাংশন: ডিপ লাইন কোয়ালিফিকেশন রোল-আপ (Deep Roll-Up)
+//     // =======================================================================
+//     const processHierarchySpecs = (currentIdNo) => {
+//       const currentEmployee = userSalesMap[currentIdNo];
+//       if (!currentEmployee) return { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+
+//       const childrenIds = childMap[currentIdNo] || [];
+
+//       // এই নোডের নিজস্ব ভিন্ন ভিন্ন লেগে (Legs) থাকা কোয়ালিফাইড মেম্বারদের মোট হিসাব
+//       const masterLegsCounts = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+      
+//       let teamSalesSumTotal = 0;
+//       let teamSalesSumMonth = 0;
+
+//       // ১. আগে ডাউনলাইনের শেষ প্রান্তের মেম্বারদের হিসাব শেষ হবে (Post-Order)
+//       childrenIds.forEach(childId => {
+//         // চাইল্ডের নিচের সাব-ট্রির হিসাব নিয়ে আসা
+//         const childSubTreeLegs = processHierarchySpecs(childId);
+//         const childData = userSalesMap[childId];
+        
+//         if (childData) {
+//           teamSalesSumTotal += childData.totalSalesVolume;
+//           teamSalesSumMonth += childData.thisMonthSalesVolume;
+
+//           // চাইল্ডের নিজস্ব ফাইনাল পজিশন কী দাঁড়িয়েছে তা ট্র্যাক করা
+//           const childFinalPos = (childData.autoPosition || "").toUpperCase().trim();
+
+//           // গুরুত্বপূর্ণ লজিক 💥: এই লেগে (childId) চাইল্ড নিজে অথবা তার নিচের 
+//           // জেনারেশনের কেউ যদি কোয়ালিফাই করে থাকে, তবে সেই লেগের সর্বোচ্চ এচিভমেন্টটি নিতে হবে।
+//           const highestAchievedInThisLeg = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+          
+//           // চাইল্ডের নিচের লেগের ডেটা কপি করা
+//           Object.keys(childSubTreeLegs).forEach(pos => {
+//             if (childSubTreeLegs[pos] > 0) highestAchievedInThisLeg[pos] = 1;
+//           });
+//           // চাইল্ডের নিজের পজিশনও এই লেগে অন্তর্ভুক্ত করা
+//           if (highestAchievedInThisLeg[childFinalPos] !== undefined) {
+//             highestAchievedInThisLeg[childFinalPos] = 1; 
+//           }
+
+//           // এবার এই লেগের (Leg) রেজাল্টটি প্যারেন্টের মেইন মাস্টার কাউন্টে যোগ করা
+//           Object.keys(highestAchievedInThisLeg).forEach(pos => {
+//             masterLegsCounts[pos] += highestAchievedInThisLeg[pos];
+//           });
+//         }
+//       });
+
+//       // ২. ডাউনলাইনের সেলস ভলিউম আপলাইনে যোগ করা
+//       currentEmployee.totalSalesVolume += teamSalesSumTotal;
+//       currentEmployee.thisMonthSalesVolume += teamSalesSumMonth;
+
+//       // ৩. এই নোডের জন্য পজিশন নির্ধারণ (ভলিউম + ভিন্ন ভিন্ন লেগের কোয়ালিফিকেশন সামারি দিয়ে)
+//       currentEmployee.autoPosition = autoDeterminePosition(currentEmployee.totalSalesVolume, masterLegsCounts);
+
+//       // ৪. কারেন্ট নোডের নিজের পজিশন আপডেট হওয়ার পর তা অবজেক্টে রিফ্লেক্ট করা
+//       const myFinalPos = (currentEmployee.autoPosition || "").toUpperCase().trim();
+      
+//       // ওপরের প্যারেন্টের কাছে পাঠানোর জন্য এই নোডের নিজস্ব সাব-ট্রি সামারি তৈরি করা
+//       const returnLegsSummary = { ...masterLegsCounts };
+//       if (returnLegsSummary[myFinalPos] !== undefined) {
+//         returnLegsSummary[myFinalPos] = Math.max(returnLegsSummary[myFinalPos], 1);
+//       }
+
+//       return returnLegsSummary;
+//     };
+
+//     // ৩. ট্রির রুট নোড (Top Parents) থেকে প্রসেসিং শুরু করা
+//     users.forEach(user => {
+//       if (user.refIdNo === "0" || !user.refIdNo || !userSalesMap[user.refIdNo]) {
+//         processHierarchySpecs(user.idNo);
+//       }
+//     });
+
+//     // ৪. ফাইনাল রেসপন্স ট্রি এবং ফরম্যাটিং তৈরি করা
+//     users.forEach(user => {
+//       const currentEmployee = userSalesMap[user.idNo];
+//       if (!currentEmployee) return;
+
+//       // ফ্রন্টএন্ড রিকোয়ারমেন্ট অনুযায়ী ফিল্ড অ্যাসাইন
+//       currentEmployee.position = currentEmployee.autoPosition;
+      
+//       // 💥 পরিবর্তন ২: ফাইনাল অ্যাচিভড ভলিউম হিসেবে টোটাল সেলস অ্যাসাইন
+//       currentEmployee.totalSalesAchieved = currentEmployee.totalSalesVolume;
+//       currentEmployee.thisMonthSalesAchieved = currentEmployee.thisMonthSalesVolume;
+
+//       const parentIdNo = user.refIdNo;
+//       if (parentIdNo === "0" || !parentIdNo || !userSalesMap[parentIdNo]) {
+//         // যাদের প্যারেন্ট নেই তারা মেইন রুট ট্রিতে যাবে
+//         tree.push(currentEmployee);
+//       } else {
+//         // যাদের প্যারেন্ট আছে তারা প্যারেন্টের 'children' অ্যারেতে ঢুকবে
+//         userSalesMap[parentIdNo].children.push(currentEmployee);
+//       }
+//     });
+
+
+
+//     res.status(200).json(tree);
+//   } catch (error) {
+//     console.error("❌ BACKEND CRASH ERROR:", error);
+//     res.status(500).json({ message: error.message });
+//   }
+// };
+
+
+// 5th version of Employee Tree Controller with dynamic sales calculation and position assignment
+
+
 const getEmployeeTree = async (req, res) => {
-try {
+ try {
     const db = mongoose.connection.db;
     
-   // ১. ডাটাবেজ থেকে সেলস/ইনভয়েস, ডিলার এবং MKT ইউজার তুলে আনা
     let allSales = await db.collection("invoices").find({}).toArray();
-    if (!allSales || allSales.length === 0) {
-      allSales = await db.collection("sales").find({}).toArray();
-    }
-
     const dealers = await db.collection("dealers").find({}).toArray();
     const users = await db.collection("users").find({ idNo: { $regex: /^MKT/i } }).toArray();
 
-    // চলতি মাসের ব্রেকপয়েন্ট নির্ধারণ (July 2026)
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth(); 
     const currentYear = currentDate.getFullYear(); 
 
     const userSalesMap = {};
+    const childMap = {};
     const tree = [];
 
-    // ২. মেমোরি ম্যাপ তৈরি করা
+    const RANK_MAP = {
+      "SALES REPRESENTATIVE": 0, "AM": 1, "RSM": 2, "DSM": 3, 
+      "SDSM": 4, "SM": 5, "NSM": 6, "ED": 7, "BOM": 8
+    };
+
+    // ১. মেমোরি ম্যাপ ও ওয়ান-পাস চাইল্ড ম্যাপ তৈরি
     users.forEach(u => {
       userSalesMap[u.idNo] = { 
         ...u, 
@@ -663,12 +894,18 @@ try {
         directSalesThisMonth: 0,   
         totalSalesVolume: 0,       
         thisMonthSalesVolume: 0,   
-        autoPosition: "Sales Representative",
+        autoPosition: "SALES REPRESENTATIVE",
         children: [] 
       };
+
+      const parentId = u.refIdNo;
+      if (parentId && parentId !== "0") {
+        if (!childMap[parentId]) childMap[parentId] = [];
+        childMap[parentId].push(u.idNo);
+      }
     });
 
-    // ৩. ডাইনামিক সেলস ক্যালকুলেশন (আর্কাইভড স্ন্যাপশট বনাম লাইভ রিলেশন)
+    // ২. ডিরেক্ট সেলস ভলিউম অ্যাসাইন করা
     allSales.forEach(sale => {
       const saleAmount = sale.grandTotal || 0;
       const saleDate = new Date(sale.createdAt);
@@ -676,63 +913,43 @@ try {
       
       let targetEmployeeIdNo = null;
 
-      // ক) ইনভয়েসটি যদি ইতিমধ্যে আর্কাইভড হয়ে থাকে, তবে সরাসরি ভেতরের স্ন্যাপশট আইডি ব্যবহার করব (যা কখনো চেঞ্জ হবে না)
       if (sale.isMonthlyArchived && sale.archivedSalesData?.employeeSnapshot?.idNo) {
         targetEmployeeIdNo = sale.archivedSalesData.employeeSnapshot.idNo;
-      } 
-      // খ) যদি ইনভয়েসটি আর্কাইভড না হয় (রানিং মাস), তবে ডিলারের কারেন্ট referenceIdNo দিয়ে ট্র্যাক করব
-      else if (sale.dealer) {
+      } else if (sale.dealer) {
         const matchingDealer = dealers.find(d => d._id.toString() === sale.dealer.toString());
         if (matchingDealer && matchingDealer.referenceIdNo) {
           targetEmployeeIdNo = matchingDealer.referenceIdNo;
         }
       }
 
-      // গ) প্রাপ্ত এমপ্লয়ি আইডিতে সেলস অ্যামাউন্ট যোগ করা
       if (targetEmployeeIdNo && userSalesMap[targetEmployeeIdNo]) {
         userSalesMap[targetEmployeeIdNo].directSalesTotal += saleAmount;
-        userSalesMap[targetEmployeeIdNo].totalSalesVolume += saleAmount; // রিকিউরসিভ ভলিউমের বেস ভ্যালু
+        userSalesMap[targetEmployeeIdNo].totalSalesVolume += saleAmount;
 
         if (isCurrentMonth) {
           userSalesMap[targetEmployeeIdNo].directSalesThisMonth += saleAmount;
-          userSalesMap[targetEmployeeIdNo].thisMonthSalesVolume += saleAmount; // রিকিউরসিভ মান্থলি ভলিউমের বেস ভ্যালু
+          userSalesMap[targetEmployeeIdNo].thisMonthSalesVolume += saleAmount;
         }
       }
     });
 
-   
-    // পজিশন হায়ারার্কি র্যাংক (সিনিয়র মেম্বারদের কাউন্ট করার জন্য)
-    const RANK_MAP = {
-      "SALES REPRESENTATIVE": 0, "AM": 1, "RSM": 2, "DSM": 3, 
-      "SDSM": 4, "SM": 5, "NSM": 6, "ED": 7, "BOM": 8
-    };
-
-  
-   // =======================================================================
-    // ১. পজিশন ডিটারমিনেশন কোর রুল ইঞ্জিন (সংশোধিত)
+    // =======================================================================
+    // ৩. পজিশন ডিটারমিনেশন কোর রুল ইঞ্জিন (নিখুঁত কন্ডিশনাল ম্যাচ)
     // =======================================================================
     const autoDeterminePosition = (salesVolume, qualifiedLegsCounts = {}) => {
-      // এখানে qualifiedLegsCounts হলো একটি অবজেক্ট যা নির্দেশ করে এই ইউজারের 
-      // ভিন্ন ভিন্ন ডাউনলাইন লেগে (Leg) ন্যূনতম কতজন নির্দিষ্ট পজিশন অর্জন করেছে।
-      
       const countAtLeast = (targetPos) => {
-        // এই ফাংশনটি টার্গেট পজিশন বা তার চেয়ে বড় পজিশন অর্জনকারী লেগের সংখ্যা রিটার্ন করবে
-        return Object.keys(qualifiedLegsCounts).reduce((total, pos) => {
-          return RANK_MAP[pos] >= RANK_MAP[targetPos] ? total + qualifiedLegsCounts[pos] : total;
-        }, 0);
+        // ফিক্স 💥: এখানে ওভারল্যাপ লিক ছাড়া প্রতিটি পজিশন ভিত্তিক লেগের সংখ্যা নিখুঁতভাবে ১ বারই গোনা হবে
+        return qualifiedLegsCounts[targetPos] || 0;
       };
 
-      // ৩. আপনার কন্ডিশনাল সিকোয়েন্স (Leg-Wise Count এর ওপর ভিত্তি করে)
       if (salesVolume >= 6400000 && countAtLeast("ED") >= 2) return "BOM";
       if (salesVolume >= 3200000 && countAtLeast("NSM") >= 4) return "ED";
       if (salesVolume >= 800000 && countAtLeast("DSM") >= 4) return "NSM";
       if (salesVolume >= 600000 && countAtLeast("DSM") >= 3) return "SM";
       if (salesVolume >= 400000 && countAtLeast("DSM") >= 2) return "SDSM";
       
-      if (salesVolume >= 200000 && (
-          (countAtLeast("RSM") >= 2 && countAtLeast("AM") >= 2) || 
-          countAtLeast("RSM") >= 4
-      )) {
+      // DSM হতে গেলে ২টি আলাদা লাইন থেকে RSM এবং ২টি আলাদা লাইন থেকে AM কাউন্ট থাকতে হবে
+      if (salesVolume >= 200000 && countAtLeast("RSM") >= 2 && countAtLeast("AM") >= 2) {
         return "DSM";
       }
       
@@ -742,118 +959,139 @@ try {
       return "SALES REPRESENTATIVE";
     };
 
-
-    // thisMonthSalesVolume এবং TotalSalesVolume সহ প্রতিটি এমপ্লয়ির জন্য পজিশন নির্ধারণ করা    
-
-    // ১. ওয়ান-পাস চাইল্ড ম্যাপ তৈরি (বারবার users.filter লুপ এড়ানোর জন্য)
-    const childMap = {};
-    users.forEach(u => {
-      const parentId = u.refIdNo;
-      if (parentId && parentId !== "0") {
-        if (!childMap[parentId]) childMap[parentId] = [];
-        childMap[parentId].push(u.idNo);
-      }
-    });
-
-   // =======================================================================
-    // ২. রিকার্সিভ ফাংশন: ডিপ লাইন কোয়ালিফিকেশন রোল-আপ (Deep Roll-Up)
     // =======================================================================
-    const processHierarchySpecs = (currentIdNo) => {
+    // ৪. পাস ১: ডাউনলাইনের সব সেলস ভলিউম রিকার্সিভলি ওপরে রোল-আপ করা
+    // =======================================================================
+    const rollupSalesVolume = (currentIdNo, visitedSet) => {
+      if (visitedSet.has(currentIdNo)) return;
+      visitedSet.add(currentIdNo);
+
+      const currentEmployee = userSalesMap[currentIdNo];
+      if (!currentEmployee) return;
+
+      const childrenIds = childMap[currentIdNo] || [];
+      
+      childrenIds.forEach(childId => {
+        rollupSalesVolume(childId, visitedSet);
+        const childData = userSalesMap[childId];
+        if (childData) {
+          currentEmployee.totalSalesVolume += childData.totalSalesVolume;
+          currentEmployee.thisMonthSalesVolume += childData.thisMonthSalesVolume;
+        }
+      });
+    };
+
+    // =======================================================================
+    // ৫. পাস ২: ডিপ কোয়ালিফিকেশন চেক এবং পজিশন নির্ধারণ (True Compression Engine)
+    // =======================================================================
+    const calculatePositionsAndLegs = (currentIdNo, visitedSet) => {
+      if (visitedSet.has(currentIdNo)) return { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+      visitedSet.add(currentIdNo);
+
       const currentEmployee = userSalesMap[currentIdNo];
       if (!currentEmployee) return { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
 
       const childrenIds = childMap[currentIdNo] || [];
-
-      // এই নোডের নিজস্ব ভিন্ন ভিন্ন লেগে (Legs) থাকা কোয়ালিফাইড মেম্বারদের মোট হিসাব
       const masterLegsCounts = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
-      
-      let teamSalesSumTotal = 0;
-      let teamSalesSumMonth = 0;
 
-      // ১. আগে ডাউনলাইনের শেষ প্রান্তের মেম্বারদের হিসাব শেষ হবে (Post-Order)
+      // প্রতিটি সরাসরি চাইল্ড মানেই হলো একটি সম্পূর্ণ আলাদা স্বতন্ত্র লেগ (Line)
       childrenIds.forEach(childId => {
-        // চাইল্ডের নিচের সাব-ট্রির হিসাব নিয়ে আসা
-        const childSubTreeLegs = processHierarchySpecs(childId);
+        const childSubTreeSummary = calculatePositionsAndLegs(childId, visitedSet);
         const childData = userSalesMap[childId];
         
         if (childData) {
-          teamSalesSumTotal += childData.totalSalesVolume;
-          teamSalesSumMonth += childData.thisMonthSalesVolume;
-
-          // চাইল্ডের নিজস্ব ফাইনাল পজিশন কী দাঁড়িয়েছে তা ট্র্যাক করা
           const childFinalPos = (childData.autoPosition || "").toUpperCase().trim();
+          const uniqueRanksInThisLeg = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
 
-          // গুরুত্বপূর্ণ লজিক 💥: এই লেগে (childId) চাইল্ড নিজে অথবা তার নিচের 
-          // জেনারেশনের কেউ যদি কোয়ালিফাই করে থাকে, তবে সেই লেগের সর্বোচ্চ এচিভমেন্টটি নিতে হবে।
-          const highestAchievedInThisLeg = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
-          
-          // চাইল্ডের নিচের লেগের ডেটা কপি করা
-          Object.keys(childSubTreeLegs).forEach(pos => {
-            if (childSubTreeLegs[pos] > 0) highestAchievedInThisLeg[pos] = 1;
+          // ১. ডাউনলাইনের সাব-ট্রি থেকে পাস হয়ে আসা পজিশনগুলো এই লেগের জন্য ফ্ল্যাগ করা
+          Object.keys(childSubTreeSummary).forEach(pos => {
+            if (childSubTreeSummary[pos] > 0) uniqueRanksInThisLeg[pos] = 1;
           });
-          // চাইল্ডের নিজের পজিশনও এই লেগে অন্তর্ভুক্ত করা
-          if (highestAchievedInThisLeg[childFinalPos] !== undefined) {
-            highestAchievedInThisLeg[childFinalPos] = 1; 
+
+          // ২. চাইল্ডের নিজের অর্জিত ফাইনাল পজিশনটিও এই লাইনের জন্য ফ্ল্যাগ করা
+          if (uniqueRanksInThisLeg[childFinalPos] !== undefined) {
+            uniqueRanksInThisLeg[childFinalPos] = 1;
           }
 
-          // এবার এই লেগের (Leg) রেজাল্টটি প্যারেন্টের মেইন মাস্টার কাউন্টে যোগ করা
-          Object.keys(highestAchievedInThisLeg).forEach(pos => {
-            masterLegsCounts[pos] += highestAchievedInThisLeg[pos];
+          // 💥 মূল ফিক্স (Rank Compression expansion): ১টি লাইনে যদি কোনো বড় পজিশন (যেমন DSM) থাকে, 
+          // তবে সেই ১টি লাইন আপলাইনের জন্য AM, RSM এবং DSM সবকটি শর্তেরই ১টি করে কোটা পূরণ করবে।
+          Object.keys(uniqueRanksInThisLeg).forEach(pos => {
+            if (uniqueRanksInThisLeg[pos] === 1) {
+              Object.keys(uniqueRanksInThisLeg).forEach(p => {
+                if (RANK_MAP[pos] >= RANK_MAP[p]) {
+                  uniqueRanksInThisLeg[p] = 1; // ছোট পজিশনগুলোকেও ১ সেট করা হচ্ছে
+                }
+              });
+            }
+          });
+
+          // ৩. এই ১টি আলাদা লাইন থেকে জেনারেট হওয়া কম্প্রেসড পজিশনগুলো মাস্টার কাউন্টারে যোগ হবে (১ লেগ = ম্যাক্স ১ কাউন্ট)
+          Object.keys(uniqueRanksInThisLeg).forEach(pos => {
+            if (uniqueRanksInThisLeg[pos] === 1) {
+              masterLegsCounts[pos] += 1; 
+            }
           });
         }
       });
 
-      // ২. ডাউনলাইনের সেলস ভলিউম আপলাইনে যোগ করা
-      currentEmployee.totalSalesVolume += teamSalesSumTotal;
-      currentEmployee.thisMonthSalesVolume += teamSalesSumMonth;
+      // এবার ভলিউম এবং নিখুঁত আলাদা লেগ কাউন্ট দিয়ে নিজের পজিশন নির্ধারণ করা
+      currentEmployee.autoPosition = autoDeterminePosition(currentEmployee.thisMonthSalesVolume, masterLegsCounts);
 
-      // ৩. এই নোডের জন্য পজিশন নির্ধারণ (ভলিউম + ভিন্ন ভিন্ন লেগের কোয়ালিফিকেশন সামারি দিয়ে)
-      currentEmployee.autoPosition = autoDeterminePosition(currentEmployee.totalSalesVolume, masterLegsCounts);
-
-      // ৪. কারেন্ট নোডের নিজের পজিশন আপডেট হওয়ার পর তা অবজেক্টে রিফ্লেক্ট করা
+      // ওপরের আপলাইনের কাছে নিজের লাইনের সর্বোচ্চ অর্জনগুলো ফ্ল্যাগ আকারে পাস করা
       const myFinalPos = (currentEmployee.autoPosition || "").toUpperCase().trim();
-      
-      // ওপরের প্যারেন্টের কাছে পাঠানোর জন্য এই নোডের নিজস্ব সাব-ট্রি সামারি তৈরি করা
-      const returnLegsSummary = { ...masterLegsCounts };
+      const returnLegsSummary = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+
+      Object.keys(masterLegsCounts).forEach(pos => {
+        if (masterLegsCounts[pos] > 0) returnLegsSummary[pos] = 1;
+      });
       if (returnLegsSummary[myFinalPos] !== undefined) {
-        returnLegsSummary[myFinalPos] = Math.max(returnLegsSummary[myFinalPos], 1);
+        returnLegsSummary[myFinalPos] = 1;
       }
 
       return returnLegsSummary;
     };
 
-    // ৩. ট্রির রুট নোড (Top Parents) থেকে প্রসেসিং শুরু করা
+    // ৬. রুট নোড থেকে পাস ১ (Volume Rollup) চালানো
+    const volumeVisited = new Set();
     users.forEach(user => {
-      if (user.refIdNo === "0" || !user.refIdNo || !userSalesMap[user.refIdNo]) {
-        processHierarchySpecs(user.idNo);
+      const parentIdNo = user.refIdNo;
+      if (parentIdNo === "0" || !parentIdNo || !userSalesMap[parentIdNo]) {
+        rollupSalesVolume(user.idNo, volumeVisited);
       }
     });
 
-    // ৪. ফাইনাল রেসপন্স ট্রি এবং ফরম্যাটিং তৈরি করা
+    // VII. রুট নোড থেকে পাস ২ (Position & Leg Calculation) চালানো
+    const positionVisited = new Set();
+    users.forEach(user => {
+      const parentIdNo = user.refIdNo;
+      if (parentIdNo === "0" || !parentIdNo || !userSalesMap[parentIdNo]) {
+        calculatePositionsAndLegs(user.idNo, positionVisited);
+      }
+    });
+
+    // ৮. ফাইনাল রেসপন্স ফরম্যাটিং (Circular Safe)
+    Object.values(userSalesMap).forEach(emp => {
+      emp.children = [];
+    });
+
     users.forEach(user => {
       const currentEmployee = userSalesMap[user.idNo];
       if (!currentEmployee) return;
 
-      // ফ্রন্টএন্ড রিকোয়ারমেন্ট অনুযায়ী ফিল্ড অ্যাসাইন
       currentEmployee.position = currentEmployee.autoPosition;
-      
-      // 💥 পরিবর্তন ২: ফাইনাল অ্যাচিভড ভলিউম হিসেবে টোটাল সেলস অ্যাসাইন
       currentEmployee.totalSalesAchieved = currentEmployee.totalSalesVolume;
       currentEmployee.thisMonthSalesAchieved = currentEmployee.thisMonthSalesVolume;
 
       const parentIdNo = user.refIdNo;
       if (parentIdNo === "0" || !parentIdNo || !userSalesMap[parentIdNo]) {
-        // যাদের প্যারেন্ট নেই তারা মেইন রুট ট্রিতে যাবে
         tree.push(currentEmployee);
       } else {
-        // যাদের প্যারেন্ট আছে তারা প্যারেন্টের 'children' অ্যারেতে ঢুকবে
         userSalesMap[parentIdNo].children.push(currentEmployee);
       }
     });
 
-
-
     res.status(200).json(tree);
+    
   } catch (error) {
     console.error("❌ BACKEND CRASH ERROR:", error);
     res.status(500).json({ message: error.message });
@@ -866,168 +1104,205 @@ try {
 
 
 
-// 🆕 আলাদা এপিআই: লগইন করা ইউজারের জন্য ডাউনলাইন ট্রি জেনারেশন
-// 1st version of getMyDownlineTree function (commented out for reference)
-// const getMyDownlineTree = async (req, res) => {
-//   try {
-//     const { idNo } = req.query;
-//     if (!idNo) {
-//       return res.status(400).json({ success: false, message: "Missing idNo parameter" });
-//     }
 
-//     const db = mongoose.connection.db;
 
-//     // ১. ডাটাবেজ থেকে সব MKT কর্মচারীদের তুলে আনা
-//     const users = await db.collection("users").find({ idNo: { $regex: /^MKT/i } }).toArray();
 
-//     const userSalesMap = {};
-//     const parentToChildrenMap = {};
-
-//     // ২. ওয়ান-পাস মেমোরি ইনডেক্সিং ম্যাপ তৈরি
-//     users.forEach(u => {
-//       userSalesMap[u.idNo] = {
-//         _id: u._id.toString(),
-//         idNo: u.idNo,
-//         name: u.name,
-//         role: u.role,
-//         department: u.department,
-//         children: []
-//       };
-
-//       const parentId = u.refIdNo || "0";
-//       if (!parentToChildrenMap[parentId]) parentToChildrenMap[parentId] = [];
-//       parentToChildrenMap[parentId].push(u.idNo);
-//     });
-
-//     // ৩. রিকার্সিভলি নেস্টেড চাইল্ড ট্রি অবজেক্ট জেনারেটর লজিক
-//     const buildNestedTree = (currentIdNo) => {
-//       const node = userSalesMap[currentIdNo];
-//       if (!node) return null;
-
-//       const childrenIds = parentToChildrenMap[currentIdNo] || [];
-//       childrenIds.forEach(childId => {
-//         const childNode = buildNestedTree(childId);
-//         if (childNode) {
-//           node.children.push(childNode);
-//         }
-//       });
-
-//       return node;
-//     };
-
-//     // আমার আইডি দিয়ে নেস্টেড ট্রি জেনারেট করা শুরু
-//     const finalMyTree = buildNestedTree(idNo);
-
-//     res.status(200).json({
-//       success: true,
-//       tree: finalMyTree ? [finalMyTree] : []
-//     });
-
-//   } catch (error) {
-//     console.error("Downline Tree API Error:", error);
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// };
 // 2nd version of getMyDownlineTree function with sales and position calculation
 const getMyDownlineTree = async (req, res) => {
-  try {
-    const { idNo } = req.query;
-    if (!idNo) {
-      return res.status(400).json({ success: false, message: "Missing idNo parameter" });
-    }
-
-    const UserCollection = mongoose.connection.db.collection("users");
-
-    // ⚡ ১. শক্তিশালী MongoDB GraphLookup পাইপলাইন (ডাটাবেজ লেভেলে রিকার্সন হ্যান্ডলিంగ్)
-    const treeData = await UserCollection.aggregate([
-      // ক) প্রথমে যে ইউজারের আইডি দেওয়া হয়েছে তাকে খুঁজে বের করা
-      { $match: { idNo: idNo } },
-      
-      // খ) রিকার্সিভলি তার নিচের সকল ডাউনলাইন মেম্বারদের মাত্র ১টি কোয়েরিতে তুলে আনা
-      {
-        $graphLookup: {
-          from: "users",                  // কোন কালেকশন থেকে খুঁজবে
-          startWith: "$idNo",             // কার আইডি দিয়ে শুরু করবে
-          connectFromField: "idNo",        // প্যারেন্ট আইডি ফিল্ড
-          connectToField: "refIdNo",      // চাইল্ডের রেফারেন্স আইডি ফিল্ড
-          as: "downlineMembers",          // কি নামে আউটপুট অ্যারে তৈরি হবে
-          maxDepth: 20,                   // সর্বোচ্চ কত স্তর পর্যন্ত নামবে (প্রয়োজন অনুযায়ী বাড়াতে পারেন)
-          depthField: "level"             // স্তর ট্র্যাকিংয়ের জন্য
-        }
-      },
-      
-      // গ) শুধুমাত্র প্রয়োজনীয় ফিল্ডগুলো প্রোজেকশন করা (র‍্যাম ও ব্যান্ডউইথ বাঁচানোর জন্য)
-      {
-        $project: {
-          _id: 1, name: 1, idNo: 1, role: 1, department: 1, refIdNo: 1,
-          "downlineMembers._id": 1,
-          "downlineMembers.name": 1,
-          "downlineMembers.idNo": 1,
-          "downlineMembers.role": 1,
-          "downlineMembers.department": 1,
-          "downlineMembers.refIdNo": 1
-        }
-      }
-    ]).toArray();
-
-    // যদি ওই আইডি দিয়ে কোনো ইউজার না পাওয়া যায়
-    if (!treeData || treeData.length === 0) {
-      return res.status(200).json({ success: true, tree: [] });
-    }
-
-    const rootUser = treeData[0];
-    const allMembers = rootUser.downlineMembers || [];
-
-    // ২. মেমোরি ক্যাশ ইনডেক্সিং ম্যাপ তৈরি (কোনো রিকার্সিভ লুপ ছাড়া ডাটা সাজানো)
-    const userMap = {};
+ try {
+    const db = mongoose.connection.db;
     
-    // রুট নোড যুক্ত করা
-    userMap[rootUser.idNo] = {
-      _id: rootUser._id.toString(),
-      idNo: rootUser.idNo,
-      name: rootUser.name,
-      role: rootUser.role,
-      department: rootUser.department,
-      children: []
+    let allSales = await db.collection("invoices").find({}).toArray();
+    const dealers = await db.collection("dealers").find({}).toArray();
+    const users = await db.collection("users").find({ idNo: { $regex: /^MKT/i } }).toArray();
+
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth(); 
+    const currentYear = currentDate.getFullYear(); 
+
+    const userSalesMap = {};
+    const childMap = {};
+    const tree = [];
+
+    const RANK_MAP = {
+      "SALES REPRESENTATIVE": 0, "AM": 1, "RSM": 2, "DSM": 3, 
+      "SDSM": 4, "SM": 5, "NSM": 6, "ED": 7, "BOM": 8
     };
 
-    // সব ডাউনলাইন মেম্বারদের ম্যাপে যুক্ত করা
-    allMembers.forEach(u => {
-      userMap[u.idNo] = {
+    // ১. মেমোরি ম্যাপ ও ওয়ান-পাস চাইল্ড ম্যাপ তৈরি
+    users.forEach(u => {
+      userSalesMap[u.idNo] = { 
+        ...u, 
         _id: u._id.toString(),
-        idNo: u.idNo,
-        name: u.name,
-        role: u.role,
-        department: u.department,
-        children: []
+        directSalesTotal: 0,       
+        directSalesThisMonth: 0,   
+        totalSalesVolume: 0,       
+        thisMonthSalesVolume: 0,   
+        autoPosition: "SALES REPRESENTATIVE",
+        children: [] 
       };
-    });
 
-    // ৩. ওয়ান-পাস ইটারেটিভ চাইল্ড লিঙ্কিং (কোনো রিকার্সন এরর ছাড়া ট্রি তৈরি)
-    allMembers.forEach(u => {
-      const childNode = userMap[u.idNo];
-      const parentNode = userMap[u.refIdNo];
-      
-      // যদি তার প্যারেন্ট এই ডাউনলাইন ট্রির অংশ হয়, তবে তার চিলড্রেন অ্যারেতে পুশ হবে
-      if (parentNode && childNode) {
-        parentNode.children.push(childNode);
+      const parentId = u.refIdNo;
+      if (parentId && parentId !== "0") {
+        if (!childMap[parentId]) childMap[parentId] = [];
+        childMap[parentId].push(u.idNo);
       }
     });
 
-    // ফাইনাল রেজাল্ট রুট নোড থেকে পাঠানো
-    const finalTree = userMap[rootUser.idNo];
+    // ২. ডিরেক্ট সেলস ভলিউম অ্যাসাইন করা
+    allSales.forEach(sale => {
+      const saleAmount = sale.grandTotal || 0;
+      const saleDate = new Date(sale.createdAt);
+      const isCurrentMonth = saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear;
+      
+      let targetEmployeeIdNo = null;
 
-    res.status(200).json({
-      success: true,
-      tree: finalTree ? [finalTree] : []
+      if (sale.isMonthlyArchived && sale.archivedSalesData?.employeeSnapshot?.idNo) {
+        targetEmployeeIdNo = sale.archivedSalesData.employeeSnapshot.idNo;
+      } else if (sale.dealer) {
+        const matchingDealer = dealers.find(d => d._id.toString() === sale.dealer.toString());
+        if (matchingDealer && matchingDealer.referenceIdNo) {
+          targetEmployeeIdNo = matchingDealer.referenceIdNo;
+        }
+      }
+
+      if (targetEmployeeIdNo && userSalesMap[targetEmployeeIdNo]) {
+        userSalesMap[targetEmployeeIdNo].directSalesTotal += saleAmount;
+        userSalesMap[targetEmployeeIdNo].totalSalesVolume += saleAmount;
+
+        if (isCurrentMonth) {
+          userSalesMap[targetEmployeeIdNo].directSalesThisMonth += saleAmount;
+          userSalesMap[targetEmployeeIdNo].thisMonthSalesVolume += saleAmount;
+        }
+      }
     });
 
+    // ৩. পজিশন ডিটারমিনেশন কোর রুল ইঞ্জিন
+    const autoDeterminePosition = (salesVolume, qualifiedLegsCounts = {}) => {
+      const countAtLeast = (targetPos) => {
+        return Object.keys(qualifiedLegsCounts).reduce((total, pos) => {
+          return RANK_MAP[pos] >= RANK_MAP[targetPos] ? total + qualifiedLegsCounts[pos] : total;
+        }, 0);
+      };
+
+      if (salesVolume >= 6400000 && countAtLeast("ED") >= 2) return "BOM";
+      if (salesVolume >= 3200000 && countAtLeast("NSM") >= 4) return "ED";
+      if (salesVolume >= 800000 && countAtLeast("DSM") >= 4) return "NSM";
+      if (salesVolume >= 600000 && countAtLeast("DSM") >= 3) return "SM";
+      if (salesVolume >= 400000 && countAtLeast("DSM") >= 2) return "SDSM";
+      
+      if (salesVolume >= 200000 && countAtLeast("RSM") >= 2 && countAtLeast("AM") >= 2) {
+        return "DSM";
+      }
+      
+      if (salesVolume >= 75000 && countAtLeast("AM") >= 3) return "RSM";
+      if (salesVolume >= 25000) return "AM";
+      
+      return "SALES REPRESENTATIVE";
+    };
+
+    // ৪. রিকার্সিভ ফাংশন: চেইন এক্সক্লুসিভ ডিপ রোল-আপ ইঞ্জিন (Chain-Exclusive Roll-Up)
+    const processHierarchySpecs = (currentIdNo, processedNodesSet) => {
+      if (processedNodesSet.has(currentIdNo)) return { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+      processedNodesSet.add(currentIdNo);
+
+      const currentEmployee = userSalesMap[currentIdNo];
+      if (!currentEmployee) return { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+
+      const childrenIds = childMap[currentIdNo] || [];
+      const masterLegsCounts = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+      
+      let teamSalesSumTotal = 0;
+      let teamSalesSumMonth = 0;
+
+      childrenIds.forEach(childId => {
+        const childSubTreeSummary = processHierarchySpecs(childId, processedNodesSet);
+        const childData = userSalesMap[childId];
+        
+        if (childData) {
+          teamSalesSumTotal += childData.totalSalesVolume;
+          teamSalesSumMonth += childData.thisMonthSalesVolume;
+
+          const uniqueRanksInThisLeg = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+          
+          // ডাউনলাইনের প্রকৃত সাইড ব্রাঞ্চ থেকে আসা র‍্যাংকগুলো এই লেগের জন্য ফ্ল্যাগ করা
+          Object.keys(childSubTreeSummary).forEach(pos => {
+            if (childSubTreeSummary[pos] > 0) uniqueRanksInThisLeg[pos] = 1;
+          });
+
+          // 💥 পরিবর্তন: সরাসরি মেইন চেইনের আইডিগুলো (যেমন ৪৬, ২, ৯) নিজে অন্য লেগ ছাড়া প্রমোশন পেলে তা আপলাইনে কাউন্ট হবে না।
+          // শুধুমাত্র তাদের প্রকৃত সাইড ডাউনলাইন থেকে কোয়ালিফাইড হয়ে আসা র‍্যাংকগুলোই ওপরে পাস হবে।
+          Object.keys(uniqueRanksInThisLeg).forEach(pos => {
+            if (uniqueRanksInThisLeg[pos] === 1) {
+              masterLegsCounts[pos] += 1; 
+            }
+          });
+        }
+      });
+
+      // টিম সেলস ভলিউম মূল ইউজারের সাথে যোগ করা
+      currentEmployee.totalSalesVolume += teamSalesSumTotal;
+      currentEmployee.thisMonthSalesVolume += teamSalesSumMonth;
+
+      // রুল ইঞ্জিন রান করে ফাইনাল পজিশন নির্ধারণ
+      currentEmployee.autoPosition = autoDeterminePosition(currentEmployee.thisMonthSalesVolume, masterLegsCounts);
+
+      // ওপরের প্যারেন্টের কাছে পাঠানোর জন্য এই আইডির নিচের পুরো ইউনিক র‍্যাংক লিস্ট তৈরি করা
+      const myFinalPos = (currentEmployee.autoPosition || "").toUpperCase().trim();
+      const returnLegsSummary = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+      
+      // মাস্টার কাউন্ট থেকে ট্রু লেগ ডেটা আপলাইনে ট্রান্সফার করা
+      Object.keys(masterLegsCounts).forEach(pos => {
+        if (masterLegsCounts[pos] > 0) returnLegsSummary[pos] = 1;
+      });
+
+      // ৪৬, ২, ৯ যেন নিজেরা সরাসরি চেইনে বসে র‍্যাংক পাস করতে না পারে, 
+      // তাই তাদের নিজের পজিশন ওপরে পাঠানো বন্ধ করা হলো। শুধু মাত্র তাদের সাইড ডাউনলাইনের ডেটা ওপরে যাবে।
+      return returnLegsSummary;
+    };
+
+    // ৫. রুট নোড থেকে সেফ এক্সিকিউশন শুরু করা
+    const processedNodes = new Set();
+    users.forEach(user => {
+      if (processedNodes.has(user.idNo)) return;
+
+      const parentIdNo = user.refIdNo;
+      const isAbsoluteRoot = parentIdNo === "0" || !parentIdNo;
+      const isOrphanedRoot = parentIdNo && !userSalesMap[parentIdNo];
+
+      if (isAbsoluteRoot || isOrphanedRoot) {
+        processHierarchySpecs(user.idNo, processedNodes);
+      }
+    });
+
+    // 六. ফাইনাল রেসপন্স ফরম্যাটিং (Circular Safe)
+    Object.values(userSalesMap).forEach(emp => {
+      emp.children = [];
+    });
+
+    users.forEach(user => {
+      const currentEmployee = userSalesMap[user.idNo];
+      if (!currentEmployee) return;
+
+      currentEmployee.position = currentEmployee.autoPosition;
+      currentEmployee.totalSalesAchieved = currentEmployee.totalSalesVolume;
+      currentEmployee.thisMonthSalesAchieved = currentEmployee.thisMonthSalesVolume;
+
+      const parentIdNo = user.refIdNo;
+      if (parentIdNo === "0" || !parentIdNo || !userSalesMap[parentIdNo]) {
+        tree.push(currentEmployee);
+      } else {
+        userSalesMap[parentIdNo].children.push(currentEmployee);
+      }
+    });
+
+    res.status(200).json(tree);
+    
   } catch (error) {
-    console.error("Downline Tree API Error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error("❌ BACKEND CRASH ERROR:", error);
+    res.status(500).json({ message: error.message });
   }
 };
-
 
 
 // 🆕 আলাদা এপিআই: ইউজারের র্যাংক প্রোগ্রেস ও টার্গেট মেটাস্ট্যাটস গেট করা
@@ -1118,41 +1393,6 @@ const changePassword = async (req, res) => {
 };
 
 
-// --- ১. আইডি দিয়ে নাম খোঁজার কন্ট্রোলার ---
-// const getAccountNameById = async (req, res) => {
-//   try {
-//     const { targetId } = req.params;
-//     if (!targetId) {
-//       return res.status(400).json({ success: false, message: 'ID is required' });
-//     }
-
-//     const trimmedId = targetId.trim().toUpperCase();
-
-//     // ১. যদি Employee আইডি হয়
-//     if (trimmedId.startsWith('MKT-')) {
-//       const user = await User.findOne({ idNo: trimmedId }).select('name');
-//       if (!user) {
-//         return res.status(404).json({ success: false, message: 'No employee found with this ID' });
-//       }
-//       return res.status(200).json({ success: true, name: user.name, type: 'Employee' });
-//     }
-
-//     // ২. যদি Dealer আইডি হয়
-//     if (trimmedId.startsWith('DLR-')) {
-//       const dealer = await Dealer.findOne({ dealerId: trimmedId }).select('name');
-//       if (!dealer) {
-//         return res.status(404).json({ success: false, message: 'No dealer found with this ID' });
-//       }
-//       return res.status(200).json({ success: true, name: dealer.name, type: 'Dealer' });
-//     }
-
-//     return res.status(400).json({ success: false, message: 'Invalid ID format (Use MKT- or DLR-)' });
-
-//   } catch (error) {
-//     return res.status(500).json({ success: false, message: error.message });
-//   }
-// };
-
 const getAccountNameById = async (req, res) => {
   try {
     const { targetId } = req.params;
@@ -1191,44 +1431,6 @@ const getAccountNameById = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
-
-// --- ২. পাসওয়ার্ড রিসেট করার মূল কন্ট্রোলার (আগেরটিই) ---
-// const adminResetPassword = async (req, res) => {
-//   try {
-//     const { targetId, newPassword } = req.body;
-
-//     if (!targetId || !newPassword) {
-//       return res.status(400).json({ success: false, message: 'ID and New Password are required' });
-//     }
-//     if (newPassword.length < 6) {
-//       return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
-//     }
-
-//     const trimmedId = targetId.trim().toUpperCase();
-
-//     if (trimmedId.startsWith('MKT-')) {
-//       const user = await User.findOne({ idNo: trimmedId });
-//       if (!user) return res.status(404).json({ success: false, message: 'Employee not found' });
-//       user.password = newPassword;
-//       await user.save();
-//       return res.status(200).json({ success: true, message: `Employee (${trimmedId}) password updated!` });
-//     }
-
-//     if (trimmedId.startsWith('DLR-')) {
-//       const dealer = await Dealer.findOne({ dealerId: trimmedId });
-//       if (!dealer) return res.status(404).json({ success: false, message: 'Dealer not found' });
-      
-//       const salt = await bcrypt.genSalt(10);
-//       dealer.password = await bcrypt.hash(newPassword, salt);
-//       await dealer.save();
-//       return res.status(200).json({ success: true, message: `Dealer (${trimmedId}) password updated!` });
-//     }
-
-//     return res.status(400).json({ success: false, message: 'Invalid ID format' });
-//   } catch (error) {
-//     return res.status(500).json({ success: false, message: error.message });
-//   }
-// };
 
 const adminResetPassword = async (req, res) => {
   try {
