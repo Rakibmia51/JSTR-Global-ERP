@@ -1099,7 +1099,233 @@ const getEmployeeTree = async (req, res) => {
 };
 
 
+const getEmployeeDetailsById = async (req, res) => {
+  try {
+    const { idNo } = req.params; // ইউআরএল (URL) থেকে idNo নেওয়া হচ্ছে
+    if (!idNo) {
+      return res.status(400).json({ message: "আইডি নম্বর (idNo) প্রদান করা আবশ্যক।" });
+    }
 
+    const db = mongoose.connection.db;
+    
+    // ১. ডাটাবেজ থেকে প্যারালালি ডেটা ফেচ করা
+    let allSales = await db.collection("invoices").find({}).toArray();
+    const dealers = await db.collection("dealers").find({}).toArray();
+    const users = await db.collection("users").find({ idNo: { $regex: /^MKT/i } }).toArray();
+
+    // চলতি মাসের ব্রেকপয়েন্ট নির্ধারণ
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth(); 
+    const currentYear = currentDate.getFullYear(); 
+
+    const userSalesMap = {};
+    const childMap = {};
+
+    const RANK_MAP = {
+      "SALES REPRESENTATIVE": 0, "AM": 1, "RSM": 2, "DSM": 3, 
+      "SDSM": 4, "SM": 5, "NSM": 6, "ED": 7, "BOM": 8
+    };
+
+    // ২. মেমোরি ম্যাপ ও ওয়ান-পাস চাইল্ড ম্যাপ তৈরি
+    users.forEach(u => {
+      userSalesMap[u.idNo] = { 
+        ...u, 
+        _id: u._id.toString(),
+        directSalesTotal: 0,       
+        directSalesThisMonth: 0,   
+        totalSalesVolume: 0,       
+        thisMonthSalesVolume: 0,   
+        autoPosition: "SALES REPRESENTATIVE"
+      };
+
+      const parentId = u.refIdNo;
+      if (parentId && parentId !== "0") {
+        if (!childMap[parentId]) childMap[parentId] = [];
+        childMap[parentId].push(u.idNo);
+      }
+    });
+
+    // ৩. ডিরেক্ট সেলস ভলিউম অ্যাসাইন করা
+    allSales.forEach(sale => {
+      const saleAmount = sale.grandTotal || 0;
+      const saleDate = new Date(sale.createdAt);
+      const isCurrentMonth = saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear;
+      
+      let targetEmployeeIdNo = null;
+
+      if (sale.isMonthlyArchived && sale.archivedSalesData?.employeeSnapshot?.idNo) {
+        targetEmployeeIdNo = sale.archivedSalesData.employeeSnapshot.idNo;
+      } else if (sale.dealer) {
+        const matchingDealer = dealers.find(d => d._id.toString() === sale.dealer.toString());
+        if (matchingDealer && matchingDealer.referenceIdNo) {
+          targetEmployeeIdNo = matchingDealer.referenceIdNo;
+        }
+      }
+
+      if (targetEmployeeIdNo && userSalesMap[targetEmployeeIdNo]) {
+        userSalesMap[targetEmployeeIdNo].directSalesTotal += saleAmount;
+        userSalesMap[targetEmployeeIdNo].totalSalesVolume += saleAmount;
+
+        if (isCurrentMonth) {
+          userSalesMap[targetEmployeeIdNo].directSalesThisMonth += saleAmount;
+          userSalesMap[targetEmployeeIdNo].thisMonthSalesVolume += saleAmount;
+        }
+      }
+    });
+
+    // ৪. পজিশন ডিটারমিনেশন কোর রুল ইঞ্জিন (আপনার চার্ট অনুযায়ী)
+    const autoDeterminePosition = (salesVolume, qualifiedLegsCounts = {}) => {
+      const countAtLeast = (targetPos) => {
+        return qualifiedLegsCounts[targetPos] || 0;
+      };
+
+      if (salesVolume >= 6400000 && countAtLeast("ED") >= 2) return "BOM";
+      if (salesVolume >= 3200000 && countAtLeast("NSM") >= 4) return "ED";
+      if (salesVolume >= 800000 && countAtLeast("DSM") >= 4) return "NSM";
+      if (salesVolume >= 600000 && countAtLeast("DSM") >= 3) return "SM";
+      if (salesVolume >= 400000 && countAtLeast("DSM") >= 2) return "SDSM";
+      
+      if (salesVolume >= 200000 && countAtLeast("RSM") >= 2 && countAtLeast("AM") >= 2) {
+        return "DSM";
+      }
+      
+      if (salesVolume >= 75000 && countAtLeast("AM") >= 3) return "RSM";
+      if (salesVolume >= 25000) return "AM";
+      
+      return "SALES REPRESENTATIVE";
+    };
+
+    // ৫. পাস ১: ভলিউম রোল-আপ ইঞ্জিন
+    const rollupSalesVolume = (currentIdNo, visitedSet) => {
+      if (visitedSet.has(currentIdNo)) return;
+      visitedSet.add(currentIdNo);
+
+      const currentEmployee = userSalesMap[currentIdNo];
+      if (!currentEmployee) return;
+
+      const childrenIds = childMap[currentIdNo] || [];
+      
+      childrenIds.forEach(childId => {
+        rollupSalesVolume(childId, visitedSet);
+        const childData = userSalesMap[childId];
+        if (childData) {
+          currentEmployee.totalSalesVolume += childData.totalSalesVolume;
+          currentEmployee.thisMonthSalesVolume += childData.thisMonthSalesVolume;
+        }
+      });
+    };
+
+    // ৬. পাস ২: কোয়ালিফিকেশন চেক এবং পজিশন নির্ধারণ
+    const calculatePositionsAndLegs = (currentIdNo, visitedSet) => {
+      if (visitedSet.has(currentIdNo)) return { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+      visitedSet.add(currentIdNo);
+
+      const currentEmployee = userSalesMap[currentIdNo];
+      if (!currentEmployee) return { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+
+      const childrenIds = childMap[currentIdNo] || [];
+      const masterLegsCounts = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+
+      childrenIds.forEach(childId => {
+        const childSubTreeSummary = calculatePositionsAndLegs(childId, visitedSet);
+        const childData = userSalesMap[childId];
+        
+        if (childData) {
+          const childFinalPos = (childData.autoPosition || "").toUpperCase().trim();
+          const uniqueRanksInThisLeg = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+
+          Object.keys(childSubTreeSummary).forEach(pos => {
+            if (childSubTreeSummary[pos] > 0) uniqueRanksInThisLeg[pos] = 1;
+          });
+
+          if (uniqueRanksInThisLeg[childFinalPos] !== undefined) {
+            uniqueRanksInThisLeg[childFinalPos] = 1;
+          }
+
+          // Rank Compression Logic
+          Object.keys(uniqueRanksInThisLeg).forEach(pos => {
+            if (uniqueRanksInThisLeg[pos] === 1) {
+              Object.keys(uniqueRanksInThisLeg).forEach(p => {
+                if (RANK_MAP[pos] >= RANK_MAP[p]) {
+                  uniqueRanksInThisLeg[p] = 1;
+                }
+              });
+            }
+          });
+
+          Object.keys(uniqueRanksInThisLeg).forEach(pos => {
+            if (uniqueRanksInThisLeg[pos] === 1) {
+              masterLegsCounts[pos] += 1; 
+            }
+          });
+        }
+      });
+
+      currentEmployee.autoPosition = autoDeterminePosition(currentEmployee.thisMonthSalesVolume, masterLegsCounts);
+
+      // মেমোরিতে এই ইউজারের কোয়ালিফাইড লেগ কাউন্ট অবজেক্টটি সেভ করে রাখছি ফ্রন্টএন্ডে পাঠানোর জন্য
+      currentEmployee.qualifiedLegsCounts = { ...masterLegsCounts };
+
+      const myFinalPos = (currentEmployee.autoPosition || "").toUpperCase().trim();
+      const returnLegsSummary = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+
+      Object.keys(masterLegsCounts).forEach(pos => {
+        if (masterLegsCounts[pos] > 0) returnLegsSummary[pos] = 1;
+      });
+      if (returnLegsSummary[myFinalPos] !== undefined) {
+        returnLegsSummary[myFinalPos] = 1;
+      }
+
+      return returnLegsSummary;
+    };
+
+    // ৭. পুরো নেটওয়ার্কের ওপরে গ্লোবাল ক্যালকুলেশন রান করা (নিখুঁত ডাটার জন্য)
+    const volumeVisited = new Set();
+    users.forEach(user => {
+      const parentIdNo = user.refIdNo;
+      if (parentIdNo === "0" || !parentIdNo || !userSalesMap[parentIdNo]) {
+        rollupSalesVolume(user.idNo, volumeVisited);
+      }
+    });
+
+    const positionVisited = new Set();
+    users.forEach(user => {
+      const parentIdNo = user.refIdNo;
+      if (parentIdNo === "0" || !parentIdNo || !userSalesMap[parentIdNo]) {
+        calculatePositionsAndLegs(user.idNo, positionVisited);
+      }
+    });
+
+    // ৮. কাঙ্খিত ইউজারের আইডি দিয়ে ম্যাপ থেকে সিঙ্গেল ডেটা রিড করা
+    const targetUser = userSalesMap[idNo];
+    if (!targetUser) {
+      return res.status(404).json({ message: "দুঃখিত, এই আইডি (idNo) নম্বরের কোনো ইউজার পাওয়া যায়নি।" });
+    }
+
+    // ৯. রেসপন্স অবজেক্ট সুন্দরভাবে সাজানো
+    const userDetailsResponse = {
+      idNo: targetUser.idNo,
+      name: targetUser.name,
+      refIdNo: targetUser.refIdNo,
+      currentRankPosition: targetUser.autoPosition,
+      salesMetrics: {
+        personalSalesAllTime: targetUser.directSalesTotal,
+        personalSalesThisMonth: targetUser.directSalesThisMonth,
+        teamSalesAllTime: targetUser.totalSalesVolume,
+        teamSalesThisMonth: targetUser.thisMonthSalesVolume
+      },
+      qualifiedLegsSummary: targetUser.qualifiedLegsCounts || { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 },
+      rawDetails: targetUser // অন্যান্য ডাটাবেজ প্রপার্টি যেমন ইমেইল, ফোন নম্বর ইত্যাদি এর ভেতরে থাকবে
+    };
+
+    // রেসপন্স ক্লায়েন্টে পাঠানো
+    return res.status(200).json(userDetailsResponse);
+
+  } catch (error) {
+    console.error("❌ GET EMPLOYEE DETAILS ERROR:", error);
+    return res.status(500).json({ message: error.message });
+  }
+};
 
 
 
@@ -1498,6 +1724,7 @@ module.exports = {
    changePassword,
    adminResetPassword,
    getAccountNameById,
-   getProfileByIdNo
+   getProfileByIdNo,
+   getEmployeeDetailsById
 
   };

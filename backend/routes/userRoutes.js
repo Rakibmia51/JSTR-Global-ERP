@@ -15,7 +15,8 @@ const {
     changePassword,
     adminResetPassword,
     getAccountNameById,
-    getProfileByIdNo
+    getProfileByIdNo,
+    getEmployeeDetailsById
 
     } = require('../controllers/userController');
 const { protect, authorizeRoles } = require('../middleware/authMiddleware');
@@ -46,6 +47,7 @@ router.get('/admin/get-name/:targetId', protect, authorizeRoles('admin'), getAcc
 router.put('/admin/reset-password', protect, authorizeRoles('admin'), adminResetPassword);
 
 router.get('/profile/:idNo', getProfileByIdNo); // GET /api/profile/user/MKT-0001
+router.get('/details/:idNo', getEmployeeDetailsById); // GET /api/details/user/MKT-0001
 router.get('/:id', getEmployeeById);
 router.put('/:id', protect, authorizeRoles('admin', 'manager'), cpUpload, updateUser);
 router.delete('/:id', protect, authorizeRoles('admin', 'manager'), deleteUser);

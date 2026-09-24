@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import  { useState } from 'react';
+import axios from 'axios';
 import Select from 'react-select';
 import { useParams, useNavigate } from 'react-router-dom';
 import InvoiceHistoryTable from './InvoiceHistoryTable'; // পাথ ঠিক রাখুন
@@ -35,14 +36,10 @@ const InvoiceForm = () => {
 
   // 2nd state variables for advance adjustment and reference tracking
 // 🆕 [NEW STATES] এই লাইনগুলো আপনার ফাইলের উপরে useState গুলোর সাথে যুক্ত করুন
-const [advanceEmployeeIdNo, setAdvanceEmployeeIdNo] = useState('');
-const [advanceEmployeeName, setAdvanceEmployeeName] = useState('');
+
 const [referenceIdNo, setReferenceIdNo] = useState('');
 const [referenceName, setReferenceName] = useState(''); // এটিও যদি নিচে ব্যবহার করে থাকেন
 const [adjustedAmount, setAdjustedAmount] = useState(0); // নতুন অ্যাডজাস্টেড অ্যামাউন্ট স্টেট
-
-// নাম খোঁজার সময় ছোট স্পিনারের লোডিং হ্যান্ডেল করার জন্য এটিও যোগ করুন
-const [nameLoading, setNameLoading] = useState({ emp: false, ref: false });
 
 
 
@@ -122,6 +119,7 @@ const [formData, setFormData] = useState({
   items: [],
   discount: 0,
   tax: 0,
+  grandTotal: 0,
   paidAmount: 0,
   paymentMethod: 'Cash',
   paymentStatus: 'Due', 
@@ -1060,6 +1058,7 @@ useEffect(() => {
 //     }
 // };
 
+
 // 3rd. API Submission with enhanced data handling and print functionality
 const handleSubmit = async (e) => {
     e.preventDefault();
@@ -1077,12 +1076,15 @@ const handleSubmit = async (e) => {
     const calculatedSubTotal = parsedItems.reduce((sum, item) => sum + item.totalPrice, 0);
     const calculatedGrandTotal = (calculatedSubTotal + Number(formData.tax)) - Number(formData.discount);
     const calculatedDueAmount = calculatedGrandTotal - Number(formData.paidAmount);
-
+    
+    
+    
     // 💡 ৩. মোড সিলেক্ট করা: URL-এ id থাকুক অথবা formData-তে _id থাকুক, ২ক্ষেত্রে এটি এডিট/আপডেট মোড
     const isEditMode = !!id || !!formData._id;
-    const finalId = id || formData._id; // আপเดটের জন্য নির্দিষ্ট আইডি
+    const finalId = id || formData._id; // আপডেটের জন্য নির্দিষ্ট আইডি
 
-    // ৩. ফাইনাল পেলোড তৈরি (এমপ্লয়ি অ্যাডভান্স ও রেফারেন্স ডাটা সহ)
+
+    // ৩. ফাইনাল পেলোড তৈরি (এমপ্লয়ি অ্যাডভান্স ও রেফারেন্স ডাটা সহ)
     const payload = {
       ...(isEditMode && { invoiceNo: formData.invoiceNo }),
       dealer: isDealer && formData.dealer ? formData.dealer : null, 
@@ -1172,6 +1174,8 @@ const handleSubmit = async (e) => {
           setAdvanceEmployeeName('');
           setReferenceIdNo('');
           setReferenceName && setReferenceName(''); 
+
+          
 
           // 💡 এবার প্রিন্ট ফাংশনে এই কমপ্লিট ডাটা অবজেক্টটি পাস করে দেওয়া হলো
           // handleFormPrint(savedInvoice); 
@@ -1355,13 +1359,84 @@ const fillFormData = (invoiceData) => {
   }
 }, [id]);
 
+// Advance Employee ID এবং Reference ID এর লাইভ ভেরিফিকেশন
+const [advanceEmployeeIdNo, setAdvanceEmployeeIdNo] = useState('');
+const [advanceEmployeeName, setAdvanceEmployeeName] = useState('');
+
+// --- নতুন যুক্ত করা স্টেটসমূহ ---
+const [employeeRank, setEmployeeRank] = useState(''); // ইউজারের র‍্যাংক সেভ রাখার জন্য
+const [maxPercentage, setMaxPercentage] = useState(0); // সর্বোচ্চ কত % অগ্রিম কাটতে পারবে
+const [nameLoading, setNameLoading] = useState({ emp: false }); // লোডিং ইন্ডিকেটর
+
+ 
+// আইডি ভেরিফাই করে নাম এবং র‍্যাংক তুলে আনার ফাংশন
+const verifyIdAndGetName = async (id, type) => {
+  if (!id) return;
+  const formattedId = id.trim().toUpperCase(); 
+
+  setNameLoading(prev => ({ ...prev, emp: true }));
+  try {
+    const response = await axios.get(`${SERVER_URL}/api/users/details/${formattedId}`);
+    const data = response.data;
+
+    if (data && data.name) {
+      setAdvanceEmployeeName(data.name);
+      
+      const rank = (data.currentRankPosition || "").toUpperCase().trim();
+      setEmployeeRank(rank);
+
+      // লাইভ পার্সেন্টেজ ক্যালকুলেশন
+      let percentage = 0;
+      if (rank === "AM" || rank === "RSM") {
+        percentage = 15;
+      } else if (rank !== "SALES REPRESENTATIVE" && rank !== "") {
+        percentage = 20;
+      }
+      
+      setMaxPercentage(percentage);
+
+      // 💥 মেইন ফিক্স ১: অবজেক্টের গভীরতা আগে থেকেই ব্যাকআপ অবজেক্ট দিয়ে সুরক্ষিত করা
+      setFormData(prev => ({
+        ...prev,
+        advanceAdjustment: {
+          ...(prev?.advanceAdjustment || {}), // ওল্ড ডাটা থাকলে তা ব্যাকআপ রাখবে
+          employeeIdNo: formattedId,
+          employeeName: data.name,
+          adjustedAmount: prev?.advanceAdjustment?.adjustedAmount || 0,
+        }
+      }));
+
+    } else {
+      setAdvanceEmployeeName('');
+      setEmployeeRank('');
+      setMaxPercentage(0);
+      alert("❌ এই আইডি নম্বরের কোনো এমপ্লয়ি পাওয়া যায়নি।");
+    }
+  } catch (error) {
+    console.error("Error verifying ID:", error);
+    setAdvanceEmployeeName('');
+    setEmployeeRank('');
+    setMaxPercentage(0);
+  } finally {
+    setNameLoading(prev => ({ ...prev, emp: false }));
+  }
+};
+
+
+
+
+
+
+
 
   if (isLoading) {
     return <div>Loading invoice data...</div>;
   }
 
   return (
+
     // 1st div wrapper for the form with max width and centered
+
     // <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md my-10">
     //   <h2 className="text-2xl font-bold mb-6 text-gray-800 text-center border-b pb-3">{id ? 'Update Invoice' : 'Create New Invoice'}</h2>
       
@@ -1832,7 +1907,7 @@ const fillFormData = (invoiceData) => {
         </button>
     </div>
 
-        {/* 🆕 [NEW SECTION]: Advance Employee Ledger & Reference Assignment ID Setup */}
+    {/* 🆕 [NEW SECTION]: Advance Employee Ledger & Reference Assignment ID Setup */}
     <div className="p-4 border border-teal-100 bg-slate-50/50 rounded-xl space-y-4 shadow-inner">
       <h3 className="text-sm font-bold text-teal-800 uppercase tracking-wider flex items-center gap-1.5">
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1858,43 +1933,81 @@ const fillFormData = (invoiceData) => {
               <span className="absolute right-3 top-2.5 animate-spin h-4 w-4 border-2 border-teal-600 border-t-transparent rounded-full" />
             )}
           </div>
+          
+          {/* ডাইনামিক এমপ্লয়ি নাম এবং র‍্যাংক ব্যাজ */}
           {advanceEmployeeName && (
-            <div className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1 bg-teal-50 text-teal-700 border border-teal-200 text-xs font-semibold rounded-md shadow-sm w-fit">
-              <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
-              Advance Deduct From: {advanceEmployeeName}
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-teal-50 text-teal-700 border border-teal-200 text-xs font-semibold rounded-md shadow-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
+                Deduct From: {advanceEmployeeName}
+              </div>
+              {employeeRank && (
+                <div className="px-2 py-1 bg-purple-50 text-purple-700 border border-purple-200 text-xs font-bold rounded-md uppercase">
+                  Rank: {employeeRank} ({maxPercentage}%)
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* ২. Adjusted Amount Entry Field (হাত দিয়ে সরাসরি এন্ট্রি দেওয়ার জন্য) */}
+        {/* ২. Adjusted Amount Entry Field (Hand Entry) */}
         <div>
           <label className="block text-sm font-semibold text-gray-700">Adjusted Advance Amount (Entry)</label>
           <div className="relative mt-1">
-            <input 
-              type="number" 
-              min="0"
-              value={formData.advanceAdjustment?.adjustedAmount || ''} 
-              onChange={(e) => {
-                const val = Number(e.target.value) || 0;
-                setFormData({
-                  ...formData,
-                  advanceAdjustment: {
-                    ...formData.advanceAdjustment,
-                    adjustedAmount: val
-                  }
-                });
-              }}
-              className="w-full p-2 border border-gray-300 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-teal-800 bg-white"
-              placeholder="0.00" 
-            />
+           <input 
+            type="number" 
+            min="0"
+            value={formData.advanceAdjustment?.adjustedAmount || ''} 
+            onChange={(e) => {
+              let val = Number(e.target.value) || grandTotal || 0;
+              
+              // 💥 ১. এক্সটার্নাল ভেরিয়েবল ছাড়া সরাসরি formData থেকে গ্র্যান্ড টোটাল রিড করা হলো (২৫২০০.০০ টাকা)
+              const currentGrandTotal = Number(formData.grandTotal) || grandTotal || 0;
+              
+              // ২. স্টেট ব্যাকআপ ভ্যালিডেশন
+              let livePercentage = maxPercentage;
+              if (livePercentage === 0 && employeeRank) {
+                if (employeeRank === "AM" || employeeRank === "RSM") livePercentage = 15;
+                else if (employeeRank !== "SALES REPRESENTATIVE") livePercentage = 20;
+              }
+
+              // ৩. লাইভ লিমিট ক্যালকুলেশন (২৫২০০ * ২০ / ১০০ = ৫০৪০ টাকা)
+              const maxAllowedAmount = (currentGrandTotal || grandTotal || 0) * livePercentage / 100;
+              
+              // ৪. লিমিট লক ভ্যালিডেশন
+              if (livePercentage > 0 && val > maxAllowedAmount) {
+                val = maxAllowedAmount; 
+              }
+
+              setFormData(prev => ({
+                ...prev,
+                advanceAdjustment: {
+                  ...prev.advanceAdjustment,
+                  adjustedAmount: val,
+                  employeeIdNo: advanceEmployeeIdNo.trim().toUpperCase(),
+                  employeeName: advanceEmployeeName
+                }
+              }));
+            }}
+            className="w-full p-2 border border-gray-300 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-teal-800 bg-white"
+            placeholder="0.00" 
+            disabled={!employeeRank} 
+          />
+
+
             <span className="absolute right-3 top-2 text-gray-400 font-medium">৳</span>
           </div>
+          
+          {/* ৩. [DYNAMIC LIMIT HELPER]: ইউজারকে সর্বোচ্চ কত টাকা কাটা যাবে তা লাইভ হিসাব করে দেখানোর জন্য */}
+         {employeeRank && (
           <p className="mt-1.5 text-[11px] text-gray-500 pl-1">
-            💡 এই বিল থেকে সরাসরি কত টাকা অগ্রিম কাটতে চান, তা এখানে টাইপ করুন।
+            💡 এই ইনভয়েসের (৳{null || (Number(formData.grandTotal) || Number(grandTotal) || 0).toFixed(2)}) এর সর্বোচ্চ <span className="font-bold text-teal-700">{maxPercentage}%</span> অর্থাৎ সর্বোচ্চ <span className="font-bold text-purple-700">৳{((Number(formData.grandTotal) || Number(grandTotal) || 0) * maxPercentage / 100).toFixed(2)}</span> অগ্রিম সমন্বয় করা যাবে।
           </p>
+        )}
+
         </div>
 
-        {/* ৩. [DYNAMIC BANNER]: শুধুমাত্র এডিট মোডে ওল্ড ডাটাবেজ অ্যামাউন্ট মনে করিয়ে দেওয়ার জন্য অ্যালার্ট */}
+        {/* ৪. [DYNAMIC BANNER]: লিমিট ক্রস করার চেষ্টা করলে বা ওল্ড অ্যামাউন্ট মনে করানোর জন্য এডিট মোড ব্যানার */}
         {(id || formData?._id) && formData.advanceAdjustment?.adjustedAmount > 0 && (
           <div className="md:col-span-2 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-sm text-amber-800 font-medium shadow-sm">
             <div className="flex items-center gap-2">
@@ -1910,7 +2023,6 @@ const fillFormData = (invoiceData) => {
         )}
       </div>
     </div>
-
 
 
       {/* Billing & Settlement Summaries */}

@@ -49,47 +49,119 @@ const mongoose = require('mongoose');
 // };
 
 // 2nd version of invoice controller with enhanced features
+// const createInvoice = async (req, res) => {
+//   try {
+//     const data = req.body;
+    
+//     // ১. ডিউ এবং পেমেন্ট স্ট্যাটাস ক্যালকুলেশন (স্বাভাবিক হিসাব)
+//     data.dueAmount = data.grandTotal - data.paidAmount;
+//     if (data.dueAmount === 0) data.paymentStatus = 'Paid';
+//     else if (data.paidAmount > 0) data.paymentStatus = 'Partially Paid';
+//     else data.paymentStatus = 'Due';
+
+//     // ২. ডাটা অবজেক্টের ভেতরে প্রথম 'Created' লগটি যুক্ত করা
+//     data.historyLog = [{
+//       action: 'Created',
+//       grandTotal: data.grandTotal,
+//       paidAmount: data.paidAmount,
+//       dueAmount: data.dueAmount < 0 ? 0 : data.dueAmount,
+//       note: data.advanceAdjustment?.employeeIdNo 
+//         ? `Invoice created. Linked with Employee ID: ${data.advanceAdjustment.employeeIdNo} for month-end adjustment.` 
+//         : 'Initial invoice creation',
+//       updatedBy: req.user?.name || 'Admin/Staff',
+//       updatedAt: new Date()
+//     }];
+
+//     // ৩. ইনভয়েস তৈরি এবং ডাটাবেজে সেভ করা
+//     const newInvoice = new Invoice(data);
+//     await newInvoice.save();
+
+//     // ৪. কাস্টমার/ডিলার ক্যাশ পেমেন্ট করলে স্বাভাবিক ট্রানজেকশন এন্ট্রি
+//     if (data.paidAmount > 0) {
+//       await Transaction.create({
+//         invoice: newInvoice._id,
+//         dealer: data.dealer || null,
+//         type: 'Credit', 
+//         category: 'Sales Income',
+//         amount: data.paidAmount,
+//         description: `Received payment for Invoice No: ${newInvoice.invoiceNo}`
+//       });
+//     }
+
+//     res.status(201).json({ success: true, data: newInvoice });
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+// 3rd version of invoice controller with advanced features
 const createInvoice = async (req, res) => {
   try {
     const data = req.body;
     
-    // ১. ডিউ এবং পেমেন্ট স্ট্যাটাস ক্যালকুলেশন (স্বাভাবিক হিসাব)
-    data.dueAmount = data.grandTotal - data.paidAmount;
-    if (data.dueAmount === 0) data.paymentStatus = 'Paid';
-    else if (data.paidAmount > 0) data.paymentStatus = 'Partially Paid';
-    else data.paymentStatus = 'Due';
+    // ফ্রন্টএন্ড পেলোড থেকে অগ্রিম সমন্বয়ের এমাউন্টটি নিরাপদে রিড করা
+    const advanceAdjustedAmount = Number(data.advanceAdjustment?.adjustedAmount) || 0;
+    const paidCashAmount = Number(data.paidAmount) || 0;
+    const totalGrandAmount = Number(data.grandTotal) || 0;
 
-    // ২. ডাটা অবজেক্টের ভেতরে প্রথম 'Created' লগটি যুক্ত করা
+    // 💥 ১. আর্থিক হিসাব সংশোধন: ডিউ অ্যামাউন্ট বের করার সময় অগ্রিম সমন্বয়ও বিয়োগ করতে হবে
+    const calculatedDue = totalGrandAmount - paidCashAmount - advanceAdjustedAmount;
+    data.dueAmount = calculatedDue < 0 ? 0 : calculatedDue;
+
+    // ২. নিখুঁত পেমেন্ট স্ট্যাটাস নির্ধারণ (ক্যাশ পেইড + অগ্রিম মিলে গ্র্যান্ড টোটাল ফিলাপ হলে সম্পূর্ণ পেইড)
+    const totalCollected = paidCashAmount + advanceAdjustedAmount;
+    if (calculatedDue <= 0) {
+      data.paymentStatus = 'Paid';
+    } else if (totalCollected > 0) {
+      data.paymentStatus = 'Partially Paid';
+    } else {
+      data.paymentStatus = 'Due';
+    }
+
+    // ৩. ডাটা অবজেক্টের ভেতরে প্রথম 'Created' লগটি যুক্ত করা
     data.historyLog = [{
       action: 'Created',
-      grandTotal: data.grandTotal,
-      paidAmount: data.paidAmount,
-      dueAmount: data.dueAmount < 0 ? 0 : data.dueAmount,
+      grandTotal: totalGrandAmount,
+      paidAmount: paidCashAmount,
+      dueAmount: data.dueAmount,
       note: data.advanceAdjustment?.employeeIdNo 
-        ? `Invoice created. Linked with Employee ID: ${data.advanceAdjustment.employeeIdNo} for month-end adjustment.` 
+        ? `Invoice created. Linked with Employee ID: ${data.advanceAdjustment.employeeIdNo} for month-end adjustment of ৳${advanceAdjustedAmount.toFixed(2)}.` 
         : 'Initial invoice creation',
       updatedBy: req.user?.name || 'Admin/Staff',
       updatedAt: new Date()
     }];
 
-    // ৩. ইনভয়েস তৈরি এবং ডাটাবেজে সেভ করা
+    // ৪. ইনভয়েস তৈরি এবং ডাটাবেজে সেভ করা (এখন অবজেক্টটি অক্ষত অবস্থায় সেভ হবে)
     const newInvoice = new Invoice(data);
     await newInvoice.save();
 
-    // ৪. কাস্টমার/ডিলার ক্যাশ পেমেন্ট করলে স্বাভাবিক ট্রানজেকশন এন্ট্রি
-    if (data.paidAmount > 0) {
+    // ৫. কাস্টমার/ডিলার ক্যাশ পেমেন্ট করলে স্বাভাবিক ক্যাশ ট্রানজেকশন এন্ট্রি
+    if (paidCashAmount > 0) {
       await Transaction.create({
         invoice: newInvoice._id,
         dealer: data.dealer || null,
         type: 'Credit', 
         category: 'Sales Income',
-        amount: data.paidAmount,
-        description: `Received payment for Invoice No: ${newInvoice.invoiceNo}`
+        amount: paidCashAmount,
+        description: `Received Cash/Bank payment for Invoice No: ${newInvoice.invoiceNo}`
+      });
+    }
+
+    // 💥 ৬. নতুন অ্যাকাউন্টিং এন্ট্রি: অগ্রিম সমন্বয় করা হলে কোম্পানির লেজারে আলাদা ভাউচার এন্ট্রি
+    if (advanceAdjustedAmount > 0) {
+      await Transaction.create({
+        invoice: newInvoice._id,
+        dealer: data.dealer || null,
+        type: 'Credit', 
+        category: 'Sales Income', // আপনার একাউন্টিং চার্ট অনুযায়ী নাম দিতে পারেন
+        amount: advanceAdjustedAmount,
+        description: `Advance deducted from Employee ID: ${data.advanceAdjustment.employeeIdNo} for Invoice No: ${newInvoice.invoiceNo}`
       });
     }
 
     res.status(201).json({ success: true, data: newInvoice });
   } catch (error) {
+    console.error("❌ CREATE INVOICE ERROR:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
