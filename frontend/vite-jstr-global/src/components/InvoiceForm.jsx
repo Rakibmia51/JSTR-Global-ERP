@@ -375,7 +375,7 @@ useEffect(() => {
   // 3. Live Calculations for Instant UI Feedback
   const subTotal = formData.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
   const grandTotal = (subTotal + Number(formData.tax)) - Number(formData.discount);
-  const dueAmount = grandTotal - Number(formData.paidAmount);
+  const dueAmount = grandTotal - Number(formData.paidAmount)- Number(formData.advanceAdjustment.adjustedAmount || 0); // Adjusted for advance 
 
   // Old Printing Functionality: Open a new window with invoice details for printing
   // const handleFormPrint = (savedInvoiceData) => {
