@@ -1967,8 +1967,8 @@ const verifyIdAndGetName = async (id, type) => {
               // ২. স্টেট ব্যাকআপ ভ্যালিডেশন
               let livePercentage = maxPercentage;
               if (livePercentage === 0 && employeeRank) {
-                if (employeeRank === "AM" || employeeRank === "RSM") livePercentage = 15;
-                else if (employeeRank !== "SALES REPRESENTATIVE") livePercentage = 20;
+                if (employeeRank === "AM" || employeeRank === "RSM" || employeeRank === "SALES REPRESENTATIVE") livePercentage = 15;
+                else if (employeeRank !== "") livePercentage = 20;
               }
 
               // ৩. লাইভ লিমিট ক্যালকুলেশন (২৫২০০ * ২০ / ১০০ = ৫০৪০ টাকা)

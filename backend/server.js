@@ -34,6 +34,7 @@ const productRoutes = require('./routes/productRoutes.js')
 const salesRoutes = require('./routes/salesRoutes.js')
 const commissionRoutes = require('./routes/commissionRoutes.js')
 const payoutRoutes = require('./routes/payoutRoutes');
+const rankUpdateRoutes = require('./routes/rankUpdateRoutes.js'); // নতুন র‍্যাংক আপডেট রাউট
 
 
 // এপিআই রাউট লিংক
@@ -58,6 +59,9 @@ app.use('/api/commissions', commissionRoutes);
 
 // Api Payouts
 app.use('/api/payouts', payoutRoutes);
+
+// Api Rank Update
+app.use('/api/rank-update', rankUpdateRoutes);
 
 
 

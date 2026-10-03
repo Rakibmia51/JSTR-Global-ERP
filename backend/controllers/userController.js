@@ -862,8 +862,6 @@ const getProfileByIdNo = async (req, res) => {
 
 
 // 5th version of Employee Tree Controller with dynamic sales calculation and position assignment
-
-
 const getEmployeeTree = async (req, res) => {
  try {
     const db = mongoose.connection.db;
@@ -890,6 +888,7 @@ const getEmployeeTree = async (req, res) => {
       userSalesMap[u.idNo] = { 
         ...u, 
         _id: u._id.toString(),
+        databaseRank: u.rank || "SALES REPRESENTATIVE", // ডাটাবেজের বর্তমান র‍্যাংক সেভ রাখা হলো
         directSalesTotal: 0,       
         directSalesThisMonth: 0,   
         totalSalesVolume: 0,       
@@ -933,31 +932,33 @@ const getEmployeeTree = async (req, res) => {
       }
     });
 
-    // =======================================================================
-    // ৩. পজিশন ডিটারমিনেশন কোর রুল ইঞ্জিন (নিখুঁত কন্ডিশনাল ম্যাচ)
-    // =======================================================================
-    const autoDeterminePosition = (salesVolume, qualifiedLegsCounts = {}) => {
-      const countAtLeast = (targetPos) => {
-        // ফিক্স 💥: এখানে ওভারল্যাপ লিক ছাড়া প্রতিটি পজিশন ভিত্তিক লেগের সংখ্যা নিখুঁতভাবে ১ বারই গোনা হবে
-        return qualifiedLegsCounts[targetPos] || 0;
-      };
+// =======================================================================
+// ৩. আপডেট হওয়া পজিশন ডিটারমিনেশন রুল ইঞ্জিন (Rank Retention Mode)
+// =======================================================================
+const autoDeterminePosition = (salesVolume, qualifiedLegsCounts = {}, databaseRank = "SALES REPRESENTATIVE") => {
+  const countAtLeast = (targetPos) => {
+    return qualifiedLegsCounts[targetPos] || 0;
+  };
 
-      if (salesVolume >= 6400000 && countAtLeast("ED") >= 2) return "BOM";
-      if (salesVolume >= 3200000 && countAtLeast("NSM") >= 4) return "ED";
-      if (salesVolume >= 800000 && countAtLeast("DSM") >= 4) return "NSM";
-      if (salesVolume >= 600000 && countAtLeast("DSM") >= 3) return "SM";
-      if (salesVolume >= 400000 && countAtLeast("DSM") >= 2) return "SDSM";
-      
-      // DSM হতে গেলে ২টি আলাদা লাইন থেকে RSM এবং ২টি আলাদা লাইন থেকে AM কাউন্ট থাকতে হবে
-      if (salesVolume >= 200000 && countAtLeast("RSM") >= 2 && countAtLeast("AM") >= 2) {
-        return "DSM";
-      }
-      
-      if (salesVolume >= 75000 && countAtLeast("AM") >= 3) return "RSM";
-      if (salesVolume >= 25000) return "AM";
-      
-      return "SALES REPRESENTATIVE";
-    };
+  let calculatedRank = "SALES REPRESENTATIVE";
+
+  // কারেন্ট সেলস ও লেগ কাউন্ট অনুযায়ী সম্ভাব্য র‍্যাংক বের করা
+  if (salesVolume >= 6400000 && countAtLeast("ED") >= 2) calculatedRank = "BOM";
+  else if (salesVolume >= 3200000 && countAtLeast("NSM") >= 4) calculatedRank = "ED";
+  else if (salesVolume >= 800000 && countAtLeast("DSM") >= 4) calculatedRank = "NSM";
+  else if (salesVolume >= 600000 && countAtLeast("DSM") >= 3) calculatedRank = "SM";
+  else if (salesVolume >= 400000 && countAtLeast("DSM") >= 2) calculatedRank = "SDSM";
+  else if (salesVolume >= 200000 && countAtLeast("RSM") >= 2 && countAtLeast("AM") >= 2) calculatedRank = "DSM";
+  else if (salesVolume >= 75000 && countAtLeast("AM") >= 3) calculatedRank = "RSM";
+  else if (salesVolume >= 25000) calculatedRank = "AM";
+
+  // 💥 মূল ফিক্স (Rank Lock Mechanism): 
+  // ডাটাবেজে থাকা আগের র‍্যাংক এবং এই মাসের নতুন ক্যালকুলেটেড র‍্যাংকের মধ্যে যেটি বড়, সেটিই ফাইনাল হবে।
+  const currentRankWeight = RANK_MAP[calculatedRank.toUpperCase()] || 0;
+  const historicRankWeight = RANK_MAP[databaseRank.toUpperCase()] || 0;
+
+  return currentRankWeight >= historicRankWeight ? calculatedRank : databaseRank.toUpperCase();
+};
 
     // =======================================================================
     // ৪. পাস ১: ডাউনলাইনের সব সেলস ভলিউম রিকার্সিভলি ওপরে রোল-আপ করা
@@ -981,7 +982,7 @@ const getEmployeeTree = async (req, res) => {
       });
     };
 
-    // =======================================================================
+        // =======================================================================
     // ৫. পাস ২: ডিপ কোয়ালিফিকেশন চেক এবং পজিশন নির্ধারণ (True Compression Engine)
     // =======================================================================
     const calculatePositionsAndLegs = (currentIdNo, visitedSet) => {
@@ -996,10 +997,12 @@ const getEmployeeTree = async (req, res) => {
 
       // প্রতিটি সরাসরি চাইল্ড মানেই হলো একটি সম্পূর্ণ আলাদা স্বতন্ত্র লেগ (Line)
       childrenIds.forEach(childId => {
+        // ফিক্স ১ 💥: রিকার্সন কল আগে শেষ হবে, যাতে চাইল্ডের নিচের পুরো টিম এবং চাইল্ডের নিজের পজিশন আগে আপডেট হয়
         const childSubTreeSummary = calculatePositionsAndLegs(childId, visitedSet);
         const childData = userSalesMap[childId];
         
         if (childData) {
+          // এখন চাইল্ডের ফাইনাল ক্যালকুলেটেড পজিশন রিড করা ১০০% নিরাপদ
           const childFinalPos = (childData.autoPosition || "").toUpperCase().trim();
           const uniqueRanksInThisLeg = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
 
@@ -1013,8 +1016,8 @@ const getEmployeeTree = async (req, res) => {
             uniqueRanksInThisLeg[childFinalPos] = 1;
           }
 
-          // 💥 মূল ফিক্স (Rank Compression expansion): ১টি লাইনে যদি কোনো বড় পজিশন (যেমন DSM) থাকে, 
-          // তবে সেই ১টি লাইন আপলাইনের জন্য AM, RSM এবং DSM সবকটি শর্তেরই ১টি করে কোটা পূরণ করবে।
+          // 💥 Rank Compression expansion: ১টি লাইনে যদি কোনো বড় পজিশন থাকে, 
+          // তবে সেই ১টি লাইন আপলাইনের জন্য ছোট সবকটি শর্তেরই ১টি করে কোটা পূরণ করবে।
           Object.keys(uniqueRanksInThisLeg).forEach(pos => {
             if (uniqueRanksInThisLeg[pos] === 1) {
               Object.keys(uniqueRanksInThisLeg).forEach(p => {
@@ -1034,8 +1037,12 @@ const getEmployeeTree = async (req, res) => {
         }
       });
 
-      // এবার ভলিউম এবং নিখুঁত আলাদা লেগ কাউন্ট দিয়ে নিজের পজিশন নির্ধারণ করা
-      currentEmployee.autoPosition = autoDeterminePosition(currentEmployee.thisMonthSalesVolume, masterLegsCounts);
+      // ফিক্স ২ 💥: কারেন্ট মাসের সেলস ভলিউমের পাশাপাশি ডাটাবেজে থাকা আগের র‍্যাংকটিও পাস করা হলো
+      // (নিশ্চিত করুন ১ নম্বর পাসে u.rank বা পূর্বের র‍্যাংকটি 'databaseRank' নামে সেভ করা আছে)
+      const dbRank = currentEmployee.databaseRank || currentEmployee.rank || "SALES REPRESENTATIVE";
+      
+      // এবার ভলিউম, লেগ কাউন্ট এবং পূর্বের র‍্যাংক দিয়ে নতুন পজিশন নির্ধারণ (যা নিচে নামবে না)
+      currentEmployee.autoPosition = autoDeterminePosition(currentEmployee.totalSalesVolume, masterLegsCounts, dbRank);
 
       // ওপরের আপলাইনের কাছে নিজের লাইনের সর্বোচ্চ অর্জনগুলো ফ্ল্যাগ আকারে পাস করা
       const myFinalPos = (currentEmployee.autoPosition || "").toUpperCase().trim();
@@ -1050,6 +1057,7 @@ const getEmployeeTree = async (req, res) => {
 
       return returnLegsSummary;
     };
+
 
     // ৬. রুট নোড থেকে পাস ১ (Volume Rollup) চালানো
     const volumeVisited = new Set();
@@ -1099,6 +1107,8 @@ const getEmployeeTree = async (req, res) => {
 };
 
 
+
+// getEmployeeDetailsById Controller: Fetches a specific employee's details by their idNo, including their sales data and position.
 const getEmployeeDetailsById = async (req, res) => {
   try {
     const { idNo } = req.params; // ইউআরএল (URL) থেকে idNo নেওয়া হচ্ছে
@@ -1109,9 +1119,11 @@ const getEmployeeDetailsById = async (req, res) => {
     const db = mongoose.connection.db;
     
     // ১. ডাটাবেজ থেকে প্যারালালি ডেটা ফেচ করা
-    let allSales = await db.collection("invoices").find({}).toArray();
-    const dealers = await db.collection("dealers").find({}).toArray();
-    const users = await db.collection("users").find({ idNo: { $regex: /^MKT/i } }).toArray();
+    const [allSales, dealers, users] = await Promise.all([
+      db.collection("invoices").find({}).toArray(),
+      db.collection("dealers").find({}).toArray(),
+      db.collection("users").find({ idNo: { $regex: /^MKT/i } }).toArray()
+    ]);
 
     // চলতি মাসের ব্রেকপয়েন্ট নির্ধারণ
     const currentDate = new Date();
@@ -1131,6 +1143,7 @@ const getEmployeeDetailsById = async (req, res) => {
       userSalesMap[u.idNo] = { 
         ...u, 
         _id: u._id.toString(),
+        databaseRank: u.rank || "SALES REPRESENTATIVE", // Rank Lock এর জন্য আগের র‍্যাংক সেভ রাখা হলো
         directSalesTotal: 0,       
         directSalesThisMonth: 0,   
         totalSalesVolume: 0,       
@@ -1145,6 +1158,10 @@ const getEmployeeDetailsById = async (req, res) => {
       }
     });
 
+    // ডিলার ম্যাচিং ওয়ান-টাইম ওয়ান-পাস অপ্টিমাইজেশন (O(1) Lookup)
+    const dealerMap = {};
+    dealers.forEach(d => { dealerMap[d._id.toString()] = d.referenceIdNo; });
+
     // ৩. ডিরেক্ট সেলস ভলিউম অ্যাসাইন করা
     allSales.forEach(sale => {
       const saleAmount = sale.grandTotal || 0;
@@ -1156,10 +1173,7 @@ const getEmployeeDetailsById = async (req, res) => {
       if (sale.isMonthlyArchived && sale.archivedSalesData?.employeeSnapshot?.idNo) {
         targetEmployeeIdNo = sale.archivedSalesData.employeeSnapshot.idNo;
       } else if (sale.dealer) {
-        const matchingDealer = dealers.find(d => d._id.toString() === sale.dealer.toString());
-        if (matchingDealer && matchingDealer.referenceIdNo) {
-          targetEmployeeIdNo = matchingDealer.referenceIdNo;
-        }
+        targetEmployeeIdNo = dealerMap[sale.dealer.toString()];
       }
 
       if (targetEmployeeIdNo && userSalesMap[targetEmployeeIdNo]) {
@@ -1173,26 +1187,29 @@ const getEmployeeDetailsById = async (req, res) => {
       }
     });
 
-    // ৪. পজিশন ডিটারমিনেশন কোর রুল ইঞ্জিন (আপনার চার্ট অনুযায়ী)
-    const autoDeterminePosition = (salesVolume, qualifiedLegsCounts = {}) => {
+    // ৪. পজিশন ডিটারমিনেশন কোর রুল ইঞ্জিন (Rank Lock & Volume Mode)
+    const autoDeterminePosition = (salesVolume, qualifiedLegsCounts = {}, databaseRank = "SALES REPRESENTATIVE") => {
       const countAtLeast = (targetPos) => {
         return qualifiedLegsCounts[targetPos] || 0;
       };
 
-      if (salesVolume >= 6400000 && countAtLeast("ED") >= 2) return "BOM";
-      if (salesVolume >= 3200000 && countAtLeast("NSM") >= 4) return "ED";
-      if (salesVolume >= 800000 && countAtLeast("DSM") >= 4) return "NSM";
-      if (salesVolume >= 600000 && countAtLeast("DSM") >= 3) return "SM";
-      if (salesVolume >= 400000 && countAtLeast("DSM") >= 2) return "SDSM";
-      
-      if (salesVolume >= 200000 && countAtLeast("RSM") >= 2 && countAtLeast("AM") >= 2) {
-        return "DSM";
-      }
-      
-      if (salesVolume >= 75000 && countAtLeast("AM") >= 3) return "RSM";
-      if (salesVolume >= 25000) return "AM";
-      
-      return "SALES REPRESENTATIVE";
+      let calculatedRank = "SALES REPRESENTATIVE";
+
+      // আপনার রুল চার্ট অনুযায়ী চেক
+      if (salesVolume >= 6400000 && countAtLeast("ED") >= 2) calculatedRank = "BOM";
+      else if (salesVolume >= 3200000 && countAtLeast("NSM") >= 4) calculatedRank = "ED";
+      else if (salesVolume >= 800000 && countAtLeast("DSM") >= 4) calculatedRank = "NSM";
+      else if (salesVolume >= 600000 && countAtLeast("DSM") >= 3) calculatedRank = "SM";
+      else if (salesVolume >= 400000 && countAtLeast("DSM") >= 2) calculatedRank = "SDSM";
+      else if (salesVolume >= 200000 && countAtLeast("RSM") >= 2 && countAtLeast("AM") >= 2) calculatedRank = "DSM";
+      else if (salesVolume >= 75000 && countAtLeast("AM") >= 3) calculatedRank = "RSM";
+      else if (salesVolume >= 25000) calculatedRank = "AM";
+
+      // Rank Retention: নতুন র‍্যাংক এবং ডাটাবেজের আগের র‍্যাংকের মধ্যে উচ্চতর র‍্যাংকটি লক হবে
+      const currentRankWeight = RANK_MAP[calculatedRank.toUpperCase()] || 0;
+      const historicRankWeight = RANK_MAP[databaseRank.toUpperCase()] || 0;
+
+      return currentRankWeight >= historicRankWeight ? calculatedRank : databaseRank.toUpperCase();
     };
 
     // ৫. পাস ১: ভলিউম রোল-আপ ইঞ্জিন
@@ -1215,7 +1232,7 @@ const getEmployeeDetailsById = async (req, res) => {
       });
     };
 
-    // ৬. পাস ২: কোয়ালিফিকেশন চেক এবং পজিশন নির্ধারণ
+    // ৬. পাস ২: কোয়ালিফিকেশন চেক এবং পজিশন নির্ধারণ (True Compression Engine)
     const calculatePositionsAndLegs = (currentIdNo, visitedSet) => {
       if (visitedSet.has(currentIdNo)) return { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
       visitedSet.add(currentIdNo);
@@ -1227,6 +1244,7 @@ const getEmployeeDetailsById = async (req, res) => {
       const masterLegsCounts = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
 
       childrenIds.forEach(childId => {
+        // ফিক্স 💥: রিকার্সন আগে শেষ হবে যেন চাইল্ডের ডেটা রিয়েল-টাইম আপডেট হয়ে রেডি থাকে
         const childSubTreeSummary = calculatePositionsAndLegs(childId, visitedSet);
         const childData = userSalesMap[childId];
         
@@ -1261,9 +1279,11 @@ const getEmployeeDetailsById = async (req, res) => {
         }
       });
 
-      currentEmployee.autoPosition = autoDeterminePosition(currentEmployee.thisMonthSalesVolume, masterLegsCounts);
+      // ফিক্স 💥: টোটাল সেলস ভলিউম এবং ডাটাবেজ র‍্যাংক সহ চেক পাঠানো হচ্ছে
+      const dbRank = currentEmployee.databaseRank || "SALES REPRESENTATIVE";
+      currentEmployee.autoPosition = autoDeterminePosition(currentEmployee.totalSalesVolume, masterLegsCounts, dbRank);
 
-      // মেমোরিতে এই ইউজারের কোয়ালিফাইড লেগ কাউন্ট অবজেক্টটি সেভ করে রাখছি ফ্রন্টএন্ডে পাঠানোর জন্য
+      // কোয়ালিফাইড লেগ কাউন্ট অবজেক্ট সেভ
       currentEmployee.qualifiedLegsCounts = { ...masterLegsCounts };
 
       const myFinalPos = (currentEmployee.autoPosition || "").toUpperCase().trim();

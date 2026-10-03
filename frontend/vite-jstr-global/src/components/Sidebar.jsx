@@ -312,6 +312,7 @@ import {
   ShieldAlert
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { FaRegHandRock } from 'react-icons/fa';
 
 const Sidebar = () => {
   const { t, i18n } = useTranslation();
@@ -425,6 +426,7 @@ const Sidebar = () => {
         { name: t('monthly_sales_data_archiver'), id: 'Monthly Sales Data Archiver', icon: PackagePlus, path: '/admin-panel/settings/archiver' },
         { name: t('monthly_commission_ledger_lock'), id: 'Monthly Commission Ledger Lock', icon: ShieldAlert, path: '/admin-panel/settings/ledger-lock' },
         { name: t('change_password'), id: 'Change Password', icon: Lock, path: '/admin-panel/settings/change-password' },
+        {name: t('rank_update'), id: 'Rank Update', icon: FaRegHandRock, path: '/admin-panel/settings/rank-update'}
       ]
     },
 

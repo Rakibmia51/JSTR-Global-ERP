@@ -45,6 +45,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css'; // সিএসএস ইমপোর্ট করা বাধ্যতামূলক
 import AdminChangePassword from './components/AdminChangePassword';
 import UserProfile from './components/profile';
+import AdminRankPanel from './components/RankUpdate';
 
 
 function App() {
@@ -133,8 +134,10 @@ function App() {
             <ChangePassword/>
             <ToastContainer position="top-right" autoClose={3000} />
             </>
-            
             } />
+          
+          <Route path="settings/rank-update" element={<AdminRankPanel/>} />
+
         </Route>
       
         <Route 
