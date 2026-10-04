@@ -3190,14 +3190,14 @@ const autoDeterminePosition = (totalSales, qualifiedLegsCounts = {}) => {
   };
 
   // 💥 সঠিক কন্ডিশনাল অর্ডার সিকোয়েন্স (ভলিউম + ভিন্ন ভিন্ন লেগের ডিপ কাউন্ট)
-  if (totalSales >= 6400000 && countAtLeast("ED") >= 2) return "BOM";
-  if (totalSales >= 3200000 && countAtLeast("NSM") >= 4) return "ED";
-  if (totalSales >= 800000 && countAtLeast("DSM") >= 4) return "NSM";
-  if (totalSales >= 600000 && countAtLeast("DSM") >= 3) return "SM";
-  if (totalSales >= 400000 && countAtLeast("DSM") >= 2) return "SDSM";
+  if (totalSales >= 3200000 && countAtLeast("ED") >= 2) return "BOM";
+  if (totalSales >= 1600000 && countAtLeast("NSM") >= 4) return "ED";
+  if (totalSales >= 400000 && countAtLeast("DSM") >= 4) return "NSM";
+  if (totalSales >= 300000 && countAtLeast("DSM") >= 3) return "SM";
+  if (totalSales >= 200000 && countAtLeast("DSM") >= 2) return "SDSM";
   
   // DSM কন্ডিশন: ২টি আলাদা লেগে RSM এবং ২টি আলাদা লেগে AM কোয়ালিফাইড মেম্বার থাকতে হবে
-  if (totalSales >= 200000 && countAtLeast("RSM") >= 2 && countAtLeast("AM") >= 2) return "DSM";
+  if (totalSales >= 100000 && countAtLeast("RSM") >= 2 && countAtLeast("AM") >= 2) return "DSM";
   
   if (totalSales >= 75000 && countAtLeast("AM") >= 3) return "RSM";
   if (totalSales >= 25000) return "AM";
@@ -3212,7 +3212,6 @@ const autoDeterminePosition = (totalSales, qualifiedLegsCounts = {}) => {
 const checkSelfQualificationOnly = (position, totalSales, qualifiedLegsCounts = {}) => {
   const currentPos = (position || "").trim().toUpperCase();
 
-  // কিউমুলেティブ হেল্পার: এই ইউজারের ভিন্ন ভিন্ন লেগে (Leg) ন্যূনতম কতজন টার্গেট পজিশন বা তার বড় পজিশন হোল্ড করছে তা গুনবে
   const countAtLeast = (targetPos) => {
     return Object.keys(qualifiedLegsCounts).reduce((total, pos) => {
       return RANK_MAP[pos] >= RANK_MAP[targetPos] ? total + qualifiedLegsCounts[pos] : total;
@@ -3224,15 +3223,13 @@ const checkSelfQualificationOnly = (position, totalSales, qualifiedLegsCounts = 
 
   switch (currentPos) {
     case "RSM":
-      // শর্ত: চলতি মাসে ৭৫,০০০ সেলস ভলিউম এবং কমপক্ষে ৩টি আলাদা লেগে AM বা তার ওপরে কোয়ালিফাইড মেম্বার
-      if ((totalSales >= 75000 && countAtLeast("AM") >= 3) || totalSales >= 75000) { 
+      if (totalSales >= 75000 && countAtLeast("AM") >= 3) { 
         qualifies = true; 
         performanceBonusRate = 0.01; 
       }
       break;
     case "DSM":
-      // শর্ত: ১,০০,০০০ সেলস এবং কমপক্ষে ১টি আলাদা লেগে RSM ও ২টি আলাদা লেগে AM কোয়ালিফাইড মেম্বার
-      if ((totalSales >= 100000 && countAtLeast("RSM") >= 1 && countAtLeast("AM") >= 2) || totalSales >= 100000) { 
+      if (totalSales >= 100000 && countAtLeast("RSM") >= 1 && countAtLeast("AM") >= 2) { 
         qualifies = true; 
         performanceBonusRate = 0.005; 
       }
@@ -3273,791 +3270,6 @@ const checkSelfQualificationOnly = (position, totalSales, qualifiedLegsCounts = 
   
   return { qualifies, performanceBonusRate };
 };
-
-// =======================================================================
-// মেইন কন্ট্রোল এপিআই ফাংশন (STEP 1 থেকে STEP 4)
-// =======================================================================
-const processCompanyTreeData = async (req, res) => {
-  try {
-    const db = mongoose.connection.db;
-
-    // --- STEP 1: ডাটাবেজ থেকে র ডাটা তুলে আনা ---
-    // ১. ডাটাবেজ থেকে সেলস/ইনভয়েস, ডিলার এবং MKT ইউজার তুলে আনা
-    let allSales = await db.collection("invoices").find({}).toArray();
-    if (!allSales || allSales.length === 0) {
-      allSales = await db.collection("sales").find({}).toArray();
-    }
-
-    const dealers = await db.collection("dealers").find({}).toArray();
-    const users = await db.collection("users").find({ idNo: { $regex: /^MKT/i } }).toArray();
-
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth(); 
-    const currentYear = currentDate.getFullYear(); 
-
-    const userSalesMap = {};
-    const tree = [];
-
-    // --- STEP 2: মেমোরি ম্যাপ এবং স্ট্রাকচার তৈরি করা ---
-    users.forEach(u => {
-      userSalesMap[u.idNo] = { 
-        ...u, 
-        _id: u._id.toString(),
-        directSalesTotal: 0,       
-        directSalesThisMonth: 0,   
-        totalSalesVolume: 0,       
-        thisMonthSalesVolume: 0,   
-        autoPosition: "SALES REPRESENTATIVE",
-        position: "SALES REPRESENTATIVE",
-        currentSlabRate: 0,
-        isMonthlyQualified: false,
-        performanceBonusRate: 0,
-        thisMonthBonusEarned: 0,
-        globalPoolShareRate: 0,
-        eligibleForGlobalPool: false,
-        dealerCommissionEarned: 0,
-        generationBonusEarned: 0,
-        children: [] 
-      };
-    });
-
-    // --- STEP 3: ডিলার সেলস এবং কমিশন প্রসেসিং (আর্কাইভড বনাম লাইভ প্রোটেকশন) ---
-    allSales.forEach(sale => {
-      const saleAmount = Number(sale.grandTotal || sale.totalAmount || sale.amount || 0);
-      const saleDate = new Date(sale.date || sale.createdAt);
-      const isCurrentMonth = saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear;
-
-      let targetEmployeeIdNo = null;
-
-      // ক) যদি ইনভয়েসটি ইতিমধ্যেই মাসের শেষে আর্কাইভ হয়ে থাকে (স্থায়ী স্ন্যাপশট ফার্স্ট)
-      if (sale.isMonthlyArchived && sale.archivedSalesData?.employeeSnapshot?.idNo) {
-        targetEmployeeIdNo = sale.archivedSalesData.employeeSnapshot.idNo;
-      } 
-      // খ) যদি ইনভয়েসটি রানিং মাসের হয় (এখনো আর্কাইভ করা হয়নি), তবে ডিলারের কারেন্ট রেফারেন্স আইডি নিব
-      else if (sale.dealer) {
-        const dealerIdStr = sale.dealer.toString();
-        const matchingDealer = dealers.find(d => d._id.toString() === dealerIdStr);
-        
-        if (matchingDealer && matchingDealer.referenceIdNo) {
-          targetEmployeeIdNo = matchingDealer.referenceIdNo;
-        }
-      }
-
-      // গ) প্রাপ্ত সঠিক কর্মচারীর আইডিতে সেলস এবং ডিলার কমিশন যোগ করা
-      if (targetEmployeeIdNo && userSalesMap[targetEmployeeIdNo]) {
-        const employee = userSalesMap[targetEmployeeIdNo];
-        
-        // টোটাল লাইফটাইম সেলস ভলিউম ট্র্যাকিং
-        employee.directSalesTotal += saleAmount;
-        employee.totalSalesVolume += saleAmount;
-
-        // 💰 ডিলার কমিশন ক্যালকুলেট এবং যোগ করা (স্থায়ী বা রানিং উভয় ইনভয়েসের জন্যই)
-        const dealerComm = calculateDealerCommission(saleAmount);
-        employee.dealerCommissionEarned += dealerComm;
-
-        // রানিং চলতি মাসের সেলস ভলিউম ট্র্যাকিং
-        if (isCurrentMonth) {
-          employee.directSalesThisMonth += saleAmount;
-          employee.thisMonthSalesVolume += saleAmount;
-        }
-      }
-    });
-
-    // --- STEP 4: রিকার্সিভ পজিশন লক ও মান্থলি কোয়ালিফিকেশন ইঞ্জিন ---
-    const childMap = {};
-    users.forEach(u => {
-      const parentId = u.refIdNo;
-      if (parentId && parentId !== "0") {
-        if (!childMap[parentId]) childMap[parentId] = [];
-        childMap[parentId].push(u.idNo);
-      }
-    });
-
-    // ট্র্যাকিং সেট যাতে কোনো নোড একাধিকবার প্রসেস হয়ে ডাবল সেলস ভলিউম যোগ না করে
-    const processedNodes = new Set();
-
-    const processHierarchySpecs = (currentIdNo) => {
-      // যদি এই নোড ইতিমধ্যে প্রসেসড হয়ে থাকে, তবে তার সাব-ট্রির কোয়ালিফাইড লেগ রিটার্ন করবে (ডাবল কাউন্ট প্রোটেকশন)
-      if (processedNodes.has(currentIdNo)) {
-        const emp = userSalesMap[currentIdNo];
-        const resLegs = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
-        if (emp) {
-          const myPos = (emp.autoPosition || "").toUpperCase().trim();
-          if (resLegs[myPos] !== undefined) resLegs[myPos] = 1;
-        }
-        return resLegs;
-      }
-      
-      const currentEmployee = userSalesMap[currentIdNo];
-      if (!currentEmployee) return { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
-
-      const childrenIds = childMap[currentIdNo] || [];
-      const masterLegsCounts = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
-      
-      let teamSalesSumTotal = 0;
-      let teamSalesSumMonth = 0;
-
-      // প্রথমে সমস্ত চাইল্ড নোডগুলোর হিসাব রিকার্সিভলি শেষ করে আসতে হবে (Bottom-Up Approach)
-      childrenIds.forEach(childId => {
-        // চাইল্ডের নিচের ডিপ লেগের ইনফরমেশন রিকার্সিভলি নিয়ে আসা
-        const childSubTreeLegs = processHierarchySpecs(childId);
-        const childData = userSalesMap[childId];
-        
-        if (childData) {
-          teamSalesSumTotal += childData.totalSalesVolume;
-          teamSalesSumMonth += childData.thisMonthSalesVolume;
-
-          // 💥 ডিপ লেগ পাস লজিক: এই লেগে সরাসরি ডিরেক্ট চাইল্ড নিজে অথবা তার নিচের জেনারেশনের 
-          // কেউ যদি কোয়ালিফাই করে থাকে, তবে সেই লেগের সর্বোচ্চ এচিভমেন্টটি (Highest Rank) নিতে হবে।
-          const childFinalPos = (childData.autoPosition || "").toUpperCase().trim();
-          const highestAchievedInThisLeg = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
-          
-          Object.keys(childSubTreeLegs).forEach(pos => {
-            if (childSubTreeLegs[pos] > 0) highestAchievedInThisLeg[pos] = 1;
-          });
-          if (highestAchievedInThisLeg[childFinalPos] !== undefined) {
-            highestAchievedInThisLeg[childFinalPos] = 1;
-          }
-
-          // এবার এই লেগের (Leg) রেজাল্টটি প্যারেন্টের মেইন মাস্টার লেগ ট্র্যাকিং-এ যোগ করা
-          Object.keys(highestAchievedInThisLeg).forEach(pos => {
-            masterLegsCounts[pos] += highestAchievedInThisLeg[pos];
-          });
-        }
-      });
-
-      // 🔒 চাইল্ডদের টিম ভলিউম কারেন্ট প্যারেন্টের নিজস্ব ডাইরেক্ট সেলসের সাথে নিখুঁতভাবে যোগ করা
-      currentEmployee.totalSalesVolume += teamSalesSumTotal;
-      currentEmployee.thisMonthSalesVolume += teamSalesSumMonth;
-
-      // ১. লাইফটাইম সেলস এবং ডিপ লেগ ট্র্যাকিং সামারি দিয়ে স্থায়ী পজিশন ডিটারমাইন করা হচ্ছে
-      currentEmployee.autoPosition = autoDeterminePosition(currentEmployee.totalSalesVolume, masterLegsCounts);
-
-      // 🎯 ২. পজিশন সেট হওয়ার পর চলতি মাসের সেলস ও লেগ পাস সামারি দিয়ে মান্থলি কোয়ালিফাই ম্যাচ করা হচ্ছে
-      const qualification = checkSelfQualificationOnly(
-        currentEmployee.autoPosition,
-        currentEmployee.thisMonthSalesVolume, 
-        masterLegsCounts
-      );
-
-      currentEmployee.isMonthlyQualified = qualification.qualifies;
-      currentEmployee.performanceBonusRate = qualification.performanceBonusRate;
-      currentEmployee.currentSlabRate = POSITION_SLABS[currentEmployee.autoPosition] || 0;
-
-      // গ্লোবাল পুল বোনাস এলিজিবিলিটি ট্র্যাকিং
-      if (ELIGIBLE_POOL_POSITIONS.includes(currentEmployee.autoPosition) && currentEmployee.isMonthlyQualified) {
-        currentEmployee.eligibleForGlobalPool = true;
-        currentEmployee.globalPoolShareRate = SALES_SHARE_CONFIG[currentEmployee.autoPosition] || 0;
-      }
-
-      // নোডটিকে প্রসেসড হিসেবে মার্ক করা হলো
-      processedNodes.add(currentIdNo);
-
-      // আপলাইন প্যারেন্টের প্রসেসিং এর জন্য নিজের ফাইনাল পজিশন অবজেক্টে পাসব্যাক করা হচ্ছে
-      const myFinalPos = (currentEmployee.autoPosition || "").toUpperCase().trim();
-      const returnLegsSummary = { ...masterLegsCounts };
-      if (returnLegsSummary[myFinalPos] !== undefined) {
-        returnLegsSummary[myFinalPos] = Math.max(returnLegsSummary[myFinalPos], 1);
-      }
-
-      return returnLegsSummary;
-    };
-
-    // শুধুমাত্র মেইন রুট প্যারেন্টদের খুঁজে রিকার্সন ইঞ্জিন স্টার্ট করা
-    users.forEach(user => {
-      if (user.refIdNo === "0" || !user.refIdNo || !userSalesMap[user.refIdNo]) {
-        processHierarchySpecs(user.idNo);
-      }
-    });
-
-    // Note: STEP 5 (Differential slab calculation & final tree rendering) এর কোড এরপর যুক্ত হবে...
-
-    // --- STEP 5: ডিফারেন্সিয়াল জেনারেশন বোনাস এবং ফাইনাল ট্রি জেনারেশন ---
-    
-    // ১. ডিফারেন্সিয়াল বোনাস ক্যালকুলেশন (প্যারেন্ট বনাম ডাইরেক্ট চাইল্ড টিম ভলিউম)
-    // নোট: বোনাস শুধুমাত্র সরাসরি ফার্স্ট-লেভেল ডাউনলাইনের টিমের মোট মান্থলি সেলসের (thisMonthSalesVolume) ওপর একবার হিসাব হবে
-    users.forEach(user => {
-      const parentIdNo = user.refIdNo;
-      
-      // যদি ইউজারের কোনো ভ্যালিড প্যারেন্ট থাকে
-      if (parentIdNo && parentIdNo !== "0" && userSalesMap[parentIdNo]) {
-        const parent = userSalesMap[parentIdNo];
-        const child = userSalesMap[user.idNo];
-        
-        if (child && child.thisMonthSalesVolume > 0) {
-          // স্ল্যাব রেটের ডিফারেন্স বা পার্থক্য বের করা
-          let diffRate = (parent.currentSlabRate || 0) - (child.currentSlabRate || 0);
-          
-          // যদি প্যারেন্টের র‍্যাংক চাইল্ডের চেয়ে বড় হয় তবেই সে ডিফারেন্সিয়াল বোনাস পাবে
-          if (diffRate > 0) {
-            // চাইল্ডের নিজস্ব ডাইরেক্ট সেলস + তার পুরো টিমের চলতি মাসের সেলসের ওপর ডিফারেন্স রেট গুণ হবে
-            parent.generationBonusEarned += (child.thisMonthSalesVolume * diffRate);
-          }
-        }
-      }
-    });
-
-    // ২. ফাইনাল ডেটা ফরম্যাটিং, বোনাস হিসাব এবং নেস্টেড ট্রি অবজেক্ট স্ট্রাকচার বিল্ড
-    users.forEach(user => {
-      const currentEmployee = userSalesMap[user.idNo];
-      if (!currentEmployee) return;
-
-      // আপনার স্ট্রাকচার অনুযায়ী ফ্রন্টএন্ড ভেরিয়েবল অ্যাসাইনমেন্ট
-      currentEmployee.position = currentEmployee.autoPosition;
-      currentEmployee.totalSalesAchieved = currentEmployee.totalSalesVolume;
-      currentEmployee.thisMonthSalesAchieved = currentEmployee.thisMonthSalesVolume;
-      
-      // 💰 পারফরম্যান্স বোনাস নির্ধারণ (চলতি মাসের নিজস্ব ব্যক্তিগত ডাইরেক্ট সেলস ভলিউম দিয়ে)
-      currentEmployee.thisMonthBonusEarned = (currentEmployee.directSalesThisMonth || 0) * (currentEmployee.performanceBonusRate || 0);
-      
-      const parentIdNo = user.refIdNo;
-      
-      // যদি এটি রুট নোড হয় (যার কোনো বস বা প্যারেন্ট নেই অথবা প্যারেন্ট ডাটাবেজে এক্সিস্ট করে না)
-      if (parentIdNo === "0" || !parentIdNo || !userSalesMap[parentIdNo]) {
-        tree.push(currentEmployee);
-      } else {
-        // এটি চাইল্ড নোড হলে সরাসরি তার মূল প্যারেন্টের 'children' অ্যারেতে মেমোরি রেফারেন্স পুশ হবে
-        userSalesMap[parentIdNo].children.push(currentEmployee);
-      }
-    });
-
-    // সফলভাবে সম্পূর্ণ ডাইনামিক এবং ফিক্সড এমএলএম ট্রি রেসপন্স রিটার্ন করা হলো
-    res.status(200).json(tree);
-    
-  } catch (error) {
-    console.error("❌ BACKEND CRASH ERROR:", error);
-    res.status(500).json({ message: error.message });
-  }
-};
-
-
-// const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
-//   const db = mongoose.connection.db;
-
-//   const startDate = new Date(currentYear, currentMonth - 1, 1);
-//   const endDate = new Date(currentYear, currentMonth, 1);
-
-//   // ১. ডাটাবেজ থেকে সমস্ত ইনভয়েস তুলে আনা
-//   let allLifetimeSales = await db.collection("invoices").find({}).toArray();
-//   if (!allLifetimeSales || allLifetimeSales.length === 0) {
-//     allLifetimeSales = await db.collection("sales").find({}).toArray();
-//   }
-
-//   // ২. চলতি মাসের ফিল্টারকৃত সেলস
-//   const thisMonthSales = allLifetimeSales.filter(s => {
-//     const rawDate = s.date || s.createdAt;
-//     if (!rawDate) return false;
-//     const d = new Date(rawDate);
-//     return d >= startDate && d < endDate;
-//   });
-
-//   const totalCompanySalesAmount = thisMonthSales.reduce((sum, s) => sum + (s.grandTotal || 0), 0);
-//   const dealers = await db.collection("dealers").find({}).toArray();
-//   const users = await db.collection("users").find({ idNo: { $regex: /^MKT/i } }).toArray();
-
-//   const userSalesMap = {};
-//   const parentToChildrenMap = {}; 
-
-//   users.forEach(u => {
-//     userSalesMap[u.idNo] = { 
-//       ...u, 
-//       _id: u._id.toString(),
-//       directSalesLifetime: 0, 
-//       directSalesThisMonth: 0, 
-//       totalSalesVolume: 0,       
-//       thisMonthSalesVolume: 0,   
-//       autoPosition: "SALES REPRESENTATIVE",
-//       baseCommission: 0,
-//       selfQualifiesForBonus: false,
-//       performanceBonusRate: 0,
-//       monthlyBonusAmount: 0,
-//       globalPoolBonusAmount: 0,
-//       generationBonusEarned: 0, // জেনারেশন বোনাস ট্র্যাকিং ফিল্ড
-//       earnedPools: [] 
-//     };
-    
-//     const parentId = u.refIdNo || "0";
-//     if (!parentToChildrenMap[parentId]) parentToChildrenMap[parentId] = [];
-//     parentToChildrenMap[parentId].push(u.idNo); 
-//   });
-
-//   // ৩. সমস্ত লাইফটাইম সেলস প্রক্রিয়াকরণ
-//   allLifetimeSales.forEach(sale => {
-//     const saleAmount = Number(sale.grandTotal || sale.totalAmount || sale.amount || 0);
-//     const saleDate = new Date(sale.date || sale.createdAt);
-//     const isSelectedMonth = saleDate >= startDate && saleDate < endDate;
-
-//     let targetEmployeeIdNo = null;
-
-//     if (sale.isMonthlyArchived && sale.archivedSalesData?.employeeSnapshot?.idNo) {
-//       targetEmployeeIdNo = sale.archivedSalesData.employeeSnapshot.idNo;
-//     } else if (sale.dealer) {
-//       const dStr = sale.dealer.toString();
-//       const matchingDealer = dealers.find(d => d._id.toString() === dStr);
-//       if (matchingDealer && matchingDealer.referenceIdNo) {
-//         targetEmployeeIdNo = matchingDealer.referenceIdNo;
-//       }
-//     }
-
-//     if (targetEmployeeIdNo && userSalesMap[targetEmployeeIdNo]) {
-//       const emp = userSalesMap[targetEmployeeIdNo];
-//       emp.directSalesLifetime += saleAmount;
-//       emp.totalSalesVolume += saleAmount;
-
-//       if (isSelectedMonth) {
-//         emp.directSalesThisMonth += saleAmount;
-//         emp.thisMonthSalesVolume += saleAmount;
-//       }
-//     }
-//   });
-
-//   // =======================================================================
-//   // পাস ১: রিকার্সিভ বটম-আপ পজিশন ও কোয়ালিফিকেশন (Deep Leg Roll-Up ফিক্সড)
-//   // =======================================================================
-//   const processedNodes = new Set(); 
-  
-//   const determineHierarchySpecs = (currentIdNo) => {
-//     // ডাবল কাউন্ট প্রোটেকশন বেস কেস
-//     if (processedNodes.has(currentIdNo)) {
-//       const emp = userSalesMap[currentIdNo];
-//       const resLegs = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
-//       if (emp) {
-//         const myPos = (emp.autoPosition || "").toUpperCase().trim();
-//         if (resLegs[myPos] !== undefined) resLegs[myPos] = 1;
-//       }
-//       return resLegs;
-//     }
-    
-//     const currentEmployee = userSalesMap[currentIdNo];
-//     if (!currentEmployee) return { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
-
-//     const childrenIds = parentToChildrenMap[currentIdNo] || [];
-//     const masterLegsCounts = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
-    
-//     let teamSalesSumTotal = 0;
-//     let teamSalesSumMonth = 0;
-
-//     // পোস্ট-অর্ডার ট্রাভার্সাল: আগে গভীর ডাউনলাইনের হিসাব শেষ হবে (Bottom-Up)
-//     childrenIds.forEach(childId => {
-//       // চাইল্ডের সাব-ট্রির ডিপ লেগ কোয়ালিফিকেশন ম্যাপ নিয়ে আসা
-//       const childSubTreeLegs = determineHierarchySpecs(childId);
-//       const childData = userSalesMap[childId];
-      
-//       if (childData) {
-//         teamSalesSumTotal += childData.totalSalesVolume;
-//         teamSalesSumMonth += childData.thisMonthSalesVolume;
-
-//         // 💥 ডিপ লেগ রোল-আপ: এই লেগে সর্বোচ্চ যে র‍্যাংক কোয়ালিফাই করেছে তা চেক করা
-//         const childFinalPos = (childData.autoPosition || "").toUpperCase().trim();
-//         const highestAchievedInThisLeg = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
-        
-//         // চাইল্ডের ভেতরের লেগগুলোর এচিভমেন্ট কপি করা
-//         Object.keys(childSubTreeLegs).forEach(pos => {
-//           if (childSubTreeLegs[pos] > 0) highestAchievedInThisLeg[pos] = 1;
-//         });
-        
-//         // চাইল্ডের নিজের পার্সোনাল পজিশনও এই লেগে অন্তর্ভুক্ত করা
-//         if (highestAchievedInThisLeg[childFinalPos] !== undefined) {
-//           highestAchievedInThisLeg[childFinalPos] = 1;
-//         }
-
-//         // এই ডিরেক্ট লেগের (Leg) রেজাল্টটি প্যারেন্টের মেইন মাস্টার লেগ কাউন্টে যোগ করা
-//         Object.keys(highestAchievedInThisLeg).forEach(pos => {
-//           masterLegsCounts[pos] += highestAchievedInThisLeg[pos];
-//         });
-//       }
-//     });
-    
-//     // ডাউনলাইনের টিম সেলস প্যারেন্টের কারেন্ট সেলসের সাথে নিখুঁতভাবে যোগ করা
-//     currentEmployee.totalSalesVolume += teamSalesSumTotal;
-//     currentEmployee.thisMonthSalesVolume += teamSalesSumMonth;
-
-//     // ১. লাইফটাইম সেলস এবং ডিপ লেগ সামারি দিয়ে স্থায়ী পজিশন ডিটারমাইন করা
-//     if (typeof autoDeterminePosition === "function") {
-//       currentEmployee.autoPosition = autoDeterminePosition(currentEmployee.totalSalesVolume, masterLegsCounts);
-//     }
-    
-//     // 🎯 ২. চলতি মাসের সেলস ও লেগ পাস সামারি দিয়ে মান্থলি কোয়ালিফাই ম্যাচ করা
-//     if (typeof checkSelfQualificationOnly === "function") {
-//       const checkBonus = checkSelfQualificationOnly(currentEmployee.autoPosition, currentEmployee.thisMonthSalesVolume, masterLegsCounts);
-//       currentEmployee.selfQualifiesForBonus = checkBonus.qualifies;
-//       currentEmployee.performanceBonusRate = checkBonus.performanceBonusRate;
-//     }
-
-//     processedNodes.add(currentIdNo);
-
-//     // আপলাইন প্যারেন্টের প্রসেসিং এর জন্য নিজের ফাইনাল পজিশন অবজেক্টে পাসব্যাক করা হচ্ছে
-//     const myFinalPos = (currentEmployee.autoPosition || "").toUpperCase().trim();
-//     const returnLegsSummary = { ...masterLegsCounts };
-//     if (returnLegsSummary[myFinalPos] !== undefined) {
-//       returnLegsSummary[myFinalPos] = Math.max(returnLegsSummary[myFinalPos], 1);
-//     }
-
-//     return returnLegsSummary;
-//   };
-
-//   // শুধুমাত্র টপ রুট প্যারেন্টদের খুঁজে রিকার্সন ইঞ্জিন স্টার্ট করা
-//   users.forEach(user => {
-//     if (user.refIdNo === "0" || !user.refIdNo || !userSalesMap[user.refIdNo]) {
-//       determineHierarchySpecs(user.idNo);
-//     }
-//   });
-
-
-//  // =======================================================================
-//   // --- পাস ২: লিনিয়ার ডাইনামিক গ্যাপ কমিশন (আপনার ফিক্সড মডিউল হুবহু যুক্ত) ---
-//   // =======================================================================
-//   thisMonthSales.forEach(sale => {
-//     const invoiceAmount = Number(sale.grandTotal || sale.totalAmount || sale.amount || 0);
-//     if (invoiceAmount <= 0) return;
-
-//     let startEmployeeIdNo = null;
-//     if (sale.isMonthlyArchived && sale.archivedSalesData?.employeeSnapshot?.idNo) {
-//       startEmployeeIdNo = sale.archivedSalesData.employeeSnapshot.idNo;
-//     } else if (sale.dealer) {
-//       const dStr = sale.dealer.toString();
-//       const matchingDealer = dealers.find(d => d._id.toString() === dStr);
-//       if (matchingDealer && matchingDealer.referenceIdNo) {
-//         startEmployeeIdNo = matchingDealer.referenceIdNo;
-//       }
-//     }
-
-//     if (!startEmployeeIdNo) return;
-    
-//     let currentIdNo = startEmployeeIdNo;
-//     let distributedRateSoFar = 0; 
-//     const visited = new Set(); 
-
-//     while (currentIdNo && currentIdNo !== "0" && !visited.has(currentIdNo)) {
-//       visited.add(currentIdNo);
-//       const empNode = userSalesMap[currentIdNo];
-//       if (!empNode) break;
-
-//       let myPositionRate = 0;
-//       if (empNode.selfQualifiesForBonus === true) {
-//         myPositionRate = (typeof POSITION_SLABS !== "undefined" && POSITION_SLABS[empNode.autoPosition?.toUpperCase()]) || 0;
-//       }
-
-//       if (myPositionRate > distributedRateSoFar) {
-//         const gapRate = myPositionRate - distributedRateSoFar;
-//         empNode.baseCommission += invoiceAmount * gapRate; // ডাইনামিক গ্যাপ হিট
-//         distributedRateSoFar = myPositionRate; 
-//       }
-
-//       if (distributedRateSoFar >= 0.24) break;
-//       currentIdNo = empNode.refIdNo; 
-//     }
-//   });
-
-
-// // =======================================================================
-//   // পাস ৩: টপ-ডাউন কোয়ালিফিকেশন ওভাররাইড চেইন (Top-Down Override Engine)
-//   // =======================================================================
-//   const applyTopDownBonusQualification = (currentIdNo, parentQualifies = false) => {
-//     const currentEmployee = userSalesMap[currentIdNo];
-//     if (!currentEmployee) return;
-
-//     // 🔒 ফিক্সড লজিক: যদি ওপরের প্যারেন্ট কোয়ালিফাই করে, তবে নিচের চাইল্ড স্বয়ংক্রিয়ভাবে কোয়ালিফাইড হবে
-//     if (parentQualifies) {
-//       currentEmployee.selfQualifiesForBonus = true;
-//     }
-
-//     const childrenIds = parentToChildrenMap[currentIdNo] || [];
-    
-//     // রিকার্সিভলি নিচের জেনারেশনে কোয়ালিফিকেশন স্ট্যাটাস পাস করা হচ্ছে
-//     childrenIds.forEach(childId => 
-//       applyTopDownBonusQualification(childId, currentEmployee.selfQualifiesForBonus)
-//     );
-//   };
-
-//   // সিস্টেমের একদম মেইন রুট প্যারেন্টদের (HQ/Top Admins) থেকে চেইনটি ট্রিগার করা হচ্ছে
-//   if (parentToChildrenMap["0"]) {
-//     parentToChildrenMap["0"].forEach(rootIdNo => applyTopDownBonusQualification(rootIdNo, false));
-//   }
-
-//  // =======================================================================
-//   // পাস ৪: গ্লোবাল পুল কাউন্টার এবং মেম্বার অ্যাসাইনমেন্ট (Multi-Pool Multi-Earn Fixed)
-//   // =======================================================================
-//   const poolShareCounters = { RSM: 0, DSM: 0, SDSM: 0, SM: 0, NSM: 0, ED: 0, BOM: 0 };
-//   const qualifiedPoolMembers = { RSM: [], DSM: [], SDSM: [], SM: [], NSM: [], ED: [], BOM: [] };
-  
-//   users.forEach(user => {
-//     const nodeData = userSalesMap[user.idNo];
-//     if (!nodeData) return;
-
-//     // 🔒 শর্ত ১: পুলে এলিজিবল হতে হলে চলতি মাসে পার্সোনাল সেলস ন্যূনতম ৩,০০০ টাকা হতে হবে
-//     const isQualifiedForBill = (nodeData.directSalesThisMonth || 0) >= 3000;
-//     const myPos = (nodeData.autoPosition || "").toUpperCase().trim();
-
-//     if (isQualifiedForBill && nodeData.selfQualifiesForBonus && typeof ELIGIBLE_POOL_POSITIONS !== "undefined" && ELIGIBLE_POOL_POSITIONS.includes(myPos)) {
-//       const myRankValue = RANK_MAP[myPos];
-      
-//       // পুলে আগে থেকে থাকা ময়লা ডেটা পরিষ্কার করার সেফটি চেক
-//       nodeData.earnedPools = [];
-
-//       ELIGIBLE_POOL_POSITIONS.forEach(poolName => {
-//         const poolRankValue = RANK_MAP[poolName];
-        
-//         if (myPos === "RSM") {
-//           // RSM শুধুমাত্র RSM পুলেই শেয়ার পাবে
-//           if (poolName === "RSM") { 
-//             poolShareCounters[poolName]++; 
-//             nodeData.earnedPools.push(poolName); 
-//             qualifiedPoolMembers[poolName].push(user.idNo); 
-//           }
-//         } else {
-//           // 💥 ক্রস-পুল মেকানিজম: RSM বাদে নিজের পজিশন বা তার নিচের সকল পুলে শেয়ার পাবেন
-//           if (myRankValue >= poolRankValue && poolName !== "RSM") { 
-//             poolShareCounters[poolName]++; 
-//             nodeData.earnedPools.push(poolName); 
-//             qualifiedPoolMembers[poolName].push(user.idNo); 
-//           }
-//         }
-//       });
-//     }
-//   });
-
-//   // =======================================================================
-//   // পাস ৫: গ্লোবাল কোম্পানি पूल বোনাস ডিস্ট্রিবিউশন রানার (Guaranteed Financial Audit Fixed)
-//   // =======================================================================
-  
-//   // 🔒 ফাইন্যান্সিয়াল সেফটি গার্ড: গ্লোবাল পুলে নতুন করে টাকা যোগ করার আগে 
-//   // সবার কারেন্ট গ্লোবাল পুল ব্যালেন্স ০ করে নেওয়া হচ্ছে যাতে মেমোরি ওভারল্যাপ না হয়।
-//   Object.keys(userSalesMap).forEach(idNo => {
-//     if (userSalesMap[idNo]) {
-//       userSalesMap[idNo].globalPoolBonusAmount = 0;
-//     }
-//   });
-
-//   if (typeof ELIGIBLE_POOL_POSITIONS !== "undefined") {
-//     ELIGIBLE_POOL_POSITIONS.forEach(poolName => {
-//       const totalPoolMembers = poolShareCounters[poolName] || 0;
-//       const poolRate = SALES_SHARE_CONFIG[poolName] || 0;
-
-//       // যদি পুলে মেম্বার থাকে এবং সেই পুলে কোম্পানির বাজেট বরাদ্দ থাকে
-//       if (totalPoolMembers > 0 && poolRate > 0) {
-//         // কোম্পানির মোট চলতি মাসের টার্নওভার থেকে এই পুলের জন্য বরাদ্দকৃত মোট টাকা
-//         const totalPoolMoney = totalCompanySalesAmount * poolRate;
-        
-//         // প্রতি শেয়ার বা মেম্বার পিছু প্রাপ্য টাকার পরিমাণ
-//         const sharePerMember = totalPoolMoney / totalPoolMembers;
-        
-//         // ঐ নির্দিষ্ট পুলে থাকা কোয়ালিফাইড মেম্বারদের আইডিতে নিখুঁতভাবে শেয়ারের টাকা যোগ করা হচ্ছে
-//         qualifiedPoolMembers[poolName].forEach(idNo => {
-//           if (userSalesMap[idNo]) {
-//             userSalesMap[idNo].globalPoolBonusAmount += sharePerMember;
-//           }
-//         });
-//       }
-//     });
-//   }
-
-
-//   // =========================================================================
-//   // পাস ৬: কর্মচারীদের ফাইনাল ফ্ল্যাট রেসপন্স এরে প্রস্তুতকরণ (ঠিক আপনার ফ্ল্যাট অবজেক্ট ফরম্যাটে)
-//   // =========================================================================
-//   // const finalLedgerList = [];
-
-//   // users.forEach(user => {
-//   //   const nodeData = userSalesMap[user.idNo];
-//   //   if (!nodeData) return;
-
-//   //   // ৩০০০ টাকা মান্থলি ডাইরেক্ট সেলসের শর্ত চেক
-//   //   const isQualifiedForBill = (nodeData.directSalesThisMonth || 0) >= 3000;
-
-//   //   let salesShareBonus = nodeData.globalPoolBonusAmount || 0;
-//   //   let performanceBonus = 0;
-
-//   //   // 🔒 ফিক্সড: পারফরম্যান্স বোনাস অবশ্যই চলতি মাসের ব্যক্তিগত বিক্রয়ের ওপর (directSalesThisMonth) হবে, পুরো টিম ভলিউমের ওপর নয়।
-//   //   if (isQualifiedForBill && nodeData.selfQualifiesForBonus) {
-//   //     performanceBonus = (nodeData.directSalesThisMonth || 0) * (nodeData.performanceBonusRate || 0);
-//   //   }
-
-//   //   // ৩০০০ টাকার নিচে ডাইরেক্ট সেলস হলে পারফরম্যান্স বোনাস এবং গ্লোবাল পুল বোনাস ০ হবে
-//   //   // (নোট: পাস ২-এর ডাইনামিক কম্প্রেশনের কারণে যোগ্য মেম্বারদের baseCommission অলরেডি সুরক্ষিত আছে)
-//   //   const finalBaseCommission = isQualifiedForBill ? (nodeData.baseCommission || 0) : 0;
-//   //   const finalSalesShareBonus = isQualifiedForBill ? salesShareBonus : 0;
-    
-//   //   // ভেরিয়েবলগুলো অবজেক্টে রাইট করার জন্য আপডেট করা হচ্ছে
-//   //   nodeData.baseCommission = finalBaseCommission;
-//   //   nodeData.monthlyBonusAmount = performanceBonus;
-//   //   nodeData.globalPoolBonusAmount = finalSalesShareBonus;
-
-//   //   // আপনার দেওয়া প্রপার্টি নামের সাথে হুবহু মিল রাখার জন্য অ্যাসাইনমেন্ট
-//   //   nodeData.totalSalesAchieved = nodeData.totalSalesVolume;
-//   //   nodeData.thisMonthSalesAchieved = nodeData.thisMonthSalesVolume;
-
-//   //   // গ্রস আর্নিং টোটাল
-//   //   const totalEarned = finalBaseCommission + finalSalesShareBonus + performanceBonus;
-
-//   //   // ফিল্টারিং শর্ত: ইনকাম থাকলে অথবা লাইফটাইম সেলস ২৫০০০ এর বেশি হলে রেসপন্সে ঢুকবে
-//   //   if (totalEarned > 0 || (nodeData.totalSalesVolume || 0) >= 25000) {
-//   //     finalLedgerList.push({
-//   //       // ক) ইউজারের ডাটাবেজের সমস্ত অরিজিনাল ফিল্ড (সরাসরি স্প্রেড করা হলো)
-//   //       ...user,
-//   //       _id: user._id.toString(),
-        
-//   //       // খ) 💥 আপনার এক্সাম্পল অনুযায়ী ডাইনামিক ফিল্ডসমূহ হুবহু রুটে বসানো হলো
-//   //       directSalesLifetime: nodeData.directSalesLifetime,
-//   //       directSalesThisMonth: nodeData.directSalesThisMonth,
-//   //       totalSalesVolume: nodeData.totalSalesVolume,
-//   //       thisMonthSalesVolume: nodeData.thisMonthSalesVolume,
-//   //       autoPosition: nodeData.autoPosition,
-        
-//   //       baseCommission: nodeData.baseCommission,
-//   //       selfQualifiesForBonus: nodeData.selfQualifiesForBonus,
-//   //       performanceBonusRate: nodeData.performanceBonusRate,
-//   //       monthlyBonusAmount: nodeData.monthlyBonusAmount,
-//   //       globalPoolBonusAmount: nodeData.globalPoolBonusAmount,
-//   //       earnedPools: isQualifiedForBill ? nodeData.earnedPools : [],
-        
-//   //       totalSalesAchieved: nodeData.totalSalesAchieved,
-//   //       thisMonthSalesAchieved: nodeData.thisMonthSalesAchieved,
-        
-//   //       // গ) অডিটিং এবং ফ্রন্টএন্ডের জন্য প্রফেশনাল ট্র্যাকিং ফিল্ড
-//   //       netTotalEarnings: Number(totalEarned.toFixed(2)),
-//   //       qualificationStatus: isQualifiedForBill ? "Qualified" : "Disqualified (Sales < 3000)"
-//   //     });
-//   //   }
-//   // });
-
-//     // =========================================================================
-//   // পাস ৬: কর্মচারীদের ফাইনাল ফ্ল্যাট রেসপন্স এরে প্রস্তুতকরণ (গ্যাপ কমিশন প্রটেকশন ফিক্সড)
-//   // =========================================================================
-//   const finalLedgerList = [];
-
-//   users.forEach(user => {
-//     const nodeData = userSalesMap[user.idNo];
-//     if (!nodeData) return;
-
-//     // ৩০০০ টাকা মান্থলি ডাইরেক্ট সেলসের শর্ত চেক
-//     const isQualifiedForBill = (nodeData.directSalesThisMonth || 0) >= 3000;
-
-//     let salesShareBonus = nodeData.globalPoolBonusAmount || 0;
-//     let performanceBonus = 0;
-
-//     // ১. পারফরম্যান্স বোনাস নির্ধারণ (চলতি মাসে ৩০০০+ ব্যক্তিগত সেলস এবং বোনাস কোয়ালিফাইড হলে পাবে)
-//     if (isQualifiedForBill && nodeData.selfQualifiesForBonus) {
-//       performanceBonus = (nodeData.directSalesThisMonth || 0) * (nodeData.performanceBonusRate || 0);
-//     }
-
-//     // 🔒 💥 চূড়ান্ত আর্কিটেকচারাল ফিক্স:
-//     // পাস ২-এর ডাইনামিক স্ল্যাব ইঞ্জিন থেকে অর্জিত গ্যাপ কমিশন (baseCommission) কোনোভাবেই ৩০০০ টাকার 
-//     // পার্সোনাল সেলস কন্ডিশন দিয়ে ০ হবে না। এটি সরাসরি সুরক্ষিত থাকবে।
-//     const finalBaseCommission = nodeData.baseCommission || 0;
-    
-//     // ৩০০০ টাকার নিচে ডাইরেক্ট সেলস হলে শুধুমাত্র গ্লোবাল পুল বোনাস ০ হবে
-//     const finalSalesShareBonus = isQualifiedForBill ? salesShareBonus : 0;
-    
-//     // ভেরিয়েবলগুলো মূল অবজেক্ট ম্যাপে রাইট করা হচ্ছে
-//     nodeData.baseCommission = finalBaseCommission;
-//     nodeData.monthlyBonusAmount = performanceBonus;
-//     nodeData.globalPoolBonusAmount = finalSalesShareBonus;
-
-//     // আপনার দেওয়া প্রপার্টি নামের সাথে হুবহু মিল রাখার জন্য অ্যাসাইনমেন্ট
-//     nodeData.totalSalesAchieved = nodeData.totalSalesVolume;
-//     nodeData.thisMonthSalesAchieved = nodeData.thisMonthSalesVolume;
-
-//     // গ্রস আর্নিং টোটাল (গ্যাপ কমিশন + ফিক্সড পুল বোনাস + পারফরম্যান্স বোনাস)
-//     const totalEarned = finalBaseCommission + finalSalesShareBonus + performanceBonus;
-
-//     // ফিল্টারিং শর্ত: ইনকাম থাকলে অথবা লাইফটাইম সেলস ২৫০০০ এর বেশি হলে রেসপন্সে ঢুকবে
-//     if (totalEarned > 0 || (nodeData.totalSalesVolume || 0) >= 25000) {
-//       finalLedgerList.push({
-//         // ক) ইউজারের ডাটাবেজের সমস্ত অরিজিনাল ফিল্ড (সরাসরি স্প্রেড করা হলো)
-//         ...user,
-//         _id: user._id.toString(),
-        
-//         // খ) আপনার এক্সাম্পল অনুযায়ী ডাইনামিক ফিল্ডসমূহ হুবহু রুটে বসানো হলো
-//         directSalesLifetime: nodeData.directSalesLifetime,
-//         directSalesThisMonth: nodeData.directSalesThisMonth,
-//         totalSalesVolume: nodeData.totalSalesVolume,
-//         thisMonthSalesVolume: nodeData.thisMonthSalesVolume,
-//         autoPosition: nodeData.autoPosition,
-        
-//         baseCommission: Number(nodeData.baseCommission.toFixed(2)),
-//         selfQualifiesForBonus: nodeData.selfQualifiesForBonus,
-//         performanceBonusRate: nodeData.performanceBonusRate,
-//         monthlyBonusAmount: Number(nodeData.monthlyBonusAmount.toFixed(2)),
-//         globalPoolBonusAmount: Number(nodeData.globalPoolBonusAmount.toFixed(2)),
-//         earnedPools: isQualifiedForBill ? nodeData.earnedPools : [],
-        
-//         totalSalesAchieved: nodeData.totalSalesAchieved,
-//         thisMonthSalesAchieved: nodeData.thisMonthSalesAchieved,
-        
-//         // গ) অডিটিং এবং ফ্রন্টএন্ডের জন্য প্রফেশনাল ট্র্যাকিং ফিল্ড
-//         netTotalEarnings: Number(totalEarned.toFixed(2)),
-//         qualificationStatus: isQualifiedForBill ? "Qualified" : "Disqualified for Pool (Sales < 3000)"
-//       });
-//     }
-//   });
-
-
-//     // =========================================================================
-//   // পাস ৭: ডিলার রেসপন্স লুপ (আর্কাইভ ও লাইভ প্রোটেকশনসহ সম্পূর্ণ ফিক্সড)
-//   // =========================================================================
-//   const dealerResultMap = {};
-
-//   thisMonthSales.forEach(sale => {
-//     const amt = Number(sale.grandTotal || sale.totalAmount || sale.amount || 0);
-//     if (amt <= 0) return;
-
-//     let dIdNo = null;
-//     let dName = "Unknown Dealer";
-//     let d_id = sale.dealer ? sale.dealer.toString() : "ARCHIVED_ID";
-
-//     // ক) আর্কাইভড স্ন্যাপশট প্রটেকশন (মাসের শেষে ডাটা লক হয়ে থাকলে)
-//     if (sale.isMonthlyArchived && sale.archivedSalesData && sale.archivedSalesData.dealerSnapshot) {
-//       dIdNo = sale.archivedSalesData.dealerSnapshot.idNo;
-//       dName = sale.archivedSalesData.dealerSnapshot.name || "Unknown Dealer";
-//     } 
-//     // খ) লাইভ রানিং ডাটা ট্র্যাকিং
-//     else if (sale.dealer) {
-//       const matchingDealer = dealers.find(d => d._id.toString() === d_id);
-//       if (matchingDealer) {
-//         dIdNo = matchingDealer.dealerId || matchingDealer.idNo;
-//         dName = matchingDealer.name || "Unknown Dealer";
-//       }
-//     }
-
-//     if (dIdNo) {
-//       if (!dealerResultMap[dIdNo]) {
-//         dealerResultMap[dIdNo] = { _id: d_id, name: dName, dealerId: dIdNo, totalSales: 0 };
-//       }
-//       dealerResultMap[dIdNo].totalSales += amt;
-//     }
-//   });
-
-//   // গ) যেসকল ডিলারের চলতি মাসে কোনো সেলস হয়নি তাদের ০ সেলস সহ ম্যাপে যুক্ত করা
-//   dealers.forEach(dlr => {
-//     const dIdNo = dlr.dealerId || dlr.idNo || "N/A";
-//     if (!dealerResultMap[dIdNo]) {
-//       dealerResultMap[dIdNo] = { _id: dlr._id.toString(), name: dlr.name || "Unknown Dealer", dealerId: dIdNo, totalSales: 0 };
-//     }
-//   });
-
-//   // ঘ) ফাইনাল ডিলার কোয়ালিফিকেশন ও কমিশন প্রসেসিং
-//   const qualifiedDealers = Object.values(dealerResultMap).map(dlr => {
-//     const commission = (typeof calculateDealerCommission === "function") ? calculateDealerCommission(dlr.totalSales) : 0;
-    
-//     // 🔒 ফাইন্যান্সিয়াল সেফটি ফিক্স: ডাটার রাউন্ডিং কন্ডিশন চেকিং এর আগে করা হয়েছে যাতে স্ট্যাটাস মিসম্যাচ না হয়
-//     const isDealerQualified = dlr.totalSales >= 5000;
-
-//     return {
-//       _id: dlr._id,
-//       name: dlr.name,
-//       dealerId: dlr.dealerId,
-//       // ২ দশমিক স্থান পর্যন্ত ফিক্সড করে রাখা হলো নিখুঁত অডিটিং এর জন্য
-//       totalSales: Number(dlr.totalSales.toFixed(2)),
-//       commission: Number(commission.toFixed(2)),
-//       status: isDealerQualified ? "Qualified" : "Disqualified (Sales < 5000)"
-//     };
-//   });
-
-//   // সম্পূর্ণ লেজার ক্যালকুলেশন ইঞ্জিনের ফাইনাল আউটপুট রিটার্ন
-//   return { totalCompanySalesAmount, poolShareCounters, finalLedgerList, qualifiedDealers };
-// };
-
 
 // 10th version: 10.0.0 (June 2024) - Full Refactor with Multi-Pass Engine, Deep Leg Roll-Up, Dynamic Gap Commission, Top-Down Override, and Global Pool Distribution
 // const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
@@ -4974,522 +4186,522 @@ const processCompanyTreeData = async (req, res) => {
 // };
 
 // 12th version: 12.0.0 (June 2024) - Full Refactor with Multi-Pass Engine, Deep Leg Roll-Up, Dynamic Gap Commission, Top-Down Override, Global Pool Distribution, and Optimized Pagination
-const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
-  const db = mongoose.connection.db;
+// const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
+//   const db = mongoose.connection.db;
 
-  const startDate = new Date(currentYear, currentMonth - 1, 1);
-  const endDate = new Date(currentYear, currentMonth, 1);
+//   const startDate = new Date(currentYear, currentMonth - 1, 1);
+//   const endDate = new Date(currentYear, currentMonth, 1);
 
-  // =======================================================================
-  // --- STEP 1 & 2: ডাটাবেজ রিড এবং মেমোরি ম্যাপ স্ট্রাকচার ইনিশিয়ালাইজেশন ---
-  // =======================================================================
-  let allLifetimeSales = await db.collection("invoices").find({}).toArray();
-  if (!allLifetimeSales || allLifetimeSales.length === 0) {
-    allLifetimeSales = await db.collection("sales").find({}).toArray();
-  }
+//   // =======================================================================
+//   // --- STEP 1 & 2: ডাটাবেজ রিড এবং মেমোরি ম্যাপ স্ট্রাকচার ইনিশিয়ালাইজেশন ---
+//   // =======================================================================
+//   let allLifetimeSales = await db.collection("invoices").find({}).toArray();
+//   if (!allLifetimeSales || allLifetimeSales.length === 0) {
+//     allLifetimeSales = await db.collection("sales").find({}).toArray();
+//   }
 
-  const thisMonthSales = allLifetimeSales.filter(s => {
-    const rawDate = s.date || s.createdAt;
-    if (!rawDate) return false;
-    const d = new Date(rawDate);
-    return d >= startDate && d < endDate;
-  });
+//   const thisMonthSales = allLifetimeSales.filter(s => {
+//     const rawDate = s.date || s.createdAt;
+//     if (!rawDate) return false;
+//     const d = new Date(rawDate);
+//     return d >= startDate && d < endDate;
+//   });
 
-  const totalCompanySalesAmount = thisMonthSales.reduce((sum, s) => sum + (s.grandTotal || 0), 0);
-  const dealers = await db.collection("dealers").find({}).toArray();
-  const users = await db.collection("users").find({ idNo: { $regex: /^MKT/i } }).toArray();
+//   const totalCompanySalesAmount = thisMonthSales.reduce((sum, s) => sum + (s.grandTotal || 0), 0);
+//   const dealers = await db.collection("dealers").find({}).toArray();
+//   const users = await db.collection("users").find({ idNo: { $regex: /^MKT/i } }).toArray();
 
-  const userSalesMap = {};
-  const parentToChildrenMap = {}; 
+//   const userSalesMap = {};
+//   const parentToChildrenMap = {}; 
 
-  users.forEach(u => {
-    userSalesMap[u.idNo] = { 
-      ...u, 
-      _id: u._id.toString(),
-      directSalesLifetime: 0, 
-      directSalesThisMonth: 0, 
-      totalSalesVolume: 0,       
-      thisMonthSalesVolume: 0,   
-      autoPosition: "SALES REPRESENTATIVE",
-      baseCommission: 0,
-      currentSlabRate: 0,
-      selfQualifiesForBonus: false,
-      performanceBonusRate: 0,
-      monthlyBonusAmount: 0,
-      globalPoolBonusAmount: 0,
-      earnedPools: [] 
-    };
+//   users.forEach(u => {
+//     userSalesMap[u.idNo] = { 
+//       ...u, 
+//       _id: u._id.toString(),
+//       directSalesLifetime: 0, 
+//       directSalesThisMonth: 0, 
+//       totalSalesVolume: 0,       
+//       thisMonthSalesVolume: 0,   
+//       autoPosition: "SALES REPRESENTATIVE",
+//       baseCommission: 0,
+//       currentSlabRate: 0,
+//       selfQualifiesForBonus: false,
+//       performanceBonusRate: 0,
+//       monthlyBonusAmount: 0,
+//       globalPoolBonusAmount: 0,
+//       earnedPools: [] 
+//     };
     
-    const parentId = u.refIdNo || "0";
-    if (!parentToChildrenMap[parentId]) parentToChildrenMap[parentId] = [];
-    parentToChildrenMap[parentId].push(u.idNo); 
-  });
+//     const parentId = u.refIdNo || "0";
+//     if (!parentToChildrenMap[parentId]) parentToChildrenMap[parentId] = [];
+//     parentToChildrenMap[parentId].push(u.idNo); 
+//   });
 
-  // =======================================================================
-  // --- STEP 3: ডাইরেক্ট পার্সোনাল সেলস ভলিউম অ্যাসাইনমেন্ট ---
-  // =======================================================================
-  allLifetimeSales.forEach(sale => {
-    const saleAmount = Number(sale.grandTotal || sale.totalAmount || sale.amount || 0);
-    const saleDate = new Date(sale.date || sale.createdAt);
-    const isSelectedMonth = saleDate >= startDate && saleDate < endDate;
+//   // =======================================================================
+//   // --- STEP 3: ডাইরেক্ট পার্সোনাল সেলস ভলিউম অ্যাসাইনমেন্ট ---
+//   // =======================================================================
+//   allLifetimeSales.forEach(sale => {
+//     const saleAmount = Number(sale.grandTotal || sale.totalAmount || sale.amount || 0);
+//     const saleDate = new Date(sale.date || sale.createdAt);
+//     const isSelectedMonth = saleDate >= startDate && saleDate < endDate;
 
-    let targetEmployeeIdNo = null;
+//     let targetEmployeeIdNo = null;
 
-    if (sale.isMonthlyArchived && sale.archivedSalesData?.employeeSnapshot?.idNo) {
-      targetEmployeeIdNo = sale.archivedSalesData.employeeSnapshot.idNo;
-    } else if (sale.dealer) {
-      const dStr = sale.dealer.toString();
-      const matchingDealer = dealers.find(d => d._id.toString() === dStr);
-      if (matchingDealer && matchingDealer.referenceIdNo) {
-        targetEmployeeIdNo = matchingDealer.referenceIdNo;
-      }
-    }
+//     if (sale.isMonthlyArchived && sale.archivedSalesData?.employeeSnapshot?.idNo) {
+//       targetEmployeeIdNo = sale.archivedSalesData.employeeSnapshot.idNo;
+//     } else if (sale.dealer) {
+//       const dStr = sale.dealer.toString();
+//       const matchingDealer = dealers.find(d => d._id.toString() === dStr);
+//       if (matchingDealer && matchingDealer.referenceIdNo) {
+//         targetEmployeeIdNo = matchingDealer.referenceIdNo;
+//       }
+//     }
 
-    if (targetEmployeeIdNo && userSalesMap[targetEmployeeIdNo]) {
-      const emp = userSalesMap[targetEmployeeIdNo];
-      emp.directSalesLifetime += saleAmount;
-      emp.totalSalesVolume += saleAmount; 
+//     if (targetEmployeeIdNo && userSalesMap[targetEmployeeIdNo]) {
+//       const emp = userSalesMap[targetEmployeeIdNo];
+//       emp.directSalesLifetime += saleAmount;
+//       emp.totalSalesVolume += saleAmount; 
 
-      if (isSelectedMonth) {
-        emp.directSalesThisMonth += saleAmount;
-        emp.thisMonthSalesVolume += saleAmount; 
-      }
-    }
-  });
+//       if (isSelectedMonth) {
+//         emp.directSalesThisMonth += saleAmount;
+//         emp.thisMonthSalesVolume += saleAmount; 
+//       }
+//     }
+//   });
 
-  // =======================================================================
-  // 🔒 মান্থলি কোয়ালিফিকেশন হেল্পার ইঞ্জিন (AM & Below Fallback Enabled)
-  // =======================================================================
-  const checkSelfQualificationLegWise = (position, totalSales, qualifiedLegsCounts = {}) => {
-    const currentPos = (position || "").trim().toUpperCase();
-    const countAtLeast = (targetPos) => {
-      return Object.keys(qualifiedLegsCounts).reduce((total, pos) => {
-        return RANK_MAP[pos] >= RANK_MAP[targetPos] ? total + qualifiedLegsCounts[pos] : total;
-      }, 0);
-    };
+//   // =======================================================================
+//   // 🔒 মান্থলি কোয়ালিফিকেশন হেল্পার ইঞ্জিন (AM & Below Fallback Enabled)
+//   // =======================================================================
+//   const checkSelfQualificationLegWise = (position, totalSales, qualifiedLegsCounts = {}) => {
+//     const currentPos = (position || "").trim().toUpperCase();
+//     const countAtLeast = (targetPos) => {
+//       return Object.keys(qualifiedLegsCounts).reduce((total, pos) => {
+//         return RANK_MAP[pos] >= RANK_MAP[targetPos] ? total + qualifiedLegsCounts[pos] : total;
+//       }, 0);
+//     };
 
-    let qualifies = false;
-    let performanceBonusRate = 0;
+//     let qualifies = false;
+//     let performanceBonusRate = 0;
 
-    switch (currentPos) {
-      case "RSM":
-        if ((totalSales >= 75000 && countAtLeast("AM") >= 3) || totalSales >= 75000) { qualifies = true; performanceBonusRate = 0.01; }
-        break;
-      case "DSM":
-        if ((totalSales >= 100000 && countAtLeast("RSM") >= 1 && countAtLeast("AM") >= 2) || totalSales >= 100000) { qualifies = true; performanceBonusRate = 0.005; }
-        break;
-      case "SDSM":
-        if (totalSales >= 200000 && countAtLeast("DSM") >= 2) { qualifies = true; performanceBonusRate = 0.005; }
-        break;
-      case "SM":
-        if (totalSales >= 300000 && countAtLeast("DSM") >= 3) { qualifies = true; performanceBonusRate = 0.0025; }
-        break;
-      case "NSM":
-        if (totalSales >= 400000 && countAtLeast("DSM") >= 4) { qualifies = true; performanceBonusRate = 0.0025; }
-        break;
-      case "ED":
-        if (totalSales >= 1600000 && countAtLeast("NSM") >= 4) { qualifies = true; performanceBonusRate = 0.0025; }
-        break;
-      case "BOM":
-        if (totalSales >= 3200000 && countAtLeast("ED") >= 2) { qualifies = true; performanceBonusRate = 0.0025; }
-        break;
-      // 🔒 💥 ক্রিশিয়াল ফিক্স: AM এবং Sales Representative মেম্বারদের জন্য ট্রু কোয়ালিফিকেশন এনফোর্সমেন্ট
-      case "AM":
-      case "SALES REPRESENTATIVE":
-        qualifies = true;
-        performanceBonusRate = 0;
-        break;
-      default:
-        qualifies = true;
-        break;
-    }
-    return { qualifies, performanceBonusRate };
-  };
+//     switch (currentPos) {
+//       case "RSM":
+//         if ((totalSales >= 75000 && countAtLeast("AM") >= 3) || totalSales >= 75000) { qualifies = true; performanceBonusRate = 0.01; }
+//         break;
+//       case "DSM":
+//         if ((totalSales >= 100000 && countAtLeast("RSM") >= 1 && countAtLeast("AM") >= 2) || totalSales >= 100000) { qualifies = true; performanceBonusRate = 0.005; }
+//         break;
+//       case "SDSM":
+//         if (totalSales >= 200000 && countAtLeast("DSM") >= 2) { qualifies = true; performanceBonusRate = 0.005; }
+//         break;
+//       case "SM":
+//         if (totalSales >= 300000 && countAtLeast("DSM") >= 3) { qualifies = true; performanceBonusRate = 0.0025; }
+//         break;
+//       case "NSM":
+//         if (totalSales >= 400000 && countAtLeast("DSM") >= 4) { qualifies = true; performanceBonusRate = 0.0025; }
+//         break;
+//       case "ED":
+//         if (totalSales >= 1600000 && countAtLeast("NSM") >= 4) { qualifies = true; performanceBonusRate = 0.0025; }
+//         break;
+//       case "BOM":
+//         if (totalSales >= 3200000 && countAtLeast("ED") >= 2) { qualifies = true; performanceBonusRate = 0.0025; }
+//         break;
+//       // 🔒 💥 ক্রিশিয়াল ফিক্স: AM এবং Sales Representative মেম্বারদের জন্য ট্রু কোয়ালিফিকেশন এনফোর্সমেন্ট
+//       case "AM":
+//       case "SALES REPRESENTATIVE":
+//         qualifies = true;
+//         performanceBonusRate = 0;
+//         break;
+//       default:
+//         qualifies = true;
+//         break;
+//     }
+//     return { qualifies, performanceBonusRate };
+//   };
 
-  // =======================================================================
-  // --- পাস ১ (Two-Pass Recursion): পজিশন ও স্ল্যাব রেট প্রাক-লকিং ইঞ্জিন ---
-  // =======================================================================
-  const processedNodes = new Set(); 
+//   // =======================================================================
+//   // --- পাস ১ (Two-Pass Recursion): পজিশন ও স্ল্যাব রেট প্রাক-লকিং ইঞ্জিন ---
+//   // =======================================================================
+//   const processedNodes = new Set(); 
   
-  const processHierarchyPositions = (currentIdNo) => {
-    if (processedNodes.has(currentIdNo)) {
-      const emp = userSalesMap[currentIdNo];
-      const resLegs = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
-      if (emp) {
-        const myPos = (emp.autoPosition || "").toUpperCase().trim();
-        if (resLegs[myPos] !== undefined) resLegs[myPos] = 1;
-      }
-      return resLegs;
-    }
+//   const processHierarchyPositions = (currentIdNo) => {
+//     if (processedNodes.has(currentIdNo)) {
+//       const emp = userSalesMap[currentIdNo];
+//       const resLegs = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+//       if (emp) {
+//         const myPos = (emp.autoPosition || "").toUpperCase().trim();
+//         if (resLegs[myPos] !== undefined) resLegs[myPos] = 1;
+//       }
+//       return resLegs;
+//     }
     
-    const currentEmployee = userSalesMap[currentIdNo];
-    if (!currentEmployee) return { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+//     const currentEmployee = userSalesMap[currentIdNo];
+//     if (!currentEmployee) return { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
 
-    const childrenIds = parentToChildrenMap[currentIdNo] || [];
-    const masterLegsCounts = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+//     const childrenIds = parentToChildrenMap[currentIdNo] || [];
+//     const masterLegsCounts = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
     
-    let teamSalesSumTotal = 0;
-    let teamSalesSumMonth = 0;
+//     let teamSalesSumTotal = 0;
+//     let teamSalesSumMonth = 0;
 
-    childrenIds.forEach(childId => {
-      const childSubTreeLegs = processHierarchyPositions(childId);
-      const childData = userSalesMap[childId];
+//     childrenIds.forEach(childId => {
+//       const childSubTreeLegs = processHierarchyPositions(childId);
+//       const childData = userSalesMap[childId];
       
-      if (childData) {
-        teamSalesSumTotal += childData.totalSalesVolume;
-        teamSalesSumMonth += childData.thisMonthSalesVolume;
+//       if (childData) {
+//         teamSalesSumTotal += childData.totalSalesVolume;
+//         teamSalesSumMonth += childData.thisMonthSalesVolume;
 
-        const childFinalPos = (childData.autoPosition || "").toUpperCase().trim();
-        const highestAchievedInThisLeg = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+//         const childFinalPos = (childData.autoPosition || "").toUpperCase().trim();
+//         const highestAchievedInThisLeg = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
         
-        Object.keys(childSubTreeLegs).forEach(pos => {
-          if (childSubTreeLegs[pos] > 0) highestAchievedInThisLeg[pos] = 1;
-        });
-        if (highestAchievedInThisLeg[childFinalPos] !== undefined) {
-          highestAchievedInThisLeg[childFinalPos] = 1;
-        }
+//         Object.keys(childSubTreeLegs).forEach(pos => {
+//           if (childSubTreeLegs[pos] > 0) highestAchievedInThisLeg[pos] = 1;
+//         });
+//         if (highestAchievedInThisLeg[childFinalPos] !== undefined) {
+//           highestAchievedInThisLeg[childFinalPos] = 1;
+//         }
 
-        Object.keys(highestAchievedInThisLeg).forEach(pos => {
-          masterLegsCounts[pos] += highestAchievedInThisLeg[pos];
-        });
-      }
-    });
+//         Object.keys(highestAchievedInThisLeg).forEach(pos => {
+//           masterLegsCounts[pos] += highestAchievedInThisLeg[pos];
+//         });
+//       }
+//     });
     
-    currentEmployee.totalSalesVolume += teamSalesSumTotal;
-    currentEmployee.thisMonthSalesVolume += teamSalesSumMonth;
+//     currentEmployee.totalSalesVolume += teamSalesSumTotal;
+//     currentEmployee.thisMonthSalesVolume += teamSalesSumMonth;
 
-    currentEmployee.autoPosition = autoDeterminePosition(currentEmployee.totalSalesVolume, masterLegsCounts);
-    currentEmployee.currentSlabRate = POSITION_SLABS[currentEmployee.autoPosition] || 0;
+//     currentEmployee.autoPosition = autoDeterminePosition(currentEmployee.totalSalesVolume, masterLegsCounts);
+//     currentEmployee.currentSlabRate = POSITION_SLABS[currentEmployee.autoPosition] || 0;
     
-    const qualification = checkSelfQualificationLegWise(
-      currentEmployee.autoPosition,
-      currentEmployee.thisMonthSalesVolume,
-      masterLegsCounts
-    );
-    currentEmployee.selfQualifiesForBonus = qualification.qualifies;
-    currentEmployee.performanceBonusRate = qualification.performanceBonusRate;
+//     const qualification = checkSelfQualificationLegWise(
+//       currentEmployee.autoPosition,
+//       currentEmployee.thisMonthSalesVolume,
+//       masterLegsCounts
+//     );
+//     currentEmployee.selfQualifiesForBonus = qualification.qualifies;
+//     currentEmployee.performanceBonusRate = qualification.performanceBonusRate;
 
-    processedNodes.add(currentIdNo);
+//     processedNodes.add(currentIdNo);
 
-    const myFinalPos = (currentEmployee.autoPosition || "").toUpperCase().trim();
-    const returnLegsSummary = { ...masterLegsCounts };
-    if (returnLegsSummary[myFinalPos] !== undefined) {
-      returnLegsSummary[myFinalPos] = Math.max(returnLegsSummary[myFinalPos], 1);
-    }
+//     const myFinalPos = (currentEmployee.autoPosition || "").toUpperCase().trim();
+//     const returnLegsSummary = { ...masterLegsCounts };
+//     if (returnLegsSummary[myFinalPos] !== undefined) {
+//       returnLegsSummary[myFinalPos] = Math.max(returnLegsSummary[myFinalPos], 1);
+//     }
 
-    return returnLegsSummary;
-  };
+//     return returnLegsSummary;
+//   };
 
-  users.forEach(user => {
-    if (user.refIdNo === "0" || !user.refIdNo || !userSalesMap[user.refIdNo]) {
-      processHierarchyPositions(user.idNo);
-    }
-  });
+//   users.forEach(user => {
+//     if (user.refIdNo === "0" || !user.refIdNo || !userSalesMap[user.refIdNo]) {
+//       processHierarchyPositions(user.idNo);
+//     }
+//   });
 
-    // =======================================================================
-  // --- পাস ২: লিনিয়ার ডাইনামিক গ্যাপ কমিশন (The True MLM Generation Gap Engine) ---
-  // =======================================================================
-  thisMonthSales.forEach(sale => {
-    const invoiceAmount = Number(sale.grandTotal || sale.totalAmount || sale.amount || 0);
-    if (invoiceAmount <= 0) return;
+//     // =======================================================================
+//   // --- পাস ২: লিনিয়ার ডাইনামিক গ্যাপ কমিশন (The True MLM Generation Gap Engine) ---
+//   // =======================================================================
+//   thisMonthSales.forEach(sale => {
+//     const invoiceAmount = Number(sale.grandTotal || sale.totalAmount || sale.amount || 0);
+//     if (invoiceAmount <= 0) return;
 
-    let startEmployeeIdNo = null;
-    if (sale.isMonthlyArchived && sale.archivedSalesData?.employeeSnapshot?.idNo) {
-      startEmployeeIdNo = sale.archivedSalesData.employeeSnapshot.idNo;
-    } else if (sale.dealer) {
-      const dStr = sale.dealer.toString();
-      const matchingDealer = dealers.find(d => d._id.toString() === dStr);
-      if (matchingDealer && matchingDealer.referenceIdNo) {
-        startEmployeeIdNo = matchingDealer.referenceIdNo;
-      }
-    }
+//     let startEmployeeIdNo = null;
+//     if (sale.isMonthlyArchived && sale.archivedSalesData?.employeeSnapshot?.idNo) {
+//       startEmployeeIdNo = sale.archivedSalesData.employeeSnapshot.idNo;
+//     } else if (sale.dealer) {
+//       const dStr = sale.dealer.toString();
+//       const matchingDealer = dealers.find(d => d._id.toString() === dStr);
+//       if (matchingDealer && matchingDealer.referenceIdNo) {
+//         startEmployeeIdNo = matchingDealer.referenceIdNo;
+//       }
+//     }
 
-    if (!startEmployeeIdNo) return;
+//     if (!startEmployeeIdNo) return;
     
-    let currentIdNo = startEmployeeIdNo;
-    let distributedRateSoFar = 0; 
-    const visited = new Set(); 
+//     let currentIdNo = startEmployeeIdNo;
+//     let distributedRateSoFar = 0; 
+//     const visited = new Set(); 
 
-    // ইনভয়েসের মূল বিক্রয়কারীর নিজস্ব ডিরেক্ট লেগের সর্বোচ্চ স্ল্যাব নির্ধারণ লুপ
-    let directLegHeadIdNo = startEmployeeIdNo;
-    const legVisited = new Set();
-    while (
-      directLegHeadIdNo && 
-      userSalesMap[directLegHeadIdNo] && 
-      userSalesMap[directLegHeadIdNo].refIdNo && 
-      userSalesMap[directLegHeadIdNo].refIdNo !== "0" && 
-      userSalesMap[directLegHeadIdNo].refIdNo !== "MKT-0001" && // বসের আইডি কন্ডিশন
-      !legVisited.has(directLegHeadIdNo)
-    ) {
-      legVisited.add(directLegHeadIdNo);
-      directLegHeadIdNo = userSalesMap[directLegHeadIdNo].refIdNo;
-    }
+//     // ইনভয়েসের মূল বিক্রয়কারীর নিজস্ব ডিরেক্ট লেগের সর্বোচ্চ স্ল্যাব নির্ধারণ লুপ
+//     let directLegHeadIdNo = startEmployeeIdNo;
+//     const legVisited = new Set();
+//     while (
+//       directLegHeadIdNo && 
+//       userSalesMap[directLegHeadIdNo] && 
+//       userSalesMap[directLegHeadIdNo].refIdNo && 
+//       userSalesMap[directLegHeadIdNo].refIdNo !== "0" && 
+//       userSalesMap[directLegHeadIdNo].refIdNo !== "MKT-0001" && // বসের আইডি কন্ডিশন
+//       !legVisited.has(directLegHeadIdNo)
+//     ) {
+//       legVisited.add(directLegHeadIdNo);
+//       directLegHeadIdNo = userSalesMap[directLegHeadIdNo].refIdNo;
+//     }
 
-    let legHeadMaxSlab = 0;
-    const legHeadNode = userSalesMap[directLegHeadIdNo];
-    if (legHeadNode) {
-      legHeadMaxSlab = POSITION_SLABS[legHeadNode.autoPosition?.toUpperCase()] || 0;
-    }
+//     let legHeadMaxSlab = 0;
+//     const legHeadNode = userSalesMap[directLegHeadIdNo];
+//     if (legHeadNode) {
+//       legHeadMaxSlab = POSITION_SLABS[legHeadNode.autoPosition?.toUpperCase()] || 0;
+//     }
 
-    while (currentIdNo && currentIdNo !== "0" && !visited.has(currentIdNo)) {
-      visited.add(currentIdNo);
-      const empNode = userSalesMap[currentIdNo];
-      if (!empNode) break;
+//     while (currentIdNo && currentIdNo !== "0" && !visited.has(currentIdNo)) {
+//       visited.add(currentIdNo);
+//       const empNode = userSalesMap[currentIdNo];
+//       if (!empNode) break;
 
-      let myPositionRate = 0;
-      if (empNode.selfQualifiesForBonus === true) {
-        myPositionRate = empNode.currentSlabRate || 0;
-      }
+//       let myPositionRate = 0;
+//       if (empNode.selfQualifiesForBonus === true) {
+//         myPositionRate = empNode.currentSlabRate || 0;
+//       }
 
-      // 🔒 স্ল্যাব প্রোটেকশন গার্ড: শুধুমাত্র মেইন বস নোডে আসলেই ডিস্ট্রিবিউশন কন্ডিশন লক হবে
-      if (empNode.idNo === "MKT-0001" || empNode.refIdNo === "0" || !userSalesMap[empNode.refIdNo]) {
-        distributedRateSoFar = Math.max(distributedRateSoFar, legHeadMaxSlab);
-      }
+//       // 🔒 স্ল্যাব প্রোটেকশন গার্ড: শুধুমাত্র মেইন বস নোডে আসলেই ডিস্ট্রিবিউশন কন্ডিশন লক হবে
+//       if (empNode.idNo === "MKT-0001" || empNode.refIdNo === "0" || !userSalesMap[empNode.refIdNo]) {
+//         distributedRateSoFar = Math.max(distributedRateSoFar, legHeadMaxSlab);
+//       }
 
-      if (myPositionRate > distributedRateSoFar) {
-        const gapRate = myPositionRate - distributedRateSoFar;
-        empNode.baseCommission += invoiceAmount * gapRate; // নিখুঁত কমিশন ডিস্ট্রিবিউশন
-        distributedRateSoFar = myPositionRate; 
-      }
+//       if (myPositionRate > distributedRateSoFar) {
+//         const gapRate = myPositionRate - distributedRateSoFar;
+//         empNode.baseCommission += invoiceAmount * gapRate; // নিখুঁত কমিশন ডিস্ট্রিবিউশন
+//         distributedRateSoFar = myPositionRate; 
+//       }
 
-      if (distributedRateSoFar >= 0.24) break;
-      currentIdNo = empNode.refIdNo; 
-    }
-  });
+//       if (distributedRateSoFar >= 0.24) break;
+//       currentIdNo = empNode.refIdNo; 
+//     }
+//   });
 
-  // =======================================================================
-  // --- পাস ৩, ৪, ৫, ৬ & ৭: ওভাররাইড, গ্লোবাল পুল ও ফাইনাল রেসপন্স মেকার ---
-  // =======================================================================
+//   // =======================================================================
+//   // --- পাস ৩, ৪, ৫, ৬ & ৭: ওভাররাইড, গ্লোবাল পুল ও ফাইনাল রেসপন্স মেকার ---
+//   // =======================================================================
   
-  // পাস ৩: টপ-ডাউন কোয়ালিফিকেশন ওভাররাইড চেইন রানার
-  const applyTopDownBonusQualification = (currentIdNo, parentQualifies = false) => {
-    const currentEmployee = userSalesMap[currentIdNo];
-    if (!currentEmployee) return;
-    if (parentQualifies) currentEmployee.selfQualifiesForBonus = true;
-    const childrenIds = parentToChildrenMap[currentIdNo] || [];
-    childrenIds.forEach(childId => applyTopDownBonusQualification(childId, currentEmployee.selfQualifiesForBonus));
-  };
-  if (parentToChildrenMap["0"]) {
-    parentToChildrenMap["0"].forEach(rootIdNo => applyTopDownBonusQualification(rootIdNo, false));
-  }
+//   // পাস ৩: টপ-ডাউন কোয়ালিফিকেশন ওভাররাইড চেইন রানার
+//   const applyTopDownBonusQualification = (currentIdNo, parentQualifies = false) => {
+//     const currentEmployee = userSalesMap[currentIdNo];
+//     if (!currentEmployee) return;
+//     if (parentQualifies) currentEmployee.selfQualifiesForBonus = true;
+//     const childrenIds = parentToChildrenMap[currentIdNo] || [];
+//     childrenIds.forEach(childId => applyTopDownBonusQualification(childId, currentEmployee.selfQualifiesForBonus));
+//   };
+//   if (parentToChildrenMap["0"]) {
+//     parentToChildrenMap["0"].forEach(rootIdNo => applyTopDownBonusQualification(rootIdNo, false));
+//   }
 
-  // 🔒 পাস ৩.১: গ্যারান্টিড রেট সিঙ্ক লক ইঞ্জিন
-  Object.keys(userSalesMap).forEach(idNo => {
-    const emp = userSalesMap[idNo];
-    if (!emp) return;
+//   // 🔒 পাস ৩.১: গ্যারান্টিড রেট সিঙ্ক লক ইঞ্জিন
+//   Object.keys(userSalesMap).forEach(idNo => {
+//     const emp = userSalesMap[idNo];
+//     if (!emp) return;
 
-    if (emp.selfQualifiesForBonus === true) {
-      const currentChildrenIds = parentToChildrenMap[idNo] || [];
-      const syncedLegsCounts = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+//     if (emp.selfQualifiesForBonus === true) {
+//       const currentChildrenIds = parentToChildrenMap[idNo] || [];
+//       const syncedLegsCounts = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
 
-      currentChildrenIds.forEach(cId => {
-        const cData = userSalesMap[cId];
-        if (cData) {
-          const cPos = (cData.autoPosition || "").toUpperCase().trim();
-          const singleLegFlags = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
-          if (singleLegFlags[cPos] !== undefined) singleLegFlags[cPos] = 1;
+//       currentChildrenIds.forEach(cId => {
+//         const cData = userSalesMap[cId];
+//         if (cData) {
+//           const cPos = (cData.autoPosition || "").toUpperCase().trim();
+//           const singleLegFlags = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+//           if (singleLegFlags[cPos] !== undefined) singleLegFlags[cPos] = 1;
 
-          const trackDeepLegPositions = (nodeId) => {
-            const subChildren = parentToChildrenMap[nodeId] || [];
-            subChildren.forEach(subId => {
-              const subData = userSalesMap[subId];
-              if (subData) {
-                const subPos = (subData.autoPosition || "").toUpperCase().trim();
-                if (singleLegFlags[subPos] !== undefined) singleLegFlags[subPos] = 1;
-                trackDeepLegPositions(subId);
-              }
-            });
-          };
-          trackDeepLegPositions(cId);
+//           const trackDeepLegPositions = (nodeId) => {
+//             const subChildren = parentToChildrenMap[nodeId] || [];
+//             subChildren.forEach(subId => {
+//               const subData = userSalesMap[subId];
+//               if (subData) {
+//                 const subPos = (subData.autoPosition || "").toUpperCase().trim();
+//                 if (singleLegFlags[subPos] !== undefined) singleLegFlags[subPos] = 1;
+//                 trackDeepLegPositions(subId);
+//               }
+//             });
+//           };
+//           trackDeepLegPositions(cId);
 
-          Object.keys(singleLegFlags).forEach(pos => {
-            syncedLegsCounts[pos] += singleLegFlags[pos];
-          });
-        }
-      });
+//           Object.keys(singleLegFlags).forEach(pos => {
+//             syncedLegsCounts[pos] += singleLegFlags[pos];
+//           });
+//         }
+//       });
 
-      const finalCheck = checkSelfQualificationLegWise(emp.autoPosition, emp.thisMonthSalesVolume, syncedLegsCounts);
-      if (finalCheck.qualifies && finalCheck.performanceBonusRate > 0) {
-        emp.performanceBonusRate = finalCheck.performanceBonusRate;
-      } else {
-        const upPos = (emp.autoPosition || "").toUpperCase().trim();
-        if (upPos === "RSM") emp.performanceBonusRate = 0.01;
-        else if (upPos === "DSM" || upPos === "SDSM") emp.performanceBonusRate = 0.005;
-        else if (["SM", "NSM", "ED", "BOM"].includes(upPos)) emp.performanceBonusRate = 0.0025;
-        else emp.performanceBonusRate = 0;
-      }
-    }
-  });
+//       const finalCheck = checkSelfQualificationLegWise(emp.autoPosition, emp.thisMonthSalesVolume, syncedLegsCounts);
+//       if (finalCheck.qualifies && finalCheck.performanceBonusRate > 0) {
+//         emp.performanceBonusRate = finalCheck.performanceBonusRate;
+//       } else {
+//         const upPos = (emp.autoPosition || "").toUpperCase().trim();
+//         if (upPos === "RSM") emp.performanceBonusRate = 0.01;
+//         else if (upPos === "DSM" || upPos === "SDSM") emp.performanceBonusRate = 0.005;
+//         else if (["SM", "NSM", "ED", "BOM"].includes(upPos)) emp.performanceBonusRate = 0.0025;
+//         else emp.performanceBonusRate = 0;
+//       }
+//     }
+//   });
 
-  // পাস ৪: গ্লোবাল পুল কাউন্টার এবং মেম্বার অ্যাসাইনমেন্ট
-  const poolShareCounters = { RSM: 0, DSM: 0, SDSM: 0, SM: 0, NSM: 0, ED: 0, BOM: 0 };
-  const qualifiedPoolMembers = { RSM: [], DSM: [], SDSM: [], SM: [], NSM: [], ED: [], BOM: [] };
+//   // পাস ৪: গ্লোবাল পুল কাউন্টার এবং মেম্বার অ্যাসাইনমেন্ট
+//   const poolShareCounters = { RSM: 0, DSM: 0, SDSM: 0, SM: 0, NSM: 0, ED: 0, BOM: 0 };
+//   const qualifiedPoolMembers = { RSM: [], DSM: [], SDSM: [], SM: [], NSM: [], ED: [], BOM: [] };
   
-  users.forEach(user => {
-    const nodeData = userSalesMap[user.idNo];
-    if (!nodeData) return;
-    const isQualifiedForBill = (nodeData.directSalesThisMonth || 0) >= 3000;
-    const myPos = nodeData.autoPosition?.toUpperCase();
+//   users.forEach(user => {
+//     const nodeData = userSalesMap[user.idNo];
+//     if (!nodeData) return;
+//     const isQualifiedForBill = (nodeData.directSalesThisMonth || 0) >= 3000;
+//     const myPos = nodeData.autoPosition?.toUpperCase();
 
-    if (isQualifiedForBill && nodeData.selfQualifiesForBonus && typeof ELIGIBLE_POOL_POSITIONS !== "undefined" && ELIGIBLE_POOL_POSITIONS.includes(myPos)) {
-      const myRankValue = RANK_MAP[myPos];
-      ELIGIBLE_POOL_POSITIONS.forEach(poolName => {
-        const poolRankValue = RANK_MAP[poolName];
-        if (myPos === "RSM") {
-          if (poolName === "RSM") { poolShareCounters[poolName]++; nodeData.earnedPools.push(poolName); qualifiedPoolMembers[poolName].push(user.idNo); }
-        } else {
-          if (myRankValue >= poolRankValue && poolName !== "RSM") { poolShareCounters[poolName]++; nodeData.earnedPools.push(poolName); qualifiedPoolMembers[poolName].push(user.idNo); }
-        }
-      });
-    }
-  });
+//     if (isQualifiedForBill && nodeData.selfQualifiesForBonus && typeof ELIGIBLE_POOL_POSITIONS !== "undefined" && ELIGIBLE_POOL_POSITIONS.includes(myPos)) {
+//       const myRankValue = RANK_MAP[myPos];
+//       ELIGIBLE_POOL_POSITIONS.forEach(poolName => {
+//         const poolRankValue = RANK_MAP[poolName];
+//         if (myPos === "RSM") {
+//           if (poolName === "RSM") { poolShareCounters[poolName]++; nodeData.earnedPools.push(poolName); qualifiedPoolMembers[poolName].push(user.idNo); }
+//         } else {
+//           if (myRankValue >= poolRankValue && poolName !== "RSM") { poolShareCounters[poolName]++; nodeData.earnedPools.push(poolName); qualifiedPoolMembers[poolName].push(user.idNo); }
+//         }
+//       });
+//     }
+//   });
 
-  // পাস ৫: গ্লোবাল কোম্পানি পুল বোনাস ডিস্ট্রিবিউশন
-  Object.keys(userSalesMap).forEach(idNo => {
-    if (userSalesMap[idNo]) userSalesMap[idNo].globalPoolBonusAmount = 0;
-  });
+//   // পাস ৫: গ্লোবাল কোম্পানি পুল বোনাস ডিস্ট্রিবিউশন
+//   Object.keys(userSalesMap).forEach(idNo => {
+//     if (userSalesMap[idNo]) userSalesMap[idNo].globalPoolBonusAmount = 0;
+//   });
 
-  if (typeof ELIGIBLE_POOL_POSITIONS !== "undefined") {
-    ELIGIBLE_POOL_POSITIONS.forEach(poolName => {
-      const poolRate = SALES_SHARE_CONFIG[poolName] || 0;
-      const uniqueMemberIds = Array.from(new Set(qualifiedPoolMembers[poolName] || []));
-      const totalPoolMembers = uniqueMemberIds.length;
+//   if (typeof ELIGIBLE_POOL_POSITIONS !== "undefined") {
+//     ELIGIBLE_POOL_POSITIONS.forEach(poolName => {
+//       const poolRate = SALES_SHARE_CONFIG[poolName] || 0;
+//       const uniqueMemberIds = Array.from(new Set(qualifiedPoolMembers[poolName] || []));
+//       const totalPoolMembers = uniqueMemberIds.length;
 
-      if (totalPoolMembers > 0 && poolRate > 0) {
-        const totalPoolMoney = totalCompanySalesAmount * poolRate;
-        const sharePerMember = totalPoolMoney / totalPoolMembers;
+//       if (totalPoolMembers > 0 && poolRate > 0) {
+//         const totalPoolMoney = totalCompanySalesAmount * poolRate;
+//         const sharePerMember = totalPoolMoney / totalPoolMembers;
         
-        uniqueMemberIds.forEach(idNo => {
-          if (userSalesMap[idNo]) userSalesMap[idNo].globalPoolBonusAmount += sharePerMember;
-        });
-      }
-    });
-  }
+//         uniqueMemberIds.forEach(idNo => {
+//           if (userSalesMap[idNo]) userSalesMap[idNo].globalPoolBonusAmount += sharePerMember;
+//         });
+//       }
+//     });
+//   }
 
-    // =========================================================================
-  // পাস ৬: কর্মচারীদের ফাইনাল ফ্ল্যাট রেসপন্স এরে প্রস্তুতকরণ (টিম ভলিউম পারফরম্যান্স বোনাস সহ)
-  // =========================================================================
-  const finalLedgerList = [];
+//     // =========================================================================
+//   // পাস ৬: কর্মচারীদের ফাইনাল ফ্ল্যাট রেসপন্স এরে প্রস্তুতকরণ (টিম ভলিউম পারফরম্যান্স বোনাস সহ)
+//   // =========================================================================
+//   const finalLedgerList = [];
 
-  users.forEach(user => {
-    const nodeData = userSalesMap[user.idNo];
-    if (!nodeData) return;
+//   users.forEach(user => {
+//     const nodeData = userSalesMap[user.idNo];
+//     if (!nodeData) return;
 
-    // ৩০০০ টাকা মান্থলি ডাইরেক্ট সেলসের শর্ত চেক
-    const isQualifiedForBill = (nodeData.directSalesThisMonth || 0) >= 3000;
+//     // ৩০০০ টাকা মান্থলি ডাইরেক্ট সেলসের শর্ত চেক
+//     const isQualifiedForBill = (nodeData.directSalesThisMonth || 0) >= 3000;
 
-    let salesShareBonus = nodeData.globalPoolBonusAmount || 0;
-    let performanceBonus = 0;
+//     let salesShareBonus = nodeData.globalPoolBonusAmount || 0;
+//     let performanceBonus = 0;
 
-    // 🔒 💥 ক্রিশিয়াল বিজনেস রুল ফিক্স: 
-    // পারফরম্যান্স বোনাস অ্যামাউন্টটি এখন চলতি মাসের মোট টিম সেলস ভলিউমের (`thisMonthSalesVolume`) ওপর গুণ হবে।
-    if (isQualifiedForBill && nodeData.selfQualifiesForBonus) {
-      performanceBonus = (nodeData.thisMonthSalesVolume || 0) * (nodeData.performanceBonusRate || 0);
-    }
+//     // 🔒 💥 ক্রিশিয়াল বিজনেস রুল ফিক্স: 
+//     // পারফরম্যান্স বোনাস অ্যামাউন্টটি এখন চলতি মাসের মোট টিম সেলস ভলিউমের (`thisMonthSalesVolume`) ওপর গুণ হবে।
+//     if (isQualifiedForBill && nodeData.selfQualifiesForBonus) {
+//       performanceBonus = (nodeData.thisMonthSalesVolume || 0) * (nodeData.performanceBonusRate || 0);
+//     }
 
-    // পাস ২-এর জেনারেট হওয়া গ্যাপ কমিশন (baseCommission) সবসময় সুরক্ষিত থাকবে, জিরো হবে না
-    const finalBaseCommission = nodeData.baseCommission || 0;
+//     // পাস ২-এর জেনারেট হওয়া গ্যাপ কমিশন (baseCommission) সবসময় সুরক্ষিত থাকবে, জিরো হবে না
+//     const finalBaseCommission = nodeData.baseCommission || 0;
     
-    // ৩০০০ টাকার কম সেলস হলে গ্লোবাল পুল বোনাস শূন্য হবে
-    const finalSalesShareBonus = isQualifiedForBill ? salesShareBonus : 0;
+//     // ৩০০০ টাকার কম সেলস হলে গ্লোবাল পুল বোনাস শূন্য হবে
+//     const finalSalesShareBonus = isQualifiedForBill ? salesShareBonus : 0;
     
-    nodeData.baseCommission = finalBaseCommission;
-    nodeData.monthlyBonusAmount = performanceBonus;
-    nodeData.globalPoolBonusAmount = finalSalesShareBonus;
+//     nodeData.baseCommission = finalBaseCommission;
+//     nodeData.monthlyBonusAmount = performanceBonus;
+//     nodeData.globalPoolBonusAmount = finalSalesShareBonus;
 
-    nodeData.totalSalesAchieved = nodeData.totalSalesVolume;
-    nodeData.thisMonthSalesAchieved = nodeData.thisMonthSalesVolume;
+//     nodeData.totalSalesAchieved = nodeData.totalSalesVolume;
+//     nodeData.thisMonthSalesAchieved = nodeData.thisMonthSalesVolume;
 
-    // গ্রস আর্নিং টোটাল (গ্যাপ কমিশন + পুল বোনাস + সংশোধিত টিম পারফরম্যান্স বোনাস)
-    const totalEarned = finalBaseCommission + finalSalesShareBonus + performanceBonus;
+//     // গ্রস আর্নিং টোটাল (গ্যাপ কমিশন + পুল বোনাস + সংশোধিত টিম পারফরম্যান্স বোনাস)
+//     const totalEarned = finalBaseCommission + finalSalesShareBonus + performanceBonus;
 
-    // ফিল্টারিং শর্ত: ইনকাম থাকলে অথবা লাইফটাইম সেলস ২৫০০০ এর বেশি হলে রেসপন্সে ঢুকবে
-    if (totalEarned > 0 || (nodeData.totalSalesVolume || 0) >= 25000) {
-      finalLedgerList.push({
-        // ক) ইউজারের ডাটাবেজের সমস্ত অরিজিনাল ফিল্ড (সরাসরি স্প্রেড করা হলো)
-        ...user,
-        _id: user._id.toString(),
+//     // ফিল্টারিং শর্ত: ইনকাম থাকলে অথবা লাইফটাইম সেলস ২৫০০০ এর বেশি হলে রেসপন্সে ঢুকবে
+//     if (totalEarned > 0 || (nodeData.totalSalesVolume || 0) >= 25000) {
+//       finalLedgerList.push({
+//         // ক) ইউজারের ডাটাবেজের সমস্ত অরিজিনাল ফিল্ড (সরাসরি স্প্রেড করা হলো)
+//         ...user,
+//         _id: user._id.toString(),
         
-        // খ) আপনার এক্সাম্পল অনুযায়ী ডাইনামিক ফিল্ডসমূহ হুবহু রুটে বসানো হলো
-        directSalesLifetime: nodeData.directSalesLifetime,
-        directSalesThisMonth: nodeData.directSalesThisMonth,
-        totalSalesVolume: nodeData.totalSalesVolume,
-        thisMonthSalesVolume: nodeData.thisMonthSalesVolume,
-        autoPosition: nodeData.autoPosition,
+//         // খ) আপনার এক্সাম্পল অনুযায়ী ডাইনামিক ফিল্ডসমূহ হুবহু রুটে বসানো হলো
+//         directSalesLifetime: nodeData.directSalesLifetime,
+//         directSalesThisMonth: nodeData.directSalesThisMonth,
+//         totalSalesVolume: nodeData.totalSalesVolume,
+//         thisMonthSalesVolume: nodeData.thisMonthSalesVolume,
+//         autoPosition: nodeData.autoPosition,
         
-        baseCommission: Number(nodeData.baseCommission.toFixed(2)),
-        selfQualifiesForBonus: nodeData.selfQualifiesForBonus,
-        performanceBonusRate: nodeData.performanceBonusRate,
-        monthlyBonusAmount: Number(nodeData.monthlyBonusAmount.toFixed(2)),
-        globalPoolBonusAmount: Number(nodeData.globalPoolBonusAmount.toFixed(2)),
-        earnedPools: isQualifiedForBill ? nodeData.earnedPools : [],
+//         baseCommission: Number(nodeData.baseCommission.toFixed(2)),
+//         selfQualifiesForBonus: nodeData.selfQualifiesForBonus,
+//         performanceBonusRate: nodeData.performanceBonusRate,
+//         monthlyBonusAmount: Number(nodeData.monthlyBonusAmount.toFixed(2)),
+//         globalPoolBonusAmount: Number(nodeData.globalPoolBonusAmount.toFixed(2)),
+//         earnedPools: isQualifiedForBill ? nodeData.earnedPools : [],
         
-        totalSalesAchieved: nodeData.totalSalesAchieved,
-        thisMonthSalesAchieved: nodeData.thisMonthSalesAchieved,
+//         totalSalesAchieved: nodeData.totalSalesAchieved,
+//         thisMonthSalesAchieved: nodeData.thisMonthSalesAchieved,
         
-        // গ) অডিটিং এবং ফ্রন্টএন্ডের জন্য প্রফেশনাল ট্র্যাকিং ফিল্ড
-        netTotalEarnings: Number(totalEarned.toFixed(2)),
-        qualificationStatus: isQualifiedForBill ? "Qualified" : "Disqualified for Pool (Sales < 3000)"
-      });
-    }
-  });
+//         // গ) অডিটিং এবং ফ্রন্টএন্ডের জন্য প্রফেশনাল ট্র্যাকিং ফিল্ড
+//         netTotalEarnings: Number(totalEarned.toFixed(2)),
+//         qualificationStatus: isQualifiedForBill ? "Qualified" : "Disqualified for Pool (Sales < 3000)"
+//       });
+//     }
+//   });
 
-  // =========================================================================
-  // পাস ৭: ডিলার রেসপন্স লুপ (আর্কাইভ ও লাইভ প্রোটেকশনসহ সম্পূর্ণ ফিক্সড)
-  // =========================================================================
-  const dealerResultMap = {};
+//   // =========================================================================
+//   // পাস ৭: ডিলার রেসপন্স লুপ (আর্কাইভ ও লাইভ প্রোটেকশনসহ সম্পূর্ণ ফিক্সড)
+//   // =========================================================================
+//   const dealerResultMap = {};
 
-  thisMonthSales.forEach(sale => {
-    const amt = Number(sale.grandTotal || sale.totalAmount || sale.amount || 0);
-    if (amt <= 0) return;
+//   thisMonthSales.forEach(sale => {
+//     const amt = Number(sale.grandTotal || sale.totalAmount || sale.amount || 0);
+//     if (amt <= 0) return;
 
-    let dIdNo = null;
-    let dName = "Unknown Dealer";
-    let d_id = sale.dealer ? sale.dealer.toString() : "ARCHIVED_ID";
+//     let dIdNo = null;
+//     let dName = "Unknown Dealer";
+//     let d_id = sale.dealer ? sale.dealer.toString() : "ARCHIVED_ID";
 
-    if (sale.isMonthlyArchived && sale.archivedSalesData && sale.archivedSalesData.dealerSnapshot) {
-      dIdNo = sale.archivedSalesData.dealerSnapshot.idNo;
-      dName = sale.archivedSalesData.dealerSnapshot.name || "Unknown Dealer";
-    } else if (sale.dealer) {
-      const matchingDealer = dealers.find(d => d._id.toString() === d_id);
-      if (matchingDealer) {
-        dIdNo = matchingDealer.dealerId || matchingDealer.idNo;
-        dName = matchingDealer.name || "Unknown Dealer";
-      }
-    }
+//     if (sale.isMonthlyArchived && sale.archivedSalesData && sale.archivedSalesData.dealerSnapshot) {
+//       dIdNo = sale.archivedSalesData.dealerSnapshot.idNo;
+//       dName = sale.archivedSalesData.dealerSnapshot.name || "Unknown Dealer";
+//     } else if (sale.dealer) {
+//       const matchingDealer = dealers.find(d => d._id.toString() === d_id);
+//       if (matchingDealer) {
+//         dIdNo = matchingDealer.dealerId || matchingDealer.idNo;
+//         dName = matchingDealer.name || "Unknown Dealer";
+//       }
+//     }
 
-    if (dIdNo) {
-      if (!dealerResultMap[dIdNo]) {
-        dealerResultMap[dIdNo] = { _id: d_id, name: dName, dealerId: dIdNo, totalSales: 0 };
-      }
-      dealerResultMap[dIdNo].totalSales += amt;
-    }
-  });
+//     if (dIdNo) {
+//       if (!dealerResultMap[dIdNo]) {
+//         dealerResultMap[dIdNo] = { _id: d_id, name: dName, dealerId: dIdNo, totalSales: 0 };
+//       }
+//       dealerResultMap[dIdNo].totalSales += amt;
+//     }
+//   });
 
-  dealers.forEach(dlr => {
-    const dIdNo = dlr.dealerId || dlr.idNo || "N/A";
-    if (!dealerResultMap[dIdNo]) {
-      dealerResultMap[dIdNo] = { _id: dlr._id.toString(), name: dlr.name || "Unknown Dealer", dealerId: dIdNo, totalSales: 0 };
-    }
-  });
+//   dealers.forEach(dlr => {
+//     const dIdNo = dlr.dealerId || dlr.idNo || "N/A";
+//     if (!dealerResultMap[dIdNo]) {
+//       dealerResultMap[dIdNo] = { _id: dlr._id.toString(), name: dlr.name || "Unknown Dealer", dealerId: dIdNo, totalSales: 0 };
+//     }
+//   });
 
-  const qualifiedDealers = Object.values(dealerResultMap).map(dlr => {
-    const commission = (typeof calculateDealerCommission === "function") ? calculateDealerCommission(dlr.totalSales) : 0;
-    const isDealerQualified = dlr.totalSales >= 5000;
+//   const qualifiedDealers = Object.values(dealerResultMap).map(dlr => {
+//     const commission = (typeof calculateDealerCommission === "function") ? calculateDealerCommission(dlr.totalSales) : 0;
+//     const isDealerQualified = dlr.totalSales >= 5000;
 
-    return {
-      _id: dlr._id,
-      name: dlr.name,
-      dealerId: dlr.dealerId,
-      totalSales: Number(dlr.totalSales.toFixed(2)),
-      commission: Number(commission.toFixed(2)),
-      status: isDealerQualified ? "Qualified" : "Disqualified (Sales < 5000)"
-    };
-  });
+//     return {
+//       _id: dlr._id,
+//       name: dlr.name,
+//       dealerId: dlr.dealerId,
+//       totalSales: Number(dlr.totalSales.toFixed(2)),
+//       commission: Number(commission.toFixed(2)),
+//       status: isDealerQualified ? "Qualified" : "Disqualified (Sales < 5000)"
+//     };
+//   });
 
-  // সম্পূর্ণ লেজার ক্যালকুলেশন ইঞ্জিনের ফাইনাল আউটপুট রিটার্ন
-  return { totalCompanySalesAmount, poolShareCounters, finalLedgerList, qualifiedDealers };
-};
+//   // সম্পূর্ণ লেজার ক্যালকুলেশন ইঞ্জিনের ফাইনাল আউটপুট রিটার্ন
+//   return { totalCompanySalesAmount, poolShareCounters, finalLedgerList, qualifiedDealers };
+// };
 
 //13th version: 13.0.0 (June 2024) - Full Refactor with Multi-Pass Engine, Deep Leg Roll-Up, Dynamic Gap Commission, Top-Down Override, Global Pool Distribution, and Optimized Pagination
 // const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
@@ -5967,6 +5179,484 @@ const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
 //   // সম্পূর্ণ লেজার ক্যালকুলেশন ইঞ্জিনের ফাইনাল আউটপুট রিটার্ন
 //   return { totalCompanySalesAmount, poolShareCounters, finalLedgerList, qualifiedDealers };
 // };
+
+//14th version: 14.0.0 (June 2024) - Full Refactor with Multi-Pass Engine, Deep Leg Roll-Up, Dynamic Gap Commission, Top-Down Override, Global Pool Distribution, and Optimized Pagination
+const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
+  try {
+    const db = mongoose.connection.db;
+
+    const startDate = new Date(currentYear, currentMonth - 1, 1);
+    const endDate = new Date(currentYear, currentMonth, 1);
+
+    // --- STEP 1: ডাটাবেজ রিড ও ডেটা লোডিং ---
+    let allLifetimeSales = await db.collection("invoices").find({}).toArray();
+    if (!allLifetimeSales || allLifetimeSales.length === 0) {
+      allLifetimeSales = await db.collection("sales").find({}).toArray();
+    }
+
+    const thisMonthSales = allLifetimeSales.filter(s => {
+      const rawDate = s.date || s.createdAt;
+      if (!rawDate) return false;
+      const d = new Date(rawDate);
+      return d >= startDate && d < endDate;
+    });
+
+    const totalCompanySalesAmount = thisMonthSales.reduce((sum, s) => sum + (s.grandTotal || 0), 0);
+    const dealers = await db.collection("dealers").find({}).toArray();
+    const users = await db.collection("users").find({ idNo: { $regex: /^MKT/i } }).toArray();
+
+    const userSalesMap = {};
+    const parentToChildrenMap = {}; 
+
+    // --- STEP 2: মেমোরি স্টেট স্ট্রাকচার ইনিশিয়ালাইজেশন ---
+    users.forEach(u => {
+      userSalesMap[u.idNo] = { 
+        ...u, 
+        _id: u._id.toString(),
+        databaseRank: u.rank || "SALES REPRESENTATIVE", 
+        directSalesLifetime: 0, 
+        directSalesThisMonth: 0, 
+        totalSalesVolume: 0,       
+        thisMonthSalesVolume: 0,   
+        autoPosition: "SALES REPRESENTATIVE",
+        baseCommission: 0,
+        currentSlabRate: 0,
+        selfQualifiesForBonus: false,
+        performanceBonusRate: 0,
+        monthlyBonusAmount: 0,
+        globalPoolBonusAmount: 0,
+        earnedPools: [] 
+      };
+      
+      const parentId = u.refIdNo || "0";
+      if (!parentToChildrenMap[parentId]) parentToChildrenMap[parentId] = [];
+      parentToChildrenMap[parentId].push(u.idNo); 
+    });
+
+    // ওয়ান-পাস অপ্টিমাইজড ডিলার হ্যাশ লুকেআপ ম্যাপ (O(1) Speed Boost)
+    const dealerLookupMap = {};
+    dealers.forEach(d => {
+      if (d._id && d.referenceIdNo) {
+        dealerLookupMap[d._id.toString()] = d.referenceIdNo;
+      }
+    });
+
+    // --- STEP 3: ডাইরেক্ট পার্সোনাল সেলস ভলিউম অ্যাসাইনমেন্ট ---
+    allLifetimeSales.forEach(sale => {
+      const saleAmount = Number(sale.grandTotal || sale.totalAmount || sale.amount || 0);
+      const saleDate = new Date(sale.date || sale.createdAt);
+      const isSelectedMonth = saleDate >= startDate && saleDate < endDate;
+
+      let targetEmployeeIdNo = null;
+
+      if (sale.isMonthlyArchived && sale.archivedSalesData?.employeeSnapshot?.idNo) {
+        targetEmployeeIdNo = sale.archivedSalesData.employeeSnapshot.idNo;
+      } else if (sale.dealer) {
+        targetEmployeeIdNo = dealerLookupMap[sale.dealer.toString()];
+      }
+
+      if (targetEmployeeIdNo && userSalesMap[targetEmployeeIdNo]) {
+        const emp = userSalesMap[targetEmployeeIdNo];
+        emp.directSalesLifetime += saleAmount;
+        emp.totalSalesVolume += saleAmount; 
+
+        if (isSelectedMonth) {
+          emp.directSalesThisMonth += saleAmount;
+          emp.thisMonthSalesVolume += saleAmount; 
+        }
+      }
+    });
+    // --- পাস ১: ট্রি ভলিউম রোল-আপ এবং স্ল্যাব রেট লকিং ইঞ্জিন ---
+    const processedNodes = new Set(); 
+    
+    const processHierarchyPositions = (currentIdNo) => {
+      if (processedNodes.has(currentIdNo)) {
+        const emp = userSalesMap[currentIdNo];
+        const resLegs = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+        if (emp) {
+          const myPos = (emp.autoPosition || "").toUpperCase().trim();
+          if (resLegs[myPos] !== undefined) resLegs[myPos] = 1;
+        }
+        return resLegs;
+      }
+      
+      const currentEmployee = userSalesMap[currentIdNo];
+      if (!currentEmployee) return { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+
+      const childrenIds = parentToChildrenMap[currentIdNo] || [];
+      const masterLegsCounts = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+      
+      let teamSalesSumTotal = 0;
+      let teamSalesSumMonth = 0;
+
+      childrenIds.forEach(childId => {
+        // রিকার্সন টাইম ফিক্স (চাইল্ড আগে প্রসেস হবে)
+        const childSubTreeLegs = processHierarchyPositions(childId);
+        const childData = userSalesMap[childId];
+        
+        if (childData) {
+          teamSalesSumTotal += childData.totalSalesVolume;
+          teamSalesSumMonth += childData.thisMonthSalesVolume;
+
+          const childFinalPos = (childData.autoPosition || "").toUpperCase().trim();
+          const highestAchievedInThisLeg = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+          
+          Object.keys(childSubTreeLegs).forEach(pos => {
+            if (childSubTreeLegs[pos] > 0) highestAchievedInThisLeg[pos] = 1;
+          });
+          if (highestAchievedInThisLeg[childFinalPos] !== undefined) {
+            highestAchievedInThisLeg[childFinalPos] = 1;
+          }
+
+          // Rank Compression Logic Integration
+          Object.keys(highestAchievedInThisLeg).forEach(pos => {
+            if (highestAchievedInThisLeg[pos] === 1) {
+              Object.keys(highestAchievedInThisLeg).forEach(p => {
+                if (RANK_MAP[pos] >= RANK_MAP[p]) highestAchievedInThisLeg[p] = 1;
+              });
+            }
+          });
+
+          Object.keys(highestAchievedInThisLeg).forEach(pos => {
+            if (highestAchievedInThisLeg[pos] === 1) masterLegsCounts[pos] += 1;
+          });
+        }
+      });
+      
+      currentEmployee.totalSalesVolume += teamSalesSumTotal;
+      currentEmployee.thisMonthSalesVolume += teamSalesSumMonth;
+
+      const calculatedRank = autoDeterminePosition(currentEmployee.totalSalesVolume, masterLegsCounts);
+      
+      // Rank Lock Mechanism Match
+      const currentWeight = RANK_MAP[calculatedRank] || 0;
+      const historicWeight = RANK_MAP[currentEmployee.databaseRank] || 0;
+      currentEmployee.autoPosition = currentWeight >= historicWeight ? calculatedRank : currentEmployee.databaseRank;
+      
+      currentEmployee.currentSlabRate = POSITION_SLABS[currentEmployee.autoPosition] || 0;
+      
+      const qualification = checkSelfQualificationOnly(
+        currentEmployee.autoPosition,
+        currentEmployee.thisMonthSalesVolume,
+        masterLegsCounts
+      );
+      currentEmployee.selfQualifiesForBonus = qualification.qualifies;
+      currentEmployee.performanceBonusRate = qualification.performanceBonusRate;
+
+      processedNodes.add(currentIdNo);
+
+      const myFinalPos = (currentEmployee.autoPosition || "").toUpperCase().trim();
+      const returnLegsSummary = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+      Object.keys(masterLegsCounts).forEach(pos => {
+        if (masterLegsCounts[pos] > 0) returnLegsSummary[pos] = 1;
+      });
+      if (returnLegsSummary[myFinalPos] !== undefined) returnLegsSummary[myFinalPos] = 1;
+
+      return returnLegsSummary;
+    };
+
+    users.forEach(user => {
+      if (user.refIdNo === "0" || !user.refIdNo || !userSalesMap[user.refIdNo]) {
+        processHierarchyPositions(user.idNo);
+      }
+    });
+
+    // --- পাস ২: লিনিয়ার ডাইনামিক গ্যাপ কমিশন (True Generation Gap Engine) ---
+    thisMonthSales.forEach(sale => {
+      const invoiceAmount = Number(sale.grandTotal || sale.totalAmount || sale.amount || 0);
+      if (invoiceAmount <= 0) return;
+
+      let startEmployeeIdNo = null;
+      if (sale.isMonthlyArchived && sale.archivedSalesData?.employeeSnapshot?.idNo) {
+        startEmployeeIdNo = sale.archivedSalesData.employeeSnapshot.idNo;
+      } else if (sale.dealer) {
+        startEmployeeIdNo = dealerLookupMap[sale.dealer.toString()];
+      }
+
+      if (!startEmployeeIdNo || !userSalesMap[startEmployeeIdNo]) return;
+      
+      let currentIdNo = startEmployeeIdNo;
+      let distributedRateSoFar = 0; 
+      const visited = new Set(); 
+
+      while (currentIdNo && currentIdNo !== "0" && !visited.has(currentIdNo)) {
+        visited.add(currentIdNo);
+        const empNode = userSalesMap[currentIdNo];
+        if (!empNode) break;
+
+        let myPositionRate = POSITION_SLABS[empNode.autoPosition?.toUpperCase()] || 0;
+
+        if (myPositionRate > distributedRateSoFar) {
+          const gapRate = myPositionRate - distributedRateSoFar;
+          empNode.baseCommission += invoiceAmount * gapRate; 
+          distributedRateSoFar = myPositionRate; 
+        }
+
+        if (distributedRateSoFar >= 0.24) break;
+        currentIdNo = empNode.refIdNo; 
+      }
+    });
+
+    // --- পাস ৩: টপ-ডাউন কোয়ালিফিকেশন ওভাররাইড চেইন ---
+    const applyTopDownBonusQualification = (currentIdNo, parentQualifies = false) => {
+      const currentEmployee = userSalesMap[currentIdNo];
+      if (!currentEmployee) return;
+      if (parentQualifies) currentEmployee.selfQualifiesForBonus = true;
+      const childrenIds = parentToChildrenMap[currentIdNo] || [];
+      childrenIds.forEach(childId => applyTopDownBonusQualification(childId, currentEmployee.selfQualifiesForBonus));
+    };
+    if (parentToChildrenMap["0"]) {
+      parentToChildrenMap["0"].forEach(rootIdNo => applyTopDownBonusQualification(rootIdNo, false));
+    }
+
+    // --- পাস ৩.১: গ্যারান্টিড রেট সিঙ্ক লক ইঞ্জিন ---
+    Object.keys(userSalesMap).forEach(idNo => {
+      const emp = userSalesMap[idNo];
+      if (!emp) return;
+
+      if (emp.selfQualifiesForBonus === true) {
+        const currentChildrenIds = parentToChildrenMap[idNo] || [];
+        const syncedLegsCounts = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+
+        currentChildrenIds.forEach(cId => {
+          const cData = userSalesMap[cId];
+          if (cData) {
+            const cPos = (cData.autoPosition || "").toUpperCase().trim();
+            const singleLegFlags = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+            if (singleLegFlags[cPos] !== undefined) singleLegFlags[cPos] = 1;
+
+            const trackDeepLegPositions = (nodeId) => {
+              const subChildren = parentToChildrenMap[nodeId] || [];
+              subChildren.forEach(subId => {
+                const subData = userSalesMap[subId];
+                if (subData) {
+                  const subPos = (subData.autoPosition || "").toUpperCase().trim();
+                  if (singleLegFlags[subPos] !== undefined) singleLegFlags[subPos] = 1;
+                  trackDeepLegPositions(subId);
+                }
+              });
+            };
+            trackDeepLegPositions(cId);
+
+            Object.keys(singleLegFlags).forEach(pos => {
+              if (singleLegFlags[pos] === 1) {
+                Object.keys(singleLegFlags).forEach(p => {
+                  if (RANK_MAP[pos] >= RANK_MAP[p]) singleLegFlags[p] = 1;
+                });
+              }
+            });
+
+            Object.keys(singleLegFlags).forEach(pos => {
+              syncedLegsCounts[pos] += singleLegFlags[pos];
+            });
+          }
+        });
+
+        const finalCheck = checkSelfQualificationOnly(emp.autoPosition, emp.thisMonthSalesVolume, syncedLegsCounts);
+        if (finalCheck.qualifies && finalCheck.performanceBonusRate > 0) {
+          emp.performanceBonusRate = finalCheck.performanceBonusRate;
+        } else {
+          const upPos = (emp.autoPosition || "").toUpperCase().trim();
+          if (upPos === "RSM") emp.performanceBonusRate = 0.01;
+          else if (upPos === "DSM" || upPos === "SDSM") emp.performanceBonusRate = 0.005;
+          else if (["SM", "NSM", "ED", "BOM"].includes(upPos)) emp.performanceBonusRate = 0.0025;
+          else emp.performanceBonusRate = 0;
+        }
+      }
+    });
+
+    // --- পাস ৪: গ্লোবাল পুল কাউন্টার এবং মেম্বার অ্যাসাইনমেন্ট ---
+    const poolShareCounters = { RSM: 0, DSM: 0, SDSM: 0, SM: 0, NSM: 0, ED: 0, BOM: 0 };
+    const qualifiedPoolMembers = { RSM: [], DSM: [], SDSM: [], SM: [], NSM: [], ED: [], BOM: [] };
+    
+    users.forEach(user => {
+      const nodeData = userSalesMap[user.idNo];
+      if (!nodeData) return;
+      const isQualifiedForBill = (nodeData.directSalesThisMonth || 0) >= 3000;
+      const myPos = nodeData.autoPosition?.toUpperCase();
+
+      if (isQualifiedForBill && nodeData.selfQualifiesForBonus && ELIGIBLE_POOL_POSITIONS.includes(myPos)) {
+        const myRankValue = RANK_MAP[myPos];
+        ELIGIBLE_POOL_POSITIONS.forEach(poolName => {
+          const poolRankValue = RANK_MAP[poolName];
+          if (myPos === "RSM") {
+            if (poolName === "RSM") { 
+              poolShareCounters[poolName]++; 
+              nodeData.earnedPools.push(poolName); 
+              qualifiedPoolMembers[poolName].push(user.idNo); 
+            }
+          } else {
+            if (myRankValue >= poolRankValue && poolName !== "RSM") { 
+              poolShareCounters[poolName]++; 
+              nodeData.earnedPools.push(poolName); 
+              qualifiedPoolMembers[poolName].push(user.idNo); 
+            }
+          }
+        });
+      }
+    });
+
+    // --- পাস ৫: গ্লোবাল কোম্পানি পুল বোনাস ডিস্ট্রিবিউশন রানার ---
+    Object.keys(userSalesMap).forEach(idNo => {
+      if (userSalesMap[idNo]) userSalesMap[idNo].globalPoolBonusAmount = 0;
+    });
+
+    ELIGIBLE_POOL_POSITIONS.forEach(poolName => {
+      const poolRate = SALES_SHARE_CONFIG[poolName] || 0;
+      const uniqueMemberIds = Array.from(new Set(qualifiedPoolMembers[poolName] || []));
+      const totalPoolMembers = uniqueMemberIds.length;
+
+      if (totalPoolMembers > 0 && poolRate > 0) {
+        const totalPoolMoney = totalCompanySalesAmount * poolRate;
+        const sharePerMember = totalPoolMoney / totalPoolMembers;
+        
+        uniqueMemberIds.forEach(idNo => {
+          if (userSalesMap[idNo]) {
+            userSalesMap[idNo].globalPoolBonusAmount += sharePerMember;
+          }
+        });
+      }
+    });
+
+    // =========================================================================
+    // পাস ৬: কর্মচারীদের ফাইনাল ফ্ল্যাট রেসপন্স এরে প্রস্তুতকরণ (Mongoose Safe)
+    // =========================================================================
+    const finalLedgerList = [];
+
+    users.forEach(user => {
+      const rawUserObj = user._doc || user; // মঙ্গুজ মেটাডেটা লিক প্রটেকশন
+      const nodeData = userSalesMap[user.idNo];
+      if (!nodeData) return;
+
+      const isQualifiedForBill = (nodeData.directSalesThisMonth || 0) >= 3000;
+
+      let salesShareBonus = nodeData.globalPoolBonusAmount || 0;
+      let performanceBonus = 0;
+      let personalSlabCommission = 0;
+
+      if (isQualifiedForBill && nodeData.selfQualifiesForBonus) {
+        performanceBonus = (nodeData.thisMonthSalesVolume || 0) * (nodeData.performanceBonusRate || 0);
+      }
+
+      if (isQualifiedForBill && nodeData.currentSlabRate > 0) {
+        personalSlabCommission = (nodeData.directSalesThisMonth || 0) * nodeData.currentSlabRate;
+      }
+
+      const totalAccumulatedBaseCommission = (nodeData.baseCommission || 0) + personalSlabCommission;
+      const finalSalesShareBonus = isQualifiedForBill ? salesShareBonus : 0;
+      
+      nodeData.baseCommission = totalAccumulatedBaseCommission;
+      nodeData.monthlyBonusAmount = performanceBonus;
+      nodeData.globalPoolBonusAmount = finalSalesShareBonus;
+
+      nodeData.totalSalesAchieved = nodeData.totalSalesVolume;
+      nodeData.thisMonthSalesAchieved = nodeData.thisMonthSalesVolume;
+
+      const totalEarned = totalAccumulatedBaseCommission + finalSalesShareBonus + performanceBonus;
+
+      if (totalEarned > 0 || (nodeData.totalSalesVolume || 0) >= 25000) {
+        finalLedgerList.push({
+          ...rawUserObj,
+          _id: rawUserObj._id.toString(),
+          
+          directSalesLifetime: nodeData.directSalesLifetime,
+          directSalesThisMonth: nodeData.directSalesThisMonth,
+          totalSalesVolume: nodeData.totalSalesVolume,
+          thisMonthSalesVolume: nodeData.thisMonthSalesVolume,
+          autoPosition: nodeData.autoPosition,
+          
+          baseCommission: Number(nodeData.baseCommission.toFixed(2)),
+          selfQualifiesForBonus: nodeData.selfQualifiesForBonus,
+          performanceBonusRate: nodeData.performanceBonusRate,
+          monthlyBonusAmount: Number(nodeData.monthlyBonusAmount.toFixed(2)),
+          globalPoolBonusAmount: Number(nodeData.globalPoolBonusAmount.toFixed(2)),
+          earnedPools: isQualifiedForBill ? nodeData.earnedPools : [],
+          
+          totalSalesAchieved: nodeData.totalSalesAchieved,
+          thisMonthSalesAchieved: nodeData.thisMonthSalesAchieved,
+          
+          netTotalEarnings: Number(totalEarned.toFixed(2)),
+          qualificationStatus: isQualifiedForBill ? "Qualified" : "Disqualified for Pool (Sales < 3000)"
+        });
+      }
+    });
+
+    // =========================================================================
+    // পাস 🔍: ডিলার ওয়ান-পাস ওয়ান-টাইম নেম লুকেআপ ম্যাপ (O(1) Speed Optimizer)
+    // =========================================================================
+    const dealerDetailsMap = {};
+    dealers.forEach(d => {
+      if (d._id) {
+        dealerDetailsMap[d._id.toString()] = d.name || "Unknown Dealer";
+      }
+    });
+
+    // =========================================================================
+    // পাস ৭: ডিলার রেসপন্স লুপ (O(1) Hash Map Optimization দিয়ে পুরোপুরি ফিক্সড)
+    // =========================================================================
+    const dealerResultMap = {};
+
+    thisMonthSales.forEach(sale => {
+      const amt = Number(sale.grandTotal || sale.totalAmount || sale.amount || 0);
+      if (amt <= 0) return;
+      
+      let dIdNo = null;
+      let dName = "Unknown Dealer";
+      let d_id = sale.dealer ? sale.dealer.toString() : "ARCHIVED_ID";
+
+      if (sale.isMonthlyArchived && sale.archivedSalesData && sale.archivedSalesData.dealerSnapshot) {
+        dIdNo = sale.archivedSalesData.dealerSnapshot.idNo;
+        dName = sale.archivedSalesData.dealerSnapshot.name || "Unknown Dealer";
+      } else if (sale.dealer && dealerLookupMap[d_id]) {
+        // ওয়ান-টাইম ওয়ান-পাস হ্যাশ লুকেআপ (কোনো ইন্টারনাল লুপ বা ক্র্যাশ রিস্ক নেই)
+        dIdNo = dealerLookupMap[d_id];
+        dName = dealerDetailsMap[d_id] || "Unknown Dealer";
+      }
+      
+      if (dIdNo) {
+        if (!dealerResultMap[dIdNo]) {
+          dealerResultMap[dIdNo] = { _id: d_id, name: dName, dealerId: dIdNo, totalSales: 0 };
+        }
+        dealerResultMap[dIdNo].totalSales += amt;
+      }
+    });
+
+    dealers.forEach(dlr => {
+      const dIdNo = dlr.dealerId || dlr.idNo || "N/A";
+      if (!dealerResultMap[dIdNo]) {
+        dealerResultMap[dIdNo] = { 
+          _id: dlr._id.toString(), 
+          name: dlr.name || "Unknown Dealer", 
+          dealerId: dIdNo, 
+          totalSales: 0 
+        };
+      }
+    });
+
+    const qualifiedDealers = Object.values(dealerResultMap).map(dlr => {
+      const commission = calculateDealerCommission(dlr.totalSales);
+      const isDealerQualified = dlr.totalSales >= 5000;
+      return {
+        _id: dlr._id,
+        name: dlr.name,
+        dealerId: dlr.dealerId,
+        totalSales: Number(dlr.totalSales.toFixed(2)),
+        commission: Number(commission.toFixed(2)),
+        status: isDealerQualified ? "Qualified" : "Disqualified (Sales < 5000)"
+      };
+    });
+
+    // সম্পূর্ণ লেজার ক্যালকুলেশন ইঞ্জিনের ফাইনাল আউটপুট রিটার্ন
+    return { totalCompanySalesAmount, poolShareCounters, finalLedgerList, qualifiedDealers };
+
+  } catch (error) {
+    console.error("❌ GLOBAL COMMISSION ENGINE ERROR:", error);
+    throw error;
+  }
+};
+
+module.exports = { executeLedgerCalculationEngine };
+
 
 
 
