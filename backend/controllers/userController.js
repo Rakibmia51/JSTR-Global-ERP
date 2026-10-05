@@ -1077,10 +1077,36 @@ const autoDeterminePosition = (salesVolume, qualifiedLegsCounts = {}, databaseRa
       }
     });
 
-    // ৮. ফাইনাল রেসপন্স ফরম্যাটিং (Circular Safe)
+    // // ৮. ফাইনাল রেসপন্স ফরম্যাটিং (Circular Safe)
+    // Object.values(userSalesMap).forEach(emp => {
+    //   emp.children = [];
+    // });
+
+    // users.forEach(user => {
+    //   const currentEmployee = userSalesMap[user.idNo];
+    //   if (!currentEmployee) return;
+
+    //   currentEmployee.position = currentEmployee.autoPosition;
+    //   currentEmployee.totalSalesAchieved = currentEmployee.totalSalesVolume;
+    //   currentEmployee.thisMonthSalesAchieved = currentEmployee.thisMonthSalesVolume;
+
+    //   const parentIdNo = user.refIdNo;
+    //   if (parentIdNo === "0" || !parentIdNo || !userSalesMap[parentIdNo]) {
+    //     tree.push(currentEmployee);
+    //   } else {
+    //     userSalesMap[parentIdNo].children.push(currentEmployee);
+    //   }
+    // });
+
+
+    // =======================================================================
+    // ৮. সার্কুলার রেফারেন্স প্রটেকশন, ফাইনাল ট্রি ও ডাটাবেজ আপডেট বাল্ক অ্যারে তৈরি
+    // =======================================================================
     Object.values(userSalesMap).forEach(emp => {
       emp.children = [];
     });
+
+    const bulkUpdateOperations = []; // 💥 ডাটাবেজ আপডেটের জন্য বাল্ক অ্যারে
 
     users.forEach(user => {
       const currentEmployee = userSalesMap[user.idNo];
@@ -1090,13 +1116,34 @@ const autoDeterminePosition = (salesVolume, qualifiedLegsCounts = {}, databaseRa
       currentEmployee.totalSalesAchieved = currentEmployee.totalSalesVolume;
       currentEmployee.thisMonthSalesAchieved = currentEmployee.thisMonthSalesVolume;
 
+      // 💥 ডাটাবেজের rank ফিল্ডের সাথে যদি autoPosition না মিলে, তবেই আপডেট অপারেশনে পুশ হবে
+      if (currentEmployee.rank !== currentEmployee.autoPosition) {
+        bulkUpdateOperations.push({
+          updateOne: {
+            filter: { idNo: currentEmployee.idNo },
+            update: { $set: { rank: currentEmployee.autoPosition } }
+          }
+        });
+      }
+
       const parentIdNo = user.refIdNo;
-      if (parentIdNo === "0" || !parentIdNo || !userSalesMap[parentIdNo]) {
+      if (parentIdNo === "0" || !parentIdNo || !userSalesMap[parentIdNo] || parentIdNo === user.idNo) {
         tree.push(currentEmployee);
       } else {
         userSalesMap[parentIdNo].children.push(currentEmployee);
       }
     });
+
+    // =======================================================================
+    // 💥 ৯. বাল্ক রাইট অপারেশন এক্সিকিউশন (ডাটাবেজে স্থায়ীভাবে সেভ করা)
+    // =======================================================================
+    if (bulkUpdateOperations.length > 0) {
+      // ordered: false দিলে কোনো একটা ডকুমেন্টে এরর হলেও বাকিগুলো আপডেট হয়ে যাবে
+      await db.collection("users").bulkWrite(bulkUpdateOperations, { ordered: false });
+      console.log(`✅ Successfully updated ranks for ${bulkUpdateOperations.length} employees.`);
+    }
+
+
 
     res.status(200).json(tree);
     

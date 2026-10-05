@@ -5655,7 +5655,379 @@ const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
   }
 };
 
-module.exports = { executeLedgerCalculationEngine };
+
+// 15th version: 15.0.0 (June 2024) - Full Refactor with Multi-Pass Engine, Deep Leg Roll-Up, Dynamic Gap Commission, Top-Down Override, Global Pool Distribution, and Optimized Pagination
+// const calculateMonthlyCommissions = async (req, res) => {
+//   try {
+//     const db = mongoose.connection.db;
+
+//     // ১. প্রজেকশন সহ ডাটা নিয়ে আসা (র‍্যাম সেভ করার জন্য)
+//     const allSales = await db.collection("invoices").find({}, { 
+//       projection: { grandTotal: 1, createdAt: 1, isMonthlyArchived: 1, archivedSalesData: 1, dealer: 1 } 
+//     }).toArray();
+    
+//     const dealers = await db.collection("dealers").find({}, { 
+//       projection: { _id: 1, referenceIdNo: 1 } 
+//     }).toArray();
+    
+//     const users = await db.collection("users").find(
+//       { idNo: { $regex: /^MKT/i } },
+//       { projection: { idNo: 1, refIdNo: 1, rank: 1, name: 1 } }
+//     ).toArray();
+
+//     const currentDate = new Date();
+//     const currentMonth = currentDate.getMonth(); 
+//     const currentYear = currentDate.getFullYear(); 
+
+//     // ২. কনফিগুরেশন ম্যাপিংস
+//     const RANK_MAP = {
+//       "SALES REPRESENTATIVE": 0, "AM": 1, "RSM": 2, "DSM": 3, 
+//       "SDSM": 4, "SM": 5, "NSM": 6, "ED": 7, "BOM": 8
+//     };
+
+//     const POSITION_SLABS = {
+//       "BOM": 0.24, "ED": 0.24, "NSM": 0.23, "SM": 0.22,
+//       "SDSM": 0.21, "DSM": 0.20, "RSM": 0.175, "AM": 0.15,
+//       "SALES REPRESENTATIVE": 0
+//     };
+
+//     const SALES_SHARE_CONFIG = {
+//       "BOM": 0.01, "ED": 0.005, "NSM": 0.01, "SM": 0.005,
+//       "SDSM": 0.01, "DSM": 0.05, "RSM": 0.01, "AM": 0
+//     };
+
+//     const userSalesMap = {};
+//     const childMap = {};
+//     let companyGlobalSalesThisMonth = 0; // গ্লোবাল শেয়ার পুলের জন্য
+
+//     // ৩. মেমোরি ম্যাপ রেডি করা
+//     users.forEach(u => {
+//       userSalesMap[u.idNo] = { 
+//         ...u, 
+//         _id: u._id.toString(),
+//         databaseRank: u.rank || "SALES REPRESENTATIVE", 
+//         directSalesThisMonth: 0,   
+//         thisMonthSalesVolume: 0, // টিম সহ টোটাল রোল-আপ ভলিউম   
+//         autoPosition: "SALES REPRESENTATIVE",
+//         // কমিশনের খতিয়ান ব্রেকডাউন অবজেক্ট
+//         commissions: {
+//           dealerCommission: 0,
+//           gapCommission: 0,
+//           performanceBonus: 0,
+//           salesSharePoolBonus: 0,
+//           totalEarned: 0
+//         },
+//         legVolumeMap: {} // প্রতিটি চাইল্ড লেগে কত ভলিউম জেনারেট হলো ট্র্যাকিং
+//       };
+
+//       const parentId = u.refIdNo;
+//       if (parentId && parentId !== "0") {
+//         if (!childMap[parentId]) childMap[parentId] = [];
+//         childMap[parentId].push(u.idNo);
+//       }
+//     });
+
+//     const dealerMap = {};
+//     dealers.forEach(d => { dealerMap[d._id.toString()] = d.referenceIdNo; });
+
+//     // ৪. ডিলার কমিশন এবং মান্থলি পার্সোনাল সেলস ভলিউম অ্যাসাইনমেন্ট
+//     allSales.forEach(sale => {
+//       const saleAmount = sale.grandTotal || 0;
+//       const saleDate = new Date(sale.createdAt);
+//       const isCurrentMonth = saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear;
+      
+//       if (!isCurrentMonth) return; // শুধুমাত্র চলতি মাসের হিসাব হবে
+
+//       companyGlobalSalesThisMonth += saleAmount; // গ্লোবাল টার্নওভার কাউন্ট
+
+//       let targetEmployeeIdNo = null;
+//       if (sale.isMonthlyArchived && sale.archivedSalesData?.employeeSnapshot?.idNo) {
+//         targetEmployeeIdNo = sale.archivedSalesData.employeeSnapshot.idNo;
+//       } else if (sale.dealer) {
+//         targetEmployeeIdNo = dealerMap[sale.dealer.toString()] || null;
+//       }
+
+//       if (targetEmployeeIdNo && userSalesMap[targetEmployeeIdNo]) {
+//         const emp = userSalesMap[targetEmployeeIdNo];
+//         emp.directSalesThisMonth += saleAmount;
+//         emp.thisMonthSalesVolume += saleAmount;
+
+//         // ডিলার কমিশন শর্ত: মিনিমাম ৫০০০ টাকা সেলস হতে হবে
+//         if (saleAmount >= 5000) {
+//           if (saleAmount < 50000) {
+//             emp.commissions.dealerCommission += saleAmount * 0.05;
+//           } else {
+//             emp.commissions.dealerCommission += saleAmount * 0.07;
+//           }
+//         }
+//       }
+//     });
+
+//     // ৫. রুল ইঞ্জিন: পজিশন কোয়ালিফিকেশন (আপনার দেওয়া লেটেস্ট শর্তানুযায়ী)
+//     const autoDeterminePosition = (salesVolume, qualifiedLegsCounts = {}, databaseRank = "SALES REPRESENTATIVE") => {
+//       const countAtLeast = (targetPos) => {
+//         return Object.keys(qualifiedLegsCounts).reduce((total, pos) => {
+//           return RANK_MAP[pos] >= RANK_MAP[targetPos] ? total + qualifiedLegsCounts[pos] : total;
+//         }, 0);
+//       };
+
+//       let calculatedRank = "SALES REPRESENTATIVE";
+
+//       if (salesVolume >= 3200000 && countAtLeast("ED") >= 2) calculatedRank = "BOM";
+//       else if (salesVolume >= 1600000 && countAtLeast("NSM") >= 4) calculatedRank = "ED";
+//       else if (salesVolume >= 400000 && countAtLeast("DSM") >= 4) calculatedRank = "NSM";
+//       else if (salesVolume >= 300000 && countAtLeast("DSM") >= 3) calculatedRank = "SM";
+//       else if (salesVolume >= 200000 && countAtLeast("DSM") >= 2) calculatedRank = "SDSM";
+//       else if (salesVolume >= 100000 && countAtLeast("RSM") >= 2 && countAtLeast("AM") >= 2) calculatedRank = "DSM";
+//       else if (salesVolume >= 75000 && countAtLeast("AM") >= 3) calculatedRank = "RSM";
+//       else if (salesVolume >= 25000) calculatedRank = "AM";
+
+//       const currentWeight = RANK_MAP[calculatedRank.toUpperCase()] || 0;
+//       const historicWeight = RANK_MAP[databaseRank.toUpperCase()] || 0;
+
+//       return currentWeight >= historicWeight ? calculatedRank : databaseRank.toUpperCase();
+//     };
+
+//     // ৬. সেলফ কোয়ালিফিকেশন অ্যান্ড বেস্ট পারফরম্যান্স বোনাস রেট চেকার
+//     const checkSelfQualificationOnly = (position, totalSales, qualifiedLegsCounts = {}) => {
+//       const currentPos = (position || "").trim().toUpperCase();
+//       const countAtLeast = (targetPos) => {
+//         return Object.keys(qualifiedLegsCounts).reduce((total, pos) => {
+//           return RANK_MAP[pos] >= RANK_MAP[targetPos] ? total + qualifiedLegsCounts[pos] : total;
+//         }, 0);
+//       };
+
+//       let qualifies = false;
+//       let performanceBonusRate = 0;
+
+//       switch (currentPos) {
+//         case "RSM":
+//           if (totalSales >= 75000 && countAtLeast("AM") >= 3) { qualifies = true; performanceBonusRate = 0.01; }
+//           break;
+//         case "DSM":
+//           if (totalSales >= 100000 && countAtLeast("RSM") >= 1 && countAtLeast("AM") >= 2) { qualifies = true; performanceBonusRate = 0.005; }
+//           break;
+//         case "SDSM":
+//           if (totalSales >= 200000 && countAtLeast("DSM") >= 2) { qualifies = true; performanceBonusRate = 0.005; }
+//           break;
+//         case "SM":
+//           if (totalSales >= 300000 && countAtLeast("DSM") >= 3) { qualifies = true; performanceBonusRate = 0.0025; }
+//           break;
+//         case "NSM":
+//           if (totalSales >= 400000 && countAtLeast("DSM") >= 4) { qualifies = true; performanceBonusRate = 0.0025; }
+//           break;
+//         case "ED":
+//           if (totalSales >= 1600000 && countAtLeast("NSM") >= 4) { qualifies = true; performanceBonusRate = 0.0025; }
+//           break;
+//         case "BOM":
+//           if (totalSales >= 3200000 && countAtLeast("ED") >= 2) { qualifies = true; performanceBonusRate = 0.0025; }
+//           break;
+//         default:
+//           break;
+//       }
+//       return { qualifies, performanceBonusRate };
+//     };
+
+//     // ৭. পাস ১: কারেন্ট মাসের ডাউনলাইন ভলিউম রোল-আপ প্রসেস
+//     const volumeVisited = new Set();
+//     const rollupSalesVolume = (currentIdNo) => {
+//       if (volumeVisited.has(currentIdNo)) return;
+//       volumeVisited.add(currentIdNo);
+
+//       const currentEmployee = userSalesMap[currentIdNo];
+//       if (!currentEmployee) return;
+
+//       const childrenIds = childMap[currentIdNo] || [];
+//       childrenIds.forEach(childId => {
+//         rollupSalesVolume(childId);
+//         const childData = userSalesMap[childId];
+//         if (childData) {
+//           currentEmployee.thisMonthSalesVolume += childData.thisMonthSalesVolume;
+//           // কোন চাইল্ড লেগ থেকে কত ভলিউম আসলো তা ট্র্যাকিং ম্যাপে রাখা
+//           currentEmployee.legVolumeMap[childId] = childData.thisMonthSalesVolume;
+//         }
+//       });
+//     };
+
+//     Object.keys(userSalesMap).forEach(idNo => {
+//       if (!volumeVisited.has(idNo)) rollupSalesVolume(idNo);
+//     });
+
+//         // =======================================================================
+//     // ৮. পাস ২: কম্প্রেসড লেগ কাউন্টার এবং পজিশন লক ডিটারমিনেশন
+//     // =======================================================================
+//     const positionVisited = new Set();
+//     const poolQualifiers = { RSM: [], DSM: [], SDSM: [], SM: [], NSM: [], ED: [], BOM: [] };
+
+//     const calculatePositionsAndLegs = (currentIdNo) => {
+//       if (positionVisited.has(currentIdNo)) return { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+//       positionVisited.add(currentIdNo);
+
+//       const currentEmployee = userSalesMap[currentIdNo];
+//       if (!currentEmployee) return { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+
+//       const childrenIds = childMap[currentIdNo] || [];
+//       const masterLegsCounts = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+
+//       childrenIds.forEach(childId => {
+//         const childSubTreeSummary = calculatePositionsAndLegs(childId);
+//         const childData = userSalesMap[childId];
+        
+//         if (childData) {
+//           const childFinalPos = (childData.autoPosition || "").toUpperCase().trim();
+//           const uniqueRanksInThisLeg = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+
+//           Object.keys(childSubTreeSummary).forEach(pos => {
+//             if (childSubTreeSummary[pos] > 0) uniqueRanksInThisLeg[pos] = 1;
+//           });
+//           if (uniqueRanksInThisLeg[childFinalPos] !== undefined) uniqueRanksInThisLeg[childFinalPos] = 1;
+
+//           // Rank Compression Expansion (১টি বড় পজিশন ছোট সব শর্ত পূরণ করবে)
+//           Object.keys(uniqueRanksInThisLeg).forEach(pos => {
+//             if (uniqueRanksInThisLeg[pos] === 1) {
+//               Object.keys(uniqueRanksInThisLeg).forEach(p => {
+//                 if (RANK_MAP[pos] >= RANK_MAP[p]) uniqueRanksInThisLeg[p] = 1;
+//               });
+//             }
+//           });
+
+//           Object.keys(uniqueRanksInThisLeg).forEach(pos => {
+//             if (uniqueRanksInThisLeg[pos] === 1) masterLegsCounts[pos] += 1;
+//           });
+//         }
+//       });
+
+//       const dbRank = currentEmployee.databaseRank || currentEmployee.rank || "SALES REPRESENTATIVE";
+//       currentEmployee.autoPosition = autoDeterminePosition(currentEmployee.thisMonthSalesVolume, masterLegsCounts, dbRank);
+
+//       // বেস্ট পারফরম্যান্স এবং সেলফ কোয়ালিফিকেশন চেক
+//       const qCheck = checkSelfQualificationOnly(currentEmployee.autoPosition, currentEmployee.thisMonthSalesVolume, masterLegsCounts);
+//       currentEmployee.isSelfQualified = qCheck.qualifies;
+      
+//       if (qCheck.qualifies) {
+//         currentEmployee.commissions.performanceBonus = currentEmployee.thisMonthSalesVolume * qCheck.performanceBonusRate;
+        
+//         // গ্লোবাল শেয়ার পুলের এলিজিবল লিস্টে পুশ করা
+//         if (poolQualifiers[currentEmployee.autoPosition] !== undefined) {
+//           poolQualifiers[currentEmployee.autoPosition].push(currentEmployee.idNo);
+//         }
+//       }
+
+//       // আপলাইনের ট্র্যাকিংয়ের জন্য ডেটা রিটার্ন
+//       const myFinalPos = (currentEmployee.autoPosition || "").toUpperCase().trim();
+//       const returnLegsSummary = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+//       Object.keys(masterLegsCounts).forEach(pos => {
+//         if (masterLegsCounts[pos] > 0) returnLegsSummary[pos] = 1;
+//       });
+//       if (returnLegsSummary[myFinalPos] !== undefined) returnLegsSummary[myFinalPos] = 1;
+
+//       return returnLegsSummary;
+//     };
+
+//     Object.keys(userSalesMap).forEach(idNo => {
+//       if (!positionVisited.has(idNo)) calculatePositionsAndLegs(idNo);
+//     });
+
+//     // =======================================================================
+//     // ৯. পাস ৩: গ্যাপ কমিশন (Gap Commission Engine) গণনা
+//     // =======================================================================
+//     Object.keys(userSalesMap).forEach(parentId => {
+//       const parentNode = userSalesMap[parentId];
+//       const childrenIds = childMap[parentId] || [];
+//       const parentSlabRate = POSITION_SLABS[parentNode.autoPosition] || 0;
+
+//       childrenIds.forEach(childId => {
+//         const childNode = userSalesMap[childId];
+//         if (!childNode) return;
+
+//         const childSlabRate = POSITION_SLABS[childNode.autoPosition] || 0;
+        
+//         // গ্যাপ বের করা (Parent Rate - Child Rate)
+//         let gapRate = parentSlabRate - childSlabRate;
+//         if (gapRate < 0) gapRate = 0; // ওভারল্যাপ বা আপলাইন ছোট হলে গ্যাপ ০ হবে
+
+//         const childLegTotalVolume = parentNode.legVolumeMap[childId] || 0;
+//         parentNode.commissions.gapCommission += childLegTotalVolume * gapRate;
+//       });
+//     });
+
+//     // =======================================================================
+//     // ১০. পাস ৪: কোম্পানি গ্লোবাল সেলস শেয়ার পুল বোনাস ডিস্ট্রিবিউশন
+//     // =======================================================================
+//     Object.keys(SALES_SHARE_CONFIG).forEach(pos => {
+//       const shareRate = SALES_SHARE_CONFIG[pos];
+//       if (shareRate === 0) return;
+
+//       const totalPoolMoney = companyGlobalSalesThisMonth * shareRate;
+//       const qualifiedMembersList = poolQualifiers[pos] || [];
+
+//       if (qualifiedMembersList.length > 0) {
+//         // সমবন্টন নীতি (Equal Share Split)
+//         const moneyPerMember = totalPoolMoney / qualifiedMembersList.length;
+//         qualifiedMembersList.forEach(idNo => {
+//           userSalesMap[idNo].commissions.salesSharePoolBonus += moneyPerMember;
+//         });
+//       }
+//     });
+
+//     // =======================================================================
+//     // ১১. ফাইনাল টোটাল ও বাল্ক রাইট ডেটাবেজ প্রিপারেশন
+//     // =======================================================================
+//     const bulkUserUpdates = [];
+//     const commissionLogs = [];
+
+//     Object.values(userSalesMap).forEach(emp => {
+//       const c = emp.commissions;
+//       c.totalEarned = c.dealerCommission + c.gapCommission + c.performanceBonus + c.salesSharePoolBonus;
+
+//       // ডাটাবেজে ইউজারের পজিশন / র‍্যাংক ফাইনাল সেভ প্রিপারেশন
+//       bulkUserUpdates.push({
+//         updateOne: {
+//           filter: { idNo: emp.idNo },
+//           update: { $set: { rank: emp.autoPosition } }
+//         }
+//       });
+
+//       // এই মাসের পে-আউট হিস্ট্রি বা লগ টেবিলের অবজেক্ট তৈরি
+//       commissionLogs.push({
+//         employeeIdNo: emp.idNo,
+//         name: emp.name,
+//         month: currentMonth + 1, // 💥 FIX: Change from currentMonth to currentMonth + 1
+//         year: currentYear,
+//         calculations: {
+//           thisMonthSalesVolume: emp.thisMonthSalesVolume,
+//           directSalesThisMonth: emp.directSalesThisMonth
+//         },
+//         breakdown: c,
+//         calculatedAt: new Date()
+//       });
+//     });
+//     // =======================================================================
+//     // ১২. ডাটাবেজে বাল্ক সেভ এক্সিকিউশন ও রেসপন্স
+//     // =======================================================================
+//     if (bulkUserUpdates.length > 0) {
+//       await db.collection("users").bulkWrite(bulkUserUpdates, { ordered: false });
+//     }
+
+//     if (commissionLogs.length > 0) {
+//       // প্রতি মাসের পেআউট ট্র্যাক রাখার জন্য "monthly_payouts" কালেকশনে সেভ করা
+//       await db.collection("monthly_payouts").insertMany(commissionLogs);
+//     }
+
+//     res.status(200).json({
+//       success: true,
+//       message: "Monthly qualification status checked and commission disbursed successfully.",
+//       companyGlobalSalesThisMonth,
+//       data: commissionLogs
+//     });
+
+//   } catch (error) {
+//     console.error("❌ MLM COMMISSION ENGINE CRASH:", error);
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+
 
 
 
@@ -5667,7 +6039,6 @@ module.exports = { executeLedgerCalculationEngine };
 
 
 // 9th version (optimized)
-
 const getCommissionLedger = async (req, res) => {
   try {
     const currentYear = parseInt(req.query.year) || new Date().getFullYear();
@@ -5757,6 +6128,9 @@ const getCommissionLedger = async (req, res) => {
 };
 
 
+
+
+
 // =========================================================================
 // 3️⃣ ৩. লেজার স্থায়ীভাবে সেভ করার রুট কন্ট্রোলার (saveMonthlyLedger)
 // =========================================================================
@@ -5814,6 +6188,7 @@ const saveMonthlyLedger = async (req, res) => {
     });
   }
 };
+
 
 
 // 🆕 কর্মচারীর নিজের মাস ভিত্তিক কমিশন এবং payouts কালেকশন থেকে রিয়েল পেমেন্ট স্ট্যাটাস গেট করা
@@ -6718,7 +7093,7 @@ function sumFieldHelper(arr, field) {
 module.exports = {
   getCommissionLedger,
   saveMonthlyLedger,
-  executeLedgerCalculationEngine,
   getMyMonthlyCommissionStatus,
-  getMyMonthlySalarySheet
+  getMyMonthlySalarySheet,
+  executeLedgerCalculationEngine
 };
