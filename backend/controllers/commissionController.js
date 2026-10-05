@@ -6032,12 +6032,6 @@ const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
 
 
 
-
-
-
-
-
-
 // 9th version (optimized)
 const getCommissionLedger = async (req, res) => {
   try {
@@ -6126,8 +6120,6 @@ const getCommissionLedger = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
-
 
 
 
