@@ -1077,27 +1077,6 @@ const autoDeterminePosition = (salesVolume, qualifiedLegsCounts = {}, databaseRa
       }
     });
 
-    // ৮. ফাইনাল রেসপন্স ফরম্যাটিং (Circular Safe)
-    // Object.values(userSalesMap).forEach(emp => {
-    //   emp.children = [];
-    // });
-
-    // users.forEach(user => {
-    //   const currentEmployee = userSalesMap[user.idNo];
-    //   if (!currentEmployee) return;
-
-    //   currentEmployee.position = currentEmployee.autoPosition;
-    //   currentEmployee.totalSalesAchieved = currentEmployee.totalSalesVolume;
-    //   currentEmployee.thisMonthSalesAchieved = currentEmployee.thisMonthSalesVolume;
-
-    //   const parentIdNo = user.refIdNo;
-    //   if (parentIdNo === "0" || !parentIdNo || !userSalesMap[parentIdNo]) {
-    //     tree.push(currentEmployee);
-    //   } else {
-    //     userSalesMap[parentIdNo].children.push(currentEmployee);
-    //   }
-    // });
-
 
     // =======================================================================
     // ৮. সার্কুলার রেফারেন্স প্রটেকশন, ফাইনাল ট্রি ও ডাটাবেজ আপডেট বাল্ক অ্যারে তৈরি
