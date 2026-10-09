@@ -135,7 +135,6 @@ const MonthlyLedger = require('../models/MonthlyLedger'); // মডেল ইম
 
 
 
-
 //14th version: 14.0.0 (June 2024) - Full Refactor with Multi-Pass Engine, Deep Leg Roll-Up, Dynamic Gap Commission, Top-Down Override, Global Pool Distribution, and Optimized Pagination
 // const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
 //   try {
@@ -995,19 +994,27 @@ const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
 
     
 
-    // =======================================================================
-    // --- পাস ৩: টপ-ডাউন কোয়ালিফিকেশন ওভাররাইড চেইন ---
+      // =======================================================================
+    // --- পাস ৩ ফিক্স: টপ-ডাউন কোয়ালিফিকেশন ওভাররাইড চেইন (Sales Validation সহ) ---
     // =======================================================================
     const applyTopDownBonusQualification = (currentIdNo, parentQualifies = false) => {
       const currentEmployee = userSalesMap[currentIdNo];
       if (!currentEmployee) return;
-      if (parentQualifies) currentEmployee.selfQualifiesForBonus = true;
+
+      // ফিক্স: প্যারেন্ট কোয়ালিফাইড হলেও এই ডাউনলাইনের চলতি মাসের টিম সেলস মিনিমাম ২৫০০০ হতে হবে
+      // (প্রয়োজনে আপনার বিজনেস রুলস অনুযায়ী ২৫০০০ অ্যামাউন্টটি পরিবর্তন করতে পারেন)
+      if (parentQualifies && (currentEmployee.thisMonthSalesVolume || 0) >= 25000) {
+        currentEmployee.selfQualifiesForBonus = true;
+      }
+
       const childrenIds = parentToChildrenMap[currentIdNo] || [];
       childrenIds.forEach(childId => applyTopDownBonusQualification(childId, currentEmployee.selfQualifiesForBonus));
     };
+
     if (parentToChildrenMap["0"]) {
       parentToChildrenMap["0"].forEach(rootIdNo => applyTopDownBonusQualification(rootIdNo, false));
     }
+
 
     // =======================================================================
     // --- পাস ৩.১: গ্যারান্টিড রেট সিঙ্ক লক ইঞ্জিন (Performance Optimized) ---
@@ -1054,8 +1061,8 @@ const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
       }
     });
 
-        // =======================================================================
-    // --- পাস ৪: গ্লোবাল কোম্পানি পুল কাউন্টার এবং মেম্বার অ্যাসাইনমেন্ট (Monthly Rank Driven) ---
+    // =======================================================================
+    // --- পাস ৪ ফিক্স: গ্লোবাল কোম্পানি পুল কাউন্টার (Strict Action Protection) ---
     // =======================================================================
     const poolShareCounters = { RSM: 0, DSM: 0, SDSM: 0, SM: 0, NSM: 0, ED: 0, BOM: 0 };
     const qualifiedPoolMembers = { RSM: [], DSM: [], SDSM: [], SM: [], NSM: [], ED: [], BOM: [] };
@@ -1064,12 +1071,22 @@ const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
       const nodeData = userSalesMap[user.idNo];
       if (!nodeData) return;
 
+      // ১. পার্সোনাল মিনিমাম সেলস গার্ড (৩০০০ টাকা)
       const isQualifiedForBill = (nodeData.directSalesThisMonth || 0) >= 3000;
       
-      // 💥 চূড়ান্ত ম্যাজিক ফিক্স: লাইফটাইম autoPosition না নিয়ে, চলতি মাসের জেনুইন অর্জিত 'qualifiedMonthlyRank' রিড করা হচ্ছে!
+      // ২. টিম সেলস গার্ড (জিরো টিম সেলস থাকলে সরাসরি ডিসকোয়ালিফাইড)
+      const hasTeamSales = (nodeData.thisMonthSalesVolume || 0) > 0;
+
       const myPos = (nodeData.qualifiedMonthlyRank || "SALES REPRESENTATIVE").toUpperCase().trim();
 
-      if (isQualifiedForBill && nodeData.selfQualifiesForBonus && ELIGIBLE_POOL_POSITIONS.includes(myPos)) {
+      // ৩. চূড়ান্ত চেকিং: পার্সোনাল সেলস, টিম সেলস, বোনাস এলিজিবিলিটি এবং ভ্যালিড মান্থলি র‍্যাংক থাকতে হবে
+      if (
+        isQualifiedForBill && 
+        hasTeamSales && 
+        nodeData.selfQualifiesForBonus && 
+        myPos !== "SALES REPRESENTATIVE" && 
+        ELIGIBLE_POOL_POSITIONS.includes(myPos)
+      ) {
         const myRankValue = RANK_MAP[myPos];
         
         ELIGIBLE_POOL_POSITIONS.forEach(poolName => {
@@ -1082,7 +1099,6 @@ const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
               qualifiedPoolMembers[poolName].push(user.idNo); 
             }
           } else {
-            // ১টি আইডি এই মাসে যে মান্থলি র‍্যাংক কোয়ালিফাই করেছে, সে তার সমান বা ছোট সব পুলের শেয়ারের টাকা পাবে (BOM পর্যন্ত)
             if (myRankValue >= poolRankValue && poolName !== "RSM") { 
               poolShareCounters[poolName]++; 
               if (!nodeData.earnedPools.includes(poolName)) nodeData.earnedPools.push(poolName); 
@@ -1090,6 +1106,9 @@ const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
             }
           }
         });
+      } else {
+        // যদি কোয়ালিফাই না করে, তবে তার মান্থলি র‍্যাংক ডিফল্ট করে দেওয়া হলো যেন গ্যাপ ইঞ্জিনে সমস্যা না হয়
+        nodeData.qualifiedMonthlyRank = "SALES REPRESENTATIVE";
       }
     });
 
