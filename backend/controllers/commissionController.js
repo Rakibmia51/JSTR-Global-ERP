@@ -691,7 +691,7 @@ const checkSelfQualificationOnly = (position, thisMonthSalesVolume, qualifiedLeg
   let performanceBonusRate = 0;
   let qualifiedMonthlyRank = "SALES REPRESENTATIVE"; // ডিফল্ট ডিসকোয়ালিফাইড র‍্যাংক
 
-  // 📊 মান্থলি কোয়ালিফাই শর্ত চেইন (Strict Weight Class Matching - No Automatic Fallback)
+  // 📊 মান্থলি কোয়ালিফাই শর্ত চেইন (Strict Weight Class Matching)
   if (currentPos === "BOM") {
     if (thisMonthSalesVolume >= 3200000 && countAtLeast("ED") >= 2) { 
       qualifies = true; performanceBonusRate = 0.0025; qualifiedMonthlyRank = "BOM"; 
@@ -726,7 +726,6 @@ const checkSelfQualificationOnly = (position, thisMonthSalesVolume, qualifiedLeg
     } else if (thisMonthSalesVolume >= 200000 && countAtLeast("DSM") >= 2) { 
       qualifies = true; performanceBonusRate = 0.005; qualifiedMonthlyRank = "SDSM"; 
     }
-    // 💥 ফিক্স: যদি তার নিচে ১টি বা ২টি DSM থাকে, তবে সে SM বা SDSM কোনো শর্তই ফিলাপ করতে না পারায় qualifies = false থাকবে এবং কোনো পুল শেয়ার পাবে না!
   } 
   
   else if (currentPos === "SM") {
@@ -744,8 +743,14 @@ const checkSelfQualificationOnly = (position, thisMonthSalesVolume, qualifiedLeg
   } 
   
   else if (currentPos === "DSM") {
-    if (thisMonthSalesVolume >= 100000 && countAtLeast("RSM") >= 2 && countAtLeast("AM") >= 2) { 
-      qualifies = true; performanceBonusRate = 0.005; qualifiedMonthlyRank = "DSM"; 
+    // 💥 ম্যাজিক ফিক্স: স্বাভাবিক লেগ কন্ডিশন পূরণ হলে, অথবা ম্যানুয়াল DSM এর নিচে ১ লক্ষ+ সেলস থাকলে কোয়ালিফাই করবে
+    const hasStandardLegs = countAtLeast("RSM") >= 2 && countAtLeast("AM") >= 2;
+    const hasRequiredSalesVolume = thisMonthSalesVolume >= 100000;
+
+    if (hasRequiredSalesVolume && (hasStandardLegs || currentPos === "DSM")) { 
+      qualifies = true; 
+      performanceBonusRate = 0.005; 
+      qualifiedMonthlyRank = "DSM"; 
     }
   } 
   
@@ -763,6 +768,7 @@ const checkSelfQualificationOnly = (position, thisMonthSalesVolume, qualifiedLeg
 
   return { qualifies, performanceBonusRate, qualifiedMonthlyRank };
 };
+
 
 
 // =========================================================================
@@ -892,12 +898,13 @@ const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
       }
     });
 
-    // =========================================================================
-    // 💥 পাস ১.২: দ্বিতীয় পাস - ১০০% কনফার্মড ভলিউম দিয়ে পজিশন লক ও জেনারেশন কম্প্রেশন
+        // =========================================================================
+    // 💥 পাস ১.২ ফিক্স: ওয়ান-পাস গ্যারান্টিড স্বাধীন লেগভিত্তিক কোয়ালিফিকেশন ও জেনারেশন কম্প্রেশন
     // =========================================================================
     const positionVisitedSet = new Set(); 
     
     const processHierarchyPositions = (currentIdNo) => {
+      // ইনফিনিট লুপ প্রোটেকশন
       if (positionVisitedSet.has(currentIdNo)) {
         const emp = userSalesMap[currentIdNo];
         const resLegs = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
@@ -913,47 +920,58 @@ const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
       if (!currentEmployee) return { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
 
       const childrenIds = parentToChildrenMap[currentIdNo] || [];
+      
+      // কারেন্ট ইউজারের জন্য রিয়াল-টাইম মাস্টার লেগ কাউন্টার
       const masterLegsCounts = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
 
+      // প্রতিটা ডিরেক্ট চাইল্ড (Direct Child) মানেই হলো ১টা আলাদা স্বাধীন লাইন/লেগ (Distinct Leg)
       childrenIds.forEach(childId => {
-        // চাইল্ডের পজিশন আগে নিচ থেকে নির্ধারিত হয়ে আসবে
+        // চাইল্ডের নিচের সাব-ট্রির পজিশন আগে নিচ থেকে ক্যালকুলেট হয়ে আসবে
         const childSubTreeLegs = processHierarchyPositions(childId);
         const childData = userSalesMap[childId];
         
         if (childData) {
-          const uniqueRanksInThisLeg = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+          // এই নির্দিষ্ট লেগে (This Distinct Leg) সর্বোচ্চ অর্জিত র‍্যাংক ট্র্যাক করার ম্যাপ
+          const maxRankInThisLeg = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
           
+          // ১. এই চাইল্ডের নিজের টিম সেলস ভলিউম (This Month Sales Volume) সরাসরি এই লেগের যোগ্যতা নির্ধারণ করবে
+          if (childData.thisMonthSalesVolume >= 3200000) maxRankInThisLeg["ED"] = 1;
+          if (childData.thisMonthSalesVolume >= 1600000) maxRankInThisLeg["NSM"] = 1;
+          if (childData.thisMonthSalesVolume >= 400000) maxRankInThisLeg["DSM"] = 1;
+          if (childData.thisMonthSalesVolume >= 300000) maxRankInThisLeg["DSM"] = 1;
+          if (childData.thisMonthSalesVolume >= 200000) maxRankInThisLeg["DSM"] = 1;
+          if (childData.thisMonthSalesVolume >= 100000) maxRankInThisLeg["DSM"] = 1; 
+          if (childData.thisMonthSalesVolume >= 75000) maxRankInThisLeg["RSM"] = 1;
+          if (childData.thisMonthSalesVolume >= 25000) maxRankInThisLeg["AM"] = 1;
+
+          // ২. এই চাইল্ডের নিচে (ডাউনলাইনে) অর্জিত যেকোনো র‍্যাংকও এই লেগের যোগ্যতা হিসেবে পুশ হবে
           Object.keys(childSubTreeLegs).forEach(pos => {
-            if (childSubTreeLegs[pos] > 0) uniqueRanksInThisLeg[pos] = 1;
+            if (childSubTreeLegs[pos] > 0) {
+              maxRankInThisLeg[pos] = 1;
+            }
           });
 
-          // 💥 ওয়ান-পাস গ্যারান্টিড ভলিউম ব্রিজ ফিক্স:
-          // যেহেতু পাস ১.১ এ সবার ভলিউম অলরেডি কনফার্মড, তাই চাইল্ডের ১০০,০০০ সেলস সাথে সাথে DSM লেগ ফ্ল্যাগ অন করবে!
-          if (childData.thisMonthSalesVolume >= 3200000) uniqueRanksInThisLeg["ED"] = 1;
-          if (childData.thisMonthSalesVolume >= 1600000) uniqueRanksInThisLeg["NSM"] = 1;
-          if (childData.thisMonthSalesVolume >= 400000) uniqueRanksInThisLeg["DSM"] = 1;
-          if (childData.thisMonthSalesVolume >= 300000) uniqueRanksInThisLeg["DSM"] = 1;
-          if (childData.thisMonthSalesVolume >= 200000) uniqueRanksInThisLeg["DSM"] = 1;
-          if (childData.thisMonthSalesVolume >= 100000) uniqueRanksInThisLeg["DSM"] = 1; 
-          if (childData.thisMonthSalesVolume >= 75000) uniqueRanksInThisLeg["RSM"] = 1;
-          if (childData.thisMonthSalesVolume >= 25000) uniqueRanksInThisLeg["AM"] = 1;
-
-          // জেনারেশন কম্প্রেশন এক্সপেনশন
-          Object.keys(uniqueRanksInThisLeg).forEach(pos => {
-            if (uniqueRanksInThisLeg[pos] === 1) {
-              Object.keys(uniqueRanksInThisLeg).forEach(p => {
-                if (RANK_MAP[pos] >= RANK_MAP[p]) uniqueRanksInThisLeg[p] = 1;
+          // ৩. জেনারেশন কম্প্রেশন এক্সপেনশন (যদি কোনো লেগে NSM থাকে, তবে ঐ লেগে DSM, RSM, AM অটোমেটিক কোয়ালিফাইড)
+          Object.keys(maxRankInThisLeg).forEach(pos => {
+            if (maxRankInThisLeg[pos] === 1) {
+              Object.keys(maxRankInThisLeg).forEach(p => {
+                if (RANK_MAP[pos] >= RANK_MAP[p]) {
+                  maxRankInThisLeg[p] = 1;
+                }
               });
             }
           });
 
-          Object.keys(uniqueRanksInThisLeg).forEach(pos => {
-            if (uniqueRanksInThisLeg[pos] === 1) masterLegsCounts[pos] += 1;
+          // ৪. এই স্বাধীন লেগের চূড়ান্ত কোয়ালিফাইড রেজাল্ট মূল মাস্টারে মাত্র ১ বার যোগ হবে (+১ রুল)
+          Object.keys(maxRankInThisLeg).forEach(pos => {
+            if (maxRankInThisLeg[pos] === 1) {
+              masterLegsCounts[pos] += 1; // এই লেগে ঐ র‍্যাংক থাকলে কারেন্ট ইউজারের জন্য লেগ কাউন্ট ১ বাড়বে
+            }
           });
         }
       });
-      
-      // কারেন্ট ইউজারের ফাইনাল র‍্যাংক ক্যালকুলেশন (১০০% সিঙ্কড ভলিউম ও লেগ কাউন্ট দিয়ে)
+
+      // কারেন্ট ইউজারের ফাইনাল র‍্যাংক ক্যালকুলেশন (১০০% স্বাধীন লেগ কাউন্ট দিয়ে)
       const calculatedRank = autoDeterminePosition(currentEmployee.totalSalesVolume, masterLegsCounts, currentEmployee.databaseRank);
       currentEmployee.autoPosition = calculatedRank;
       currentEmployee.currentSlabRate = POSITION_SLABS[currentEmployee.autoPosition] || 0;
@@ -965,22 +983,18 @@ const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
       );
       currentEmployee.selfQualifiesForBonus = qualification.qualifies;
       currentEmployee.performanceBonusRate = qualification.performanceBonusRate;
-      currentEmployee.qualifiedMonthlyRank = qualification.qualifiedMonthlyRank; // 💥 নতুন মান্থলি র‍্যাংক মেমরিতে সেভ করা হলো
+      currentEmployee.qualifiedMonthlyRank = qualification.qualifiedMonthlyRank; 
 
-      const myFinalPos = (currentEmployee.autoPosition || "").toUpperCase().trim();
+      // প্যারেন্ট নোডের কাছে নিজের অর্জিত কোয়ালিফাইড র‍্যাংক রিপোর্ট করা (লেগ বাবল-আপ প্রোটেকশন সহ)
       const returnLegsSummary = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+      const myFinalPos = (currentEmployee.qualifiedMonthlyRank || "SALES REPRESENTATIVE").toUpperCase().trim();
       
-      Object.keys(masterLegsCounts).forEach(pos => {
-        if (masterLegsCounts[pos] > 0) returnLegsSummary[pos] = 1;
-      });
-
-      if (currentEmployee.thisMonthSalesVolume >= 100000) returnLegsSummary["DSM"] = 1;
-      if (currentEmployee.thisMonthSalesVolume >= 75000) returnLegsSummary["RSM"] = 1;
-      if (currentEmployee.thisMonthSalesVolume >= 25000) returnLegsSummary["AM"] = 1;
-      if (returnLegsSummary[myFinalPos] !== undefined) returnLegsSummary[myFinalPos] = 1;
-
+      if (returnLegsSummary[myFinalPos] !== undefined) {
+        returnLegsSummary[myFinalPos] = 1;
+      }
       return returnLegsSummary;
     };
+
 
     // রুট নোড থেকে পজিশন নির্ধারণ ইঞ্জিন রান করা
     users.forEach(user => {
