@@ -678,7 +678,101 @@ const autoDeterminePosition = (totalSales, qualifiedLegsCounts = {}, databaseRan
 // =======================================================================
 // ৩. চূড়ান্ত মান্থলি কোয়ালিফিকেশন হেল্পার ফাংশন (Strict Monthly Payout Rules)
 // =======================================================================
-const checkSelfQualificationOnly = (position, thisMonthSalesVolume, qualifiedLegsCounts = {}) => {
+// const checkSelfQualificationOnly = (position, thisMonthSalesVolume, qualifiedLegsCounts = {}) => {
+//   const currentPos = (position || "").trim().toUpperCase();
+
+//   const countAtLeast = (targetPos) => {
+//     return Object.keys(qualifiedLegsCounts).reduce((total, pos) => {
+//       return RANK_MAP[pos] >= RANK_MAP[targetPos] ? total + qualifiedLegsCounts[pos] : total;
+//     }, 0);
+//   };
+
+//   let qualifies = false;
+//   let performanceBonusRate = 0;
+//   let qualifiedMonthlyRank = "SALES REPRESENTATIVE"; // ডিফল্ট ডিসকোয়ালিফাইড র‍্যাংক
+
+//   // 📊 মান্থলি কোয়ালিফাই শর্ত চেইন (Strict Weight Class Matching)
+//   if (currentPos === "BOM") {
+//     if (thisMonthSalesVolume >= 3200000 && countAtLeast("ED") >= 2) { 
+//       qualifies = true; performanceBonusRate = 0.0025; qualifiedMonthlyRank = "BOM"; 
+//     } else if (thisMonthSalesVolume >= 1600000 && countAtLeast("NSM") >= 4) { 
+//       qualifies = true; performanceBonusRate = 0.0025; qualifiedMonthlyRank = "ED"; 
+//     } else if (thisMonthSalesVolume >= 400000 && countAtLeast("DSM") >= 4) { 
+//       qualifies = true; performanceBonusRate = 0.0025; qualifiedMonthlyRank = "NSM"; 
+//     } else if (thisMonthSalesVolume >= 300000 && countAtLeast("DSM") >= 3) { 
+//       qualifies = true; performanceBonusRate = 0.0025; qualifiedMonthlyRank = "SM"; 
+//     } else if (thisMonthSalesVolume >= 200000 && countAtLeast("DSM") >= 2) { 
+//       qualifies = true; performanceBonusRate = 0.005; qualifiedMonthlyRank = "SDSM"; 
+//     }
+//   } 
+  
+//   else if (currentPos === "ED") {
+//     if (thisMonthSalesVolume >= 1600000 && countAtLeast("NSM") >= 4) { 
+//       qualifies = true; performanceBonusRate = 0.0025; qualifiedMonthlyRank = "ED"; 
+//     } else if (thisMonthSalesVolume >= 400000 && countAtLeast("DSM") >= 4) { 
+//       qualifies = true; performanceBonusRate = 0.0025; qualifiedMonthlyRank = "NSM"; 
+//     } else if (thisMonthSalesVolume >= 300000 && countAtLeast("DSM") >= 3) { 
+//       qualifies = true; performanceBonusRate = 0.0025; qualifiedMonthlyRank = "SM"; 
+//     } else if (thisMonthSalesVolume >= 200000 && countAtLeast("DSM") >= 2) { 
+//       qualifies = true; performanceBonusRate = 0.005; qualifiedMonthlyRank = "SDSM"; 
+//     }
+//   } 
+  
+//   else if (currentPos === "NSM") {
+//     if (thisMonthSalesVolume >= 400000 && countAtLeast("DSM") >= 4) { 
+//       qualifies = true; performanceBonusRate = 0.0025; qualifiedMonthlyRank = "NSM"; 
+//     } else if (thisMonthSalesVolume >= 300000 && countAtLeast("DSM") >= 3) { 
+//       qualifies = true; performanceBonusRate = 0.0025; qualifiedMonthlyRank = "SM"; 
+//     } else if (thisMonthSalesVolume >= 200000 && countAtLeast("DSM") >= 2) { 
+//       qualifies = true; performanceBonusRate = 0.005; qualifiedMonthlyRank = "SDSM"; 
+//     }
+//   } 
+  
+//   else if (currentPos === "SM") {
+//     if (thisMonthSalesVolume >= 300000 && countAtLeast("DSM") >= 3) { 
+//       qualifies = true; performanceBonusRate = 0.0025; qualifiedMonthlyRank = "SM"; 
+//     } else if (thisMonthSalesVolume >= 200000 && countAtLeast("DSM") >= 2) { 
+//       qualifies = true; performanceBonusRate = 0.005; qualifiedMonthlyRank = "SDSM"; 
+//     }
+//   } 
+  
+//   else if (currentPos === "SDSM") {
+//     if (thisMonthSalesVolume >= 200000 && countAtLeast("DSM") >= 2) { 
+//       qualifies = true; performanceBonusRate = 0.005; qualifiedMonthlyRank = "SDSM"; 
+//     }
+//   } 
+  
+//   else if (currentPos === "DSM") {
+//     // 💥 ম্যাজিক ফিক্স: স্বাভাবিক লেগ কন্ডিশন পূরণ হলে, অথবা ম্যানুয়াল DSM এর নিচে ১ লক্ষ+ সেলস থাকলে কোয়ালিফাই করবে
+//     const hasStandardLegs = countAtLeast("RSM") >= 2 && countAtLeast("AM") >= 2;
+//     const hasRequiredSalesVolume = thisMonthSalesVolume >= 100000;
+
+//     if (hasRequiredSalesVolume && (hasStandardLegs || currentPos === "DSM")) { 
+//       qualifies = true; 
+//       performanceBonusRate = 0.005; 
+//       qualifiedMonthlyRank = "DSM"; 
+//     }
+//   } 
+  
+//   else if (currentPos === "RSM") {
+//     if (thisMonthSalesVolume >= 75000 && countAtLeast("AM") >= 3) { 
+//       qualifies = true; performanceBonusRate = 0.01; qualifiedMonthlyRank = "RSM"; 
+//     }
+//   } 
+  
+//   else if (currentPos === "AM") {
+//     if (thisMonthSalesVolume >= 25000) { 
+//       qualifies = true; performanceBonusRate = 0; qualifiedMonthlyRank = "AM"; 
+//     }
+//   }
+
+//   return { qualifies, performanceBonusRate, qualifiedMonthlyRank };
+// };
+
+// =======================================================================
+// ৩. চূড়ান্ত মান্থলি কোয়ালিফিকেশন হেল্পার ফাংশন (Strict & Personal Sales Fallback Rules)
+// =======================================================================
+const checkSelfQualificationOnly = (position, thisMonthSalesVolume, qualifiedLegsCounts = {}, directSalesThisMonth = 0) => {
   const currentPos = (position || "").trim().toUpperCase();
 
   const countAtLeast = (targetPos) => {
@@ -691,7 +785,7 @@ const checkSelfQualificationOnly = (position, thisMonthSalesVolume, qualifiedLeg
   let performanceBonusRate = 0;
   let qualifiedMonthlyRank = "SALES REPRESENTATIVE"; // ডিফল্ট ডিসকোয়ালিফাইড র‍্যাংক
 
-  // 📊 মান্থলি কোয়ালিফাই শর্ত চেইন (Strict Weight Class Matching)
+  // 📊 ১. মান্থলি কোয়ালিফাই মেইন শর্ত চেইন (Strict High-Rank Level Matching)
   if (currentPos === "BOM") {
     if (thisMonthSalesVolume >= 3200000 && countAtLeast("ED") >= 2) { 
       qualifies = true; performanceBonusRate = 0.0025; qualifiedMonthlyRank = "BOM"; 
@@ -743,14 +837,8 @@ const checkSelfQualificationOnly = (position, thisMonthSalesVolume, qualifiedLeg
   } 
   
   else if (currentPos === "DSM") {
-    // 💥 ম্যাজিক ফিক্স: স্বাভাবিক লেগ কন্ডিশন পূরণ হলে, অথবা ম্যানুয়াল DSM এর নিচে ১ লক্ষ+ সেলস থাকলে কোয়ালিফাই করবে
-    const hasStandardLegs = countAtLeast("RSM") >= 2 && countAtLeast("AM") >= 2;
-    const hasRequiredSalesVolume = thisMonthSalesVolume >= 100000;
-
-    if (hasRequiredSalesVolume && (hasStandardLegs || currentPos === "DSM")) { 
-      qualifies = true; 
-      performanceBonusRate = 0.005; 
-      qualifiedMonthlyRank = "DSM"; 
+    if (thisMonthSalesVolume >= 100000 && countAtLeast("RSM") >= 2 && countAtLeast("AM") >= 2) { 
+      qualifies = true; performanceBonusRate = 0.005; qualifiedMonthlyRank = "DSM"; 
     }
   } 
   
@@ -766,9 +854,29 @@ const checkSelfQualificationOnly = (position, thisMonthSalesVolume, qualifiedLeg
     }
   }
 
+  // =======================================================================
+  // 💥 ২. ফাইনাল ম্যাজিক ফিক্স: Personal Sales ভিত্তিক DSM বা তার উপরের ফলব্যাক রুল
+  // =======================================================================
+  // যদি ইউজার নিজের মূল হাই-র‍্যাংক কন্ডিশনে কোয়ালিফাই না করে (qualifies === false)
+  // কিন্তু তার লাইফটাইম র‍্যাংক DSM বা তার চেয়ে বড় (DSM, SDSM, SM, NSM, ED, BOM)
+  if (!qualifies && RANK_MAP[currentPos] >= RANK_MAP["DSM"]) {
+    
+    // কন্ডিশন A: পার্সোনাল সেলস ১ লক্ষ বা তার বেশি হলে সরাসরি DSM কোয়ালিফাই করবে
+    if (directSalesThisMonth >= 100000) {
+      qualifies = true;
+      performanceBonusRate = 0.005; 
+      qualifiedMonthlyRank = "DSM";
+    } 
+    // কন্ডিশন B: পার্সোনাল সেলস ৭৫ হাজার বা তার বেশি হলে সরাসরি RSM কোয়ালিফাই করবে
+    else if (directSalesThisMonth >= 75000) {
+      qualifies = true;
+      performanceBonusRate = 0.01; 
+      qualifiedMonthlyRank = "RSM";
+    }
+  }
+
   return { qualifies, performanceBonusRate, qualifiedMonthlyRank };
 };
-
 
 
 // =========================================================================
@@ -979,7 +1087,8 @@ const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
       const qualification = checkSelfQualificationOnly(
         currentEmployee.autoPosition,
         currentEmployee.thisMonthSalesVolume,
-        masterLegsCounts
+        masterLegsCounts,
+        currentEmployee.directSalesThisMonth // 💥 নতুন সংযোজন
       );
       currentEmployee.selfQualifiesForBonus = qualification.qualifies;
       currentEmployee.performanceBonusRate = qualification.performanceBonusRate;
@@ -1062,7 +1171,12 @@ const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
           }
         });
 
-        const finalCheck = checkSelfQualificationOnly(emp.autoPosition, emp.thisMonthSalesVolume, syncedLegsCounts);
+        const finalCheck = checkSelfQualificationOnly(
+          emp.autoPosition, 
+          emp.thisMonthSalesVolume, 
+          syncedLegsCounts,
+          emp.directSalesThisMonth // 💥 নতুন সংযোজন
+        );
         if (finalCheck.qualifies && finalCheck.performanceBonusRate > 0) {
           emp.performanceBonusRate = finalCheck.performanceBonusRate;
         } else {
