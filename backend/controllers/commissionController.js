@@ -1109,11 +1109,19 @@ const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
 
 
 
+    // রুট নোড থেকে পজিশন নির্ধারণ ইঞ্জিন রান করা
+    users.forEach(user => {
+      if (user.refIdNo === "0" || !user.refIdNo || !userSalesMap[user.refIdNo]) {
+        processHierarchyPositions(user.idNo);
+      }
+    });
+
+
 
 
     
 
-    // =======================================================================
+      // =======================================================================
     // --- পাস ৩ ফিক্স: টপ-ডাউন কোয়ালিফিকেশন ওভাররাইড চেইন (Sales Validation সহ) ---
     // =======================================================================
     const applyTopDownBonusQualification = (currentIdNo, parentQualifies = false) => {
