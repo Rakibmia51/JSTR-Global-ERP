@@ -1006,8 +1006,8 @@ const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
       }
     });
 
-        // =========================================================================
-    // 💥 পাস ১.২ ফিক্স: ওয়ান-পাস গ্যারান্টিড স্বাধীন লেগভিত্তিক কোয়ালিফিকেশন ও জেনারেশন কম্প্রেশন
+       // =========================================================================
+    // 💥 পাস ১.২ ফিক্স: রিকার্সিভ লেগ লিক গার্ড এবং স্বাধীন লাইন কোয়ালিফিকেশন ইঞ্জিন
     // =========================================================================
     const positionVisitedSet = new Set(); 
     
@@ -1029,20 +1029,20 @@ const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
 
       const childrenIds = parentToChildrenMap[currentIdNo] || [];
       
-      // কারেন্ট ইউজারের জন্য রিয়াল-টাইম মাস্টার লেগ কাউন্টার
+      // কারেন্ট ইউজারের জন্য নিজস্ব স্বাধীন লেগ কাউন্টার ম্যাপ
       const masterLegsCounts = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
 
-      // প্রতিটা ডিরেক্ট চাইল্ড (Direct Child) মানেই হলো ১টা আলাদা স্বাধীন লাইন/লেগ (Distinct Leg)
+      // প্রতিটি ডিরেক্ট চাইল্ড মানেই হলো একটি সম্পূর্ণ আলাদা এবং স্বাধীন লেগ (Distinct Line)
       childrenIds.forEach(childId => {
-        // চাইল্ডের নিচের সাব-ট্রির পজিশন আগে নিচ থেকে ক্যালকুলেট হয়ে আসবে
-        const childSubTreeLegs = processHierarchyPositions(childId);
+        // চাইল্ডের সাব-ট্রির চূড়ান্ত র‍্যাংক ম্যাপ নিচ থেকে নিয়ে আসা
+        const childReportedRanks = processHierarchyPositions(childId);
         const childData = userSalesMap[childId];
         
         if (childData) {
-          // এই নির্দিষ্ট লেগে (This Distinct Leg) সর্বোচ্চ অর্জিত র‍্যাংক ট্র্যাক করার ম্যাপ
+          // এই নির্দিষ্ট স্বাধীন লেগে (This Distinct Leg Only) সর্বোচ্চ কোয়ালিফাইড র‍্যাংক ট্র্যাক করার ম্যাপ
           const maxRankInThisLeg = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
           
-          // ১. এই চাইল্ডের নিজের টিম সেলস ভলিউম (This Month Sales Volume) সরাসরি এই লেগের যোগ্যতা নির্ধারণ করবে
+          // ১. এই চাইল্ডের নিজের এই মাসের টিম সেলস ভলিউম সরাসরি এই লেগের যোগ্যতা লক করবে
           if (childData.thisMonthSalesVolume >= 3200000) maxRankInThisLeg["ED"] = 1;
           if (childData.thisMonthSalesVolume >= 1600000) maxRankInThisLeg["NSM"] = 1;
           if (childData.thisMonthSalesVolume >= 400000) maxRankInThisLeg["DSM"] = 1;
@@ -1052,14 +1052,14 @@ const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
           if (childData.thisMonthSalesVolume >= 75000) maxRankInThisLeg["RSM"] = 1;
           if (childData.thisMonthSalesVolume >= 25000) maxRankInThisLeg["AM"] = 1;
 
-          // ২. এই চাইল্ডের নিচে (ডাউনলাইনে) অর্জিত যেকোনো র‍্যাংকও এই লেগের যোগ্যতা হিসেবে পুশ হবে
-          Object.keys(childSubTreeLegs).forEach(pos => {
-            if (childSubTreeLegs[pos] > 0) {
+          // ২. চাইল্ড নোডটি নিজে এই সাব-ট্রি থেকে ফাইনাল যে মান্থলি র‍্যাংক অর্জন করেছে, শুধুমাত্র সেটাই এই লেগে কাউন্ট হবে
+          Object.keys(childReportedRanks).forEach(pos => {
+            if (childReportedRanks[pos] === 1) {
               maxRankInThisLeg[pos] = 1;
             }
           });
 
-          // ৩. জেনারেশন কম্প্রেশন এক্সপেনশন (যদি কোনো লেগে NSM থাকে, তবে ঐ লেগে DSM, RSM, AM অটোমেটিক কোয়ালিফাইড)
+          // ৩. জেনারেশন কম্প্রেশন এক্সপেনশন (শুধুমাত্র এই নির্দিষ্ট লেগের ভেতরেই কার্যকর থাকবে)
           Object.keys(maxRankInThisLeg).forEach(pos => {
             if (maxRankInThisLeg[pos] === 1) {
               Object.keys(maxRankInThisLeg).forEach(p => {
@@ -1070,54 +1070,50 @@ const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
             }
           });
 
-          // ৪. এই স্বাধীন লেগের চূড়ান্ত কোয়ালিফাইড রেজাল্ট মূল মাস্টারে মাত্র ১ বার যোগ হবে (+১ রুল)
+          // ৪. এই স্বাধীন লেগের চূড়ান্ত কম্প্রেসড রেজাল্ট মূল মাস্টারে সর্বোচ্চ ১ বার যোগ হবে (+১ রুল)
           Object.keys(maxRankInThisLeg).forEach(pos => {
             if (maxRankInThisLeg[pos] === 1) {
-              masterLegsCounts[pos] += 1; // এই লেগে ঐ র‍্যাংক থাকলে কারেন্ট ইউজারের জন্য লেগ কাউন্ট ১ বাড়বে
+              masterLegsCounts[pos] += 1; 
             }
           });
         }
       });
 
-      // কারেন্ট ইউজারের ফাইনাল র‍্যাংক ক্যালকুলেশন (১০০% স্বাধীন লেগ কাউন্ট দিয়ে)
+      // কারেন্ট ইউজারের ফাইনাল লাইফটাইম র‍্যাংক নির্ধারণ
       const calculatedRank = autoDeterminePosition(currentEmployee.totalSalesVolume, masterLegsCounts, currentEmployee.databaseRank);
       currentEmployee.autoPosition = calculatedRank;
       currentEmployee.currentSlabRate = POSITION_SLABS[currentEmployee.autoPosition] || 0;
       
+      // কারেন্ট ইউজারের চলতি মাসের চূড়ান্ত মান্থলি কোয়ালিফিকেশন পরীক্ষা
       const qualification = checkSelfQualificationOnly(
         currentEmployee.autoPosition,
         currentEmployee.thisMonthSalesVolume,
         masterLegsCounts,
-        currentEmployee.directSalesThisMonth // 💥 নতুন সংযোজন
+        currentEmployee.directSalesThisMonth
       );
       currentEmployee.selfQualifiesForBonus = qualification.qualifies;
       currentEmployee.performanceBonusRate = qualification.performanceBonusRate;
       currentEmployee.qualifiedMonthlyRank = qualification.qualifiedMonthlyRank; 
 
-      // প্যারেন্ট নোডের কাছে নিজের অর্জিত কোয়ালিফাইড র‍্যাংক রিপোর্ট করা (লেগ বাবল-আপ প্রোটেকশন সহ)
+      // 💥 ম্যাজিক ফিক্স: প্যারেন্ট নোডের কাছে নিজের সাব-ট্রির সব লেগ ডেটা বাবল-আপ করা কঠোরভাবে বন্ধ!
+      // শুধুমাত্র নিজের অর্জিত ফাইনাল একটিভ 'qualifiedMonthlyRank' টিকে ১ হিসেবে প্যারেন্টে পাঠানো হবে।
       const returnLegsSummary = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
       const myFinalPos = (currentEmployee.qualifiedMonthlyRank || "SALES REPRESENTATIVE").toUpperCase().trim();
       
       if (returnLegsSummary[myFinalPos] !== undefined) {
         returnLegsSummary[myFinalPos] = 1;
       }
-      return returnLegsSummary;
+      
+      return returnLegsSummary; // এটি প্যারেন্টের কাছে চাইল্ডের একটি সিঙ্গেল র‍্যাংক ভ্যালু হিসেবে জমা হবে
     };
 
-
-    // রুট নোড থেকে পজিশন নির্ধারণ ইঞ্জিন রান করা
-    users.forEach(user => {
-      if (user.refIdNo === "0" || !user.refIdNo || !userSalesMap[user.refIdNo]) {
-        processHierarchyPositions(user.idNo);
-      }
-    });
 
 
 
 
     
 
-      // =======================================================================
+    // =======================================================================
     // --- পাস ৩ ফিক্স: টপ-ডাউন কোয়ালিফিকেশন ওভাররাইড চেইন (Sales Validation সহ) ---
     // =======================================================================
     const applyTopDownBonusQualification = (currentIdNo, parentQualifies = false) => {
