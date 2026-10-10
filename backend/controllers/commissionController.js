@@ -1006,8 +1006,9 @@ const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
       }
     });
 
-       // =========================================================================
-    // 💥 পাস ১.২ ফিক্স: রিকার্সিভ লেগ লিক গার্ড এবং স্বাধীন লাইন কোয়ালিফিকেশন ইঞ্জিন
+    
+    // =========================================================================
+    // 💥 পাস ১.২ ফিক্স: ডাবল-কাউন্টিং লেগ প্রোটেকশন এবং স্বাধীন লাইন কোয়ালিফিকেশন ইঞ্জিন
     // =========================================================================
     const positionVisitedSet = new Set(); 
     
@@ -1029,82 +1030,95 @@ const executeLedgerCalculationEngine = async (currentYear, currentMonth) => {
 
       const childrenIds = parentToChildrenMap[currentIdNo] || [];
       
-      // কারেন্ট ইউজারের জন্য নিজস্ব স্বাধীন লেগ কাউন্টার ম্যাপ
+      // কারেন্ট ইউজারের জন্য রিয়াল-টাইম মাস্টার লেগ কাউন্টার (এখানে শুধু সরাসরি ডিরেক্ট চাইল্ডের ফাইনাল পজিশন কাউন্ট হবে)
       const masterLegsCounts = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
 
-      // প্রতিটি ডিরেক্ট চাইল্ড মানেই হলো একটি সম্পূর্ণ আলাদা এবং স্বাধীন লেগ (Distinct Line)
+      // প্রতিটি ডিরেক্ট চাইল্ড মানেই হলো ১টা আলাদা স্বাধীন লাইন (Distinct Leg)
       childrenIds.forEach(childId => {
-        // চাইল্ডের সাব-ট্রির চূড়ান্ত র‍্যাংক ম্যাপ নিচ থেকে নিয়ে আসা
+        // চাইল্ডের নিচের সাব-ট্রির পজিশন আগে নিচ থেকে ক্যালকুলেট হয়ে আসবে
         const childReportedRanks = processHierarchyPositions(childId);
         const childData = userSalesMap[childId];
         
         if (childData) {
-          // এই নির্দিষ্ট স্বাধীন লেগে (This Distinct Leg Only) সর্বোচ্চ কোয়ালিফাইড র‍্যাংক ট্র্যাক করার ম্যাপ
-          const maxRankInThisLeg = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
+          // ১. এই চাইল্ডের নিজের এই মাসের টিম সেলস ভলিউম সরাসরি তার র‍্যাংক ট্র্যাক করবে
+          let activeRankInThisLeg = "SALES REPRESENTATIVE";
           
-          // ১. এই চাইল্ডের নিজের এই মাসের টিম সেলস ভলিউম সরাসরি এই লেগের যোগ্যতা লক করবে
-          if (childData.thisMonthSalesVolume >= 3200000) maxRankInThisLeg["ED"] = 1;
-          if (childData.thisMonthSalesVolume >= 1600000) maxRankInThisLeg["NSM"] = 1;
-          if (childData.thisMonthSalesVolume >= 400000) maxRankInThisLeg["DSM"] = 1;
-          if (childData.thisMonthSalesVolume >= 300000) maxRankInThisLeg["DSM"] = 1;
-          if (childData.thisMonthSalesVolume >= 200000) maxRankInThisLeg["DSM"] = 1;
-          if (childData.thisMonthSalesVolume >= 100000) maxRankInThisLeg["DSM"] = 1; 
-          if (childData.thisMonthSalesVolume >= 75000) maxRankInThisLeg["RSM"] = 1;
-          if (childData.thisMonthSalesVolume >= 25000) maxRankInThisLeg["AM"] = 1;
+          if (childData.thisMonthSalesVolume >= 3200000) activeRankInThisLeg = "ED";
+          else if (childData.thisMonthSalesVolume >= 1600000) activeRankInThisLeg = "NSM";
+          else if (childData.thisMonthSalesVolume >= 400000) activeRankInThisLeg = "DSM";
+          else if (childData.thisMonthSalesVolume >= 300000) activeRankInThisLeg = "DSM";
+          else if (childData.thisMonthSalesVolume >= 200000) activeRankInThisLeg = "DSM";
+          else if (childData.thisMonthSalesVolume >= 100000) activeRankInThisLeg = "DSM"; 
+          else if (childData.thisMonthSalesVolume >= 75000) activeRankInThisLeg = "RSM";
+          else if (childData.thisMonthSalesVolume >= 25000) activeRankInThisLeg = "AM";
 
-          // ২. চাইল্ড নোডটি নিজে এই সাব-ট্রি থেকে ফাইনাল যে মান্থলি র‍্যাংক অর্জন করেছে, শুধুমাত্র সেটাই এই লেগে কাউন্ট হবে
+          // ২. এই চাইল্ডের নিচে (ডাউনলাইনে) অর্জিত সর্বোচ্চ র‍্যাংকটি বের করা
+          let maxSubTreeRank = "SALES REPRESENTATIVE";
           Object.keys(childReportedRanks).forEach(pos => {
             if (childReportedRanks[pos] === 1) {
-              maxRankInThisLeg[pos] = 1;
+              if (RANK_MAP[pos] > RANK_MAP[maxSubTreeRank]) {
+                maxSubTreeRank = pos;
+              }
             }
           });
 
-          // ৩. জেনারেশন কম্প্রেশন এক্সপেনশন (শুধুমাত্র এই নির্দিষ্ট লেগের ভেতরেই কার্যকর থাকবে)
-          Object.keys(maxRankInThisLeg).forEach(pos => {
-            if (maxRankInThisLeg[pos] === 1) {
-              Object.keys(maxRankInThisLeg).forEach(p => {
-                if (RANK_MAP[pos] >= RANK_MAP[p]) {
-                  maxRankInThisLeg[p] = 1;
-                }
-              });
-            }
-          });
+          // ৩. সেলস র‍্যাংক এবং সাব-ট্রি র‍্যাংকের মধ্যে যেটি সবচেয়ে বড়, সেটাই হবে এই লেগের ফাইনাল র‍্যাংক
+          let finalRankOfThisLeg = RANK_MAP[activeRankInThisLeg] > RANK_MAP[maxSubTreeRank] 
+            ? activeRankInThisLeg 
+            : maxSubTreeRank;
 
-          // ৪. এই স্বাধীন লেগের চূড়ান্ত কম্প্রেসড রেজাল্ট মূল মাস্টারে সর্বোচ্চ ১ বার যোগ হবে (+১ রুল)
-          Object.keys(maxRankInThisLeg).forEach(pos => {
-            if (maxRankInThisLeg[pos] === 1) {
-              masterLegsCounts[pos] += 1; 
-            }
-          });
+          // ৪. এই স্বাধীন লেগের চূড়ান্ত পজিশনটি মাস্টার কাউন্টারে মাত্র ১ বার (+১) যোগ হবে
+          if (finalRankOfThisLeg !== "SALES REPRESENTATIVE") {
+            masterLegsCounts[finalRankOfThisLeg] += 1;
+          }
         }
       });
 
-      // কারেন্ট ইউজারের ফাইনাল লাইফটাইম র‍্যাংক নির্ধারণ
-      const calculatedRank = autoDeterminePosition(currentEmployee.totalSalesVolume, masterLegsCounts, currentEmployee.databaseRank);
-      currentEmployee.autoPosition = calculatedRank;
+      // 💥 জেনারেশন কম্প্রেশন ফিক্সড `countAtLeast` ইঞ্জিন:
+      // আমরা ফাংশনগুলোর লোকাল স্কোপের জন্য ডাবল কাউন্টিং মুক্ত সেফ কাউন্টার তৈরি করছি
+      const secureCountAtLeast = (targetPos) => {
+        return Object.keys(masterLegsCounts).reduce((total, pos) => {
+          return RANK_MAP[pos] >= RANK_MAP[targetPos] ? total + masterLegsCounts[pos] : total;
+        }, 0);
+      };
+
+      // কারেন্ট ইউজারের ফাইনাল লাইফটাইম র‍্যাংক নির্ধারণ (সুরক্ষিত লেগ কাউন্ট দিয়ে)
+      // নোট: autoDeterminePosition এর ভেতরের countAtLeast কে ওভাররাইড করতে এখানে কাস্টম লজিক ব্যবহার করা হলো
+      let calculatedRank = "SALES REPRESENTATIVE";
+      if (currentEmployee.totalSalesVolume >= 6400000 && secureCountAtLeast("ED") >= 2) calculatedRank = "BOM";
+      else if (currentEmployee.totalSalesVolume >= 3200000 && secureCountAtLeast("NSM") >= 4) calculatedRank = "ED";
+      else if (currentEmployee.totalSalesVolume >= 800000 && secureCountAtLeast("DSM") >= 4) calculatedRank = "NSM";
+      else if (currentEmployee.totalSalesVolume >= 600000 && secureCountAtLeast("DSM") >= 3) calculatedRank = "SM";
+      else if (currentEmployee.totalSalesVolume >= 400000 && secureCountAtLeast("DSM") >= 2) calculatedRank = "SDSM";
+      else if (currentEmployee.totalSalesVolume >= 200000 && secureCountAtLeast("RSM") >= 2 && secureCountAtLeast("AM") >= 2) calculatedRank = "DSM";
+      else if (currentEmployee.totalSalesVolume >= 75000 && secureCountAtLeast("AM") >= 3) calculatedRank = "RSM";
+      else if (currentEmployee.totalSalesVolume >= 25000) calculatedRank = "AM";
+
+      const currentRankWeight = RANK_MAP[calculatedRank.toUpperCase()] || 0;
+      const historicRankWeight = RANK_MAP[currentEmployee.databaseRank.toUpperCase()] || 0;
+      
+      currentEmployee.autoPosition = currentRankWeight >= historicRankWeight ? calculatedRank : currentEmployee.databaseRank.toUpperCase();
       currentEmployee.currentSlabRate = POSITION_SLABS[currentEmployee.autoPosition] || 0;
       
       // কারেন্ট ইউজারের চলতি মাসের চূড়ান্ত মান্থলি কোয়ালিফিকেশন পরীক্ষা
       const qualification = checkSelfQualificationOnly(
         currentEmployee.autoPosition,
         currentEmployee.thisMonthSalesVolume,
-        masterLegsCounts,
+        masterLegsCounts, // ডাবল-কাউন্ট মুক্ত পিওর ম্যাপ
         currentEmployee.directSalesThisMonth
       );
       currentEmployee.selfQualifiesForBonus = qualification.qualifies;
       currentEmployee.performanceBonusRate = qualification.performanceBonusRate;
       currentEmployee.qualifiedMonthlyRank = qualification.qualifiedMonthlyRank; 
 
-      // 💥 ম্যাজিক ফিক্স: প্যারেন্ট নোডের কাছে নিজের সাব-ট্রির সব লেগ ডেটা বাবল-আপ করা কঠোরভাবে বন্ধ!
-      // শুধুমাত্র নিজের অর্জিত ফাইনাল একটিভ 'qualifiedMonthlyRank' টিকে ১ হিসেবে প্যারেন্টে পাঠানো হবে।
+      // প্যারেন্ট নোডের কাছে নিজের অর্জিত কোয়ালিফাইড র‍্যাংক রিপোর্ট করা
       const returnLegsSummary = { AM: 0, RSM: 0, DSM: 0, NSM: 0, ED: 0, BOM: 0 };
       const myFinalPos = (currentEmployee.qualifiedMonthlyRank || "SALES REPRESENTATIVE").toUpperCase().trim();
       
       if (returnLegsSummary[myFinalPos] !== undefined) {
         returnLegsSummary[myFinalPos] = 1;
       }
-      
-      return returnLegsSummary; // এটি প্যারেন্টের কাছে চাইল্ডের একটি সিঙ্গেল র‍্যাংক ভ্যালু হিসেবে জমা হবে
+      return returnLegsSummary; 
     };
 
 
