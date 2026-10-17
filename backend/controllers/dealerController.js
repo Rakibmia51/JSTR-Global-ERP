@@ -384,7 +384,7 @@ const getDealerByCode = async (req, res) => {
     // Direct string match lookup for better performance and accuracy
     const dealer = await Dealer.findOne(
       { dealerId: formattedCode }, 
-      { name: 1, _id: 1 }
+      { name: 1, _id: 1 , dealerId: 1 ,mobilePhoneNo: 1, address: 1 } // শুধুমাত্র প্রয়োজনীয় ফিল্ডগুলো রিটার্ন করা হচ্ছে
     );
 
     if (!dealer) {
