@@ -35,7 +35,7 @@ router.post('/login', loginUser);
 router.get('/profile', getUserProfile);
 
 // এই রাউটটি শুধু 'admin' বা 'manager' অ্যাক্সেস করতে পারবে
-router.get('/', protect, authorizeRoles('admin', 'manager'), getAllUsers);
+router.get('/', getAllUsers);
 router.get('/all', protect, authorizeRoles('admin', 'manager'), getAllEmployees);
 router.get('/tree', getEmployeeTree);
 router.get('/my-downline-tree', getMyDownlineTree);

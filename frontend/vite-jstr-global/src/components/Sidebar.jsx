@@ -358,6 +358,7 @@ const Sidebar = () => {
         { name: t('tree_employees'), id: 'Tree Employees', icon: Network, path: '/admin-panel/employees/tree' },
         { name: t('add_employee'), id: 'Add Employee', icon: UserPlus, path: '/admin-panel/employees/add' },
         { name: t('departments'), id: 'Departments', icon: Building2, path: '/admin-panel/employees/departments' },
+        { name: t('corporate_structure'), id: 'Corporate Structure', icon: Building, path: '/admin-panel/employees/corporate-structure' },
       ]
     },
     { 
@@ -447,6 +448,14 @@ const Sidebar = () => {
       icon: LayoutDashboard,
       path: '/dealer-panel',
       roles: ['dealer'] 
+    },
+   { 
+      name: t('corporate_structure', 'Corporate Structure'), 
+      id: 'Corporate Structure',
+      icon: Building,
+      path: `/${userRole.toLowerCase()}-panel/corporate-structure`,
+      roles: ['employee', 'dealer', 'admin'], // উভয়েই দেখতে পাবে
+      userDepartmentCode: ['MKT']
     },
     { 
       name: t('products', 'Product Store'), 

@@ -120,14 +120,165 @@ const getUserProfile = async (req, res) => {
 // @desc    Get all users (Admin only)
 // @route   GET /api/users
 // @access  Private/Admin
+// const getAllUsers = async (req, res) => {
+//   try {
+//     const users = await User.find({}).select('-password'); // পাসওয়ার্ড ছাড়া সব ইউজার নিয়ে আসবে
+//     res.json(users);
+//   } catch (error) {
+//     res.status(500).json({ message: 'Server error', error: error.message });
+//   }
+// };
+
+// const getAllUsers = async (req, res) => {
+//   try {
+//     // ১. ফ্রন্টএন্ড কুয়েরি থেকে পেজ, লিমিট এবং ফিল্টার প্যারামিটার রিসিভ করা
+//     const page = parseInt(req.query.page) || 1;
+//     const limit = parseInt(req.query.limit) || 50; // প্রতি পেজে ৫০ জন ডিফল্ট
+//     const skipIndex = (page - 1) * limit;
+
+//     // ২. ডাইনামিক সার্চ কুয়েরি অবজেক্ট তৈরি
+//     const query = {};
+
+//     // নাম, মোবাইল নম্বর অথবা idNo দিয়ে লাইভ সার্চ করার মেকানিজম (Case-Insensitive)
+//     if (req.query.search && req.query.search.trim() !== '') {
+//       const searchRegex = new RegExp(req.query.search.trim(), 'i');
+//       query.$or = [
+//         { name: searchRegex },
+//         { idNo: searchRegex },
+//         { mobileNo: searchRegex }
+//       ];
+//     }
+
+//     // র‍্যাংক (যেমন: DSM, RSM, AM) ফিল্টারিং কন্ডিশন
+//     if (req.query.rank && req.query.rank !== 'ALL') {
+//       query.rank = req.query.rank;
+//     }
+
+//     // ৩. ডাটাবেজ কাউন্ট এবং লিমিটেড ডাটা কুয়েরি এক্সিকিউশন
+//     const totalUsers = await User.countDocuments(query);
+    
+//     // পাসওয়ার্ড ছাড়া নির্দিষ্ট পেজের ডাটা সিলেক্ট করা এবং লেটেস্ট ইউজার আগে দেখানোর জন্য সর্টিং
+//     const users = await User.find(query)
+//       .select('-password')
+//       .skip(skipIndex)
+//       .limit(limit)
+//       .sort({ createdAt: -1 });
+
+//     // ৪. ফ্রন্টএন্ড ফ্রেমওয়ার্কের সাথে হুবহু মিল রেখে রেসপন্স ফরম্যাট পাঠানো
+//     res.json({
+//       success: true,
+//       data: users,
+//       pagination: {
+//         totalUsers,
+//         totalPages: Math.ceil(totalUsers / limit),
+//         currentPage: page,
+//         limit
+//       }
+//     });
+
+//   } catch (error) {
+//     console.error("Error in getAllUsers pagination controller:", error);
+//     res.status(500).json({ 
+//       success: false, 
+//       message: 'Server error', 
+//       error: error.message 
+//     });
+//   }
+// };
+
 const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({}).select('-password'); // পাসওয়ার্ড ছাড়া সব ইউজার নিয়ে আসবে
-    res.json(users);
+    // ১. ফ্রন্টএন্ড কুয়েরি থেকে পেজ, লিমিট এবং ফিল্টার প্যারামিটার রিসিভ করা
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50; // প্রতি পেজে ৫০ জন ডিফল্ট
+    const skipIndex = (page - 1) * limit;
+
+    // ২. মেইন কুয়েরি অবজেক্ট এবং অ্যান্ড (\$and) চেইনিং অ্যারে তৈরি (Overwriting Conflict দূর করতে)
+    const query = {};
+    const queryConditions = [];
+
+    // নাম, মোবাইল নম্বর অথবা idNo দিয়ে লাইভ সার্চ করার মেকানিজম (Case-Insensitive)
+    if (req.query.search && req.query.search.trim() !== '') {
+      const searchRegex = new RegExp(req.query.search.trim(), 'i');
+      queryConditions.push({
+        $or: [
+          { name: searchRegex },
+          { idNo: searchRegex },
+          { mobileNo: searchRegex }
+        ]
+      });
+    }
+
+    // 💡 ৩. [FIXED SECURITY]: লগইন করা ইউজারের রোল ভেরিফাই করা (JWT / Session থেকে)
+    // ইউজার যদি এডমিন না হয়, তবে ফ্রন্টএন্ড থেকে যাই পাঠানো হোক না কেন, ব্যাকএন্ড জোরপূর্বক MARKETING ফিল্টার সেট করবে
+    const requestUserRole = req.user?.role || 'client'; 
+    const targetTeam = requestUserRole === 'admin' ? (req.query.team || 'ALL') : 'MARKETING';
+
+    // টিম ক্যাটাগরি ফিল্টারিং কন্ডিশন
+    if (targetTeam !== 'ALL') {
+      const teamMode = targetTeam.toUpperCase();
+      
+      if (teamMode === 'CORPORATE') {
+        // Corporate ক্যাটাগরি: role 'admin' অথবা rank 'MANAGER' (Case-Insensitive)
+        queryConditions.push({
+          $or: [
+            { role: 'admin' },
+            { rank: { $regex: /^manager$/i } }
+          ]
+        });
+      } else if (teamMode === 'MARKETING') {
+        // Marketing ক্যাটাগরি: rank 'BOM', 'EX DIR', 'NSM', অথবা 'DSM' 
+        queryConditions.push({
+          rank: { 
+            $in: [
+              /^bom$/i, 
+              /^ed$/i,  
+              /^nsm$/i, 
+              /^dsm$/i
+            ] 
+          }
+        });
+      }
+    }
+
+    // যদি কোনো কন্ডিশন তৈরি হয়, তবে তা মূল কুয়েরি অবজেক্টের $and চেইনে পুশ করা হলো
+    if (queryConditions.length > 0) {
+      query.$and = queryConditions;
+    }
+
+    // ৪. ডাটাবেজ কাউন্ট এবং লিমিটেড ডাটা কুয়েরি এক্সিকিউশন
+    const totalUsers = await User.countDocuments(query);
+    
+    // পাসওয়ার্ড ছাড়া নির্দিষ্ট পেজের ডাটা সিলেক্ট করা এবং লেটেস্ট ইউজার আগে দেখানোর জন্য সর্টিং
+    const users = await User.find(query)
+      .select('-password')
+      .skip(skipIndex)
+      .limit(limit)
+      .sort({ createdAt: -1 });
+
+    // ৫. ফ্রন্টএন্ড ফ্রেমওয়ার্কের সাথে হুবহু মিল রেখে রেসপন্স ফরম্যাট পাঠানো
+    res.json({
+      success: true,
+      data: users,
+      pagination: {
+        totalUsers,
+        totalPages: Math.ceil(totalUsers / limit),
+        currentPage: page,
+        limit
+      }
+    });
+
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error("Error in getAllUsers pagination controller:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error', 
+      error: error.message 
+    });
   }
 };
+
+
 
 
 // @desc    Get all employees list

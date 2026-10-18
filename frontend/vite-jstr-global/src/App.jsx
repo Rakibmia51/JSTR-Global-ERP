@@ -46,6 +46,7 @@ import 'react-toastify/dist/ReactToastify.css'; // সিএসএস ইমপ�
 import AdminChangePassword from './components/AdminChangePassword';
 import UserProfile from './components/profile';
 import AdminRankPanel from './components/RankUpdate';
+import UserProfileView from './components/UserProfileView';
 
 
 function App() {
@@ -72,6 +73,7 @@ function App() {
           <Route path="employees/all" element={<EmployeeList/>} />
           <Route path="employees/tree" element={<EmployeeTree/>} />
           <Route path="employees/add" element={<AddEmployee/>} />
+          <Route path="employees/corporate-structure" element={<UserProfileView/>} />
 
           {/* 🚀 ডাইনামিক আইডি রুট (অত্যন্ত গুরুত্বপূরণ) */}
           <Route path="/admin-panel/employees/view/:id" element={<ViewEmployee />} />
@@ -149,6 +151,7 @@ function App() {
           }>
           <Route path="/employee-panel" element={<EmployeeStatsGrid/>} />
           <Route path="/employee-panel/profile" element={<UserProfile/>} />
+          <Route path="corporate-structure" element={<UserProfileView/>} />
           <Route path="products" element={<ProductShowroom/>} />
           <Route path="my-sales" element={<EmployeeMonthlySales/>} />
           <Route path="team-sales" element={<TeamInvoicesLog/>} />
