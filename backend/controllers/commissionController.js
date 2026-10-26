@@ -1687,246 +1687,8 @@ const getMyMonthlyCommissionStatus = async (req, res) => {
 };
 
 
-// 🆕 কর্মচারীর নিজের মাস ভিত্তিক স্যালারি শীট ডেটা গেট করা (যদি MonthlyLedger এ থাকে)
-// 1st version (optimized)
-// const getMyMonthlySalarySheet = async (req, res) => {
-//   try {
-//     const { idNo, year, month } = req.query;
 
-//     if (!idNo || !year || !month) {
-//       return res.status(400).json({ success: false, message: "Missing required parameters" });
-//     }
-
-//     const targetYear = Number(year);
-//     const targetMonth = Number(month);
-//     const searchId = idNo.trim().toUpperCase();
-
-//     const db = mongoose.connection.db;
-//     const MonthlyLedger = require('../models/MonthlyLedger');
-    
-//     // ১. ডাটাবেজ থেকে নির্দিষ্ট মাসের লেজার ডকুমেন্ট খুঁজে বের করা
-//     const savedLedger = await MonthlyLedger.findOne({ year: targetYear, month: targetMonth });
-//     if (!savedLedger) {
-//       return res.status(200).json({ success: true, data: null });
-//     }
-
-//     // ২. লেজার থেকে এই নির্দিষ্ট কর্মচারীর ডেটা অবজেক্ট বের করা
-//     const employeeList = savedLedger.data || savedLedger.employeesData || [];
-//     const myData = employeeList.find(emp => emp.idNo && emp.idNo.toString().trim().toUpperCase() === searchId);
-
-//     if (!myData) {
-//       return res.status(200).json({ success: true, data: null });
-//     }
-
-//     // 🎯 আপনার দেওয়া অফিশিয়াল র‍্যাংক পার্সেন্টেজ স্ল্যাব ম্যাপিং (যেমন: AM = 15%, DSM = 20%)
-//     const RANK_SLAB_RATES = {
-//       "SALES REPRESENTATIVE": 0.00,
-//       "SR": 0.00,
-//       "AM": 0.15,
-//       "RSM": 0.175,
-//       "DSM": 0.20,
-//       "SDSM": 0.21,
-//       "SM": 0.22,
-//       "NSM": 0.23,
-//       "ED": 0.24,
-//       "BOM": 0.24
-//     };
-
-//     const myRank = (myData.autoPosition || "SALES REPRESENTATIVE").toUpperCase().trim();
-//     const myRate = RANK_SLAB_RATES[myRank] || 0.00;
-
-//     // ৩. 📊 পার্সোনাল ও গ্রুপ সেলস ইনভয়েস ওয়াইজ গ্যাপ কমিশন ট্র্যাকিং ইঞ্জিন (নিখুঁত ফিক্স)
-//     const personalCommissionLog = [];
-//     const groupCommissionLog = [];
-
-//     let allInvoices = await db.collection("invoices").find({}).toArray();
-//     if (!allInvoices || allInvoices.length === 0) {
-//       allInvoices = await db.collection("sales").find({}).toArray();
-//     }
-
-//     const dealers = await db.collection("dealers").find({}).toArray();
-//     const users = await db.collection("users").find({ idNo: { $regex: /^MKT/i } }).toArray();
-
-//     const startDate = new Date(targetYear, targetMonth - 1, 1);
-//     const endDate = new Date(targetYear, targetMonth, 1);
-
-//     // শুধুমাত্র সিলেক্টেড মাসের ইনভয়েস ফিল্টার করা
-//     const filteredInvoices = allInvoices.filter(s => {
-//       const d = new Date(s.date || s.createdAt);
-//       return d >= startDate && d < endDate;
-//     });
-
-//     // রিকার্সিভলি ডাউনলাইন চেইন আইডি লিস্ট বের করার হেল্পার
-//     const getAllDownlineIdNos = (startIdNo) => {
-//       const downlines = [];
-//       const queue = [startIdNo];
-//       while (queue.length > 0) {
-//         const currentId = queue.shift();
-//         const children = users.filter(u => u.refIdNo === currentId);
-//         children.forEach(child => {
-//           if (!downlines.includes(child.idNo)) {
-//             downlines.push(child.idNo);
-//             queue.push(child.idNo);
-//           }
-//         });
-//       }
-//       return downlines;
-//     };
-
-//     const myTeamIdNos = getAllDownlineIdNos(searchId);
-
-//     filteredInvoices.forEach(sale => {
-//       let saleEmployeeIdNo = null;
-//       let dealerName = "General Customer";
-
-//       if (sale.isMonthlyArchived && sale.archivedSalesData?.employeeSnapshot?.idNo) {
-//         saleEmployeeIdNo = sale.archivedSalesData.employeeSnapshot.idNo;
-//         dealerName = sale.archivedSalesData.dealerSnapshot?.name || "Unknown";
-//       } else if (sale.dealer) {
-//         const matchingDealer = dealers.find(d => d._id.toString() === sale.dealer.toString());
-//         if (matchingDealer) {
-//           saleEmployeeIdNo = matchingDealer.referenceIdNo;
-//           dealerName = matchingDealer.name;
-//         }
-//       }
-
-//       if (saleEmployeeIdNo) {
-//         const creatorEmployee = users.find(u => u.idNo === saleEmployeeIdNo);
-//         const billAmt = Number(sale.grandTotal || sale.totalAmount || 0);
-
-//         // ক) কন্ডিশন ১: এটি যদি আমার নিজের পার্সোনাল ইনভয়েস হয়
-//         if (saleEmployeeIdNo === searchId) {
-//           personalCommissionLog.push({
-//             staffId: saleEmployeeIdNo,
-//             rank: myRank,
-//             refId: myData.refIdNo || "00000152",
-//             nameOfStaff: creatorEmployee ? creatorEmployee.name : "Self",
-//             ags: billAmt,
-//             pPercentage: myRate * 100, // পুরো র‍্যাংক রেট (যেমন: 20%)
-//             ps: 1000,
-//             gs: 1000,
-//             comm: Math.round(billAmt * myRate) // মাসিক ইনভয়েস × র‍্যাংক রেট
-//           });
-//         } 
-//         // খ) কন্ডিশন ২: এটি যদি আমার টিমের কোনো ডাউনলাইন মেম্বারের ইনভয়েস হয় (গ্যাপ লজিক)
-//         else if (myTeamIdNos.includes(saleEmployeeIdNo)) {
-//           // লেজার ডকুমেন্টের স্ন্যাপশট থেকে চাইল্ডের আসল র‍্যাংক বের করা (সবচেয়ে নিরাপদ পদ্ধতি)
-//           const childInLedger = employeeList.find(emp => emp.idNo === saleEmployeeIdNo);
-//           const childRank = (childInLedger?.autoPosition || creatorEmployee?.autoPosition || "SR").toUpperCase().trim();
-//           const childRate = RANK_SLAB_RATES[childRank] || 0.00;
-
-//           // 💥 গ্যাপ পার্সেন্টেজ ফর্মুলা: (আপনার রেট - চাইল্ড রেট)
-//           let gapRate = myRate - childRate;
-//           if (gapRate < 0) gapRate = 0; // ওভাররাইড প্রোটেকশন
-
-//           groupCommissionLog.push({
-//             staffId: saleEmployeeIdNo,
-//             rank: childRank,
-//             refId: searchId,
-//             nameOfStaff: creatorEmployee ? creatorEmployee.name : "Team Member",
-//             ags: billAmt,
-//             pPercentage: gapRate * 100, // নেট গ্যাপ পার্সেন্টেজ (যেমন: 23% - 20% = 3%)
-//             ps: 1000,
-//             gs: 1000,
-//             comm: Math.round(billAmt * gapRate) // মাসিক ইনভয়েস × নেট গ্যাপ রেট
-//           });
-//         }
-//       }
-//     });
-
-//     // ৪. ডাটাবেজের অফিশিয়াল বেস কমিশনের সাথে মিল রেখে ব্যালেন্স এডজাস্টমেন্ট প্রোটেকশন
-//     const dbBaseCommission = Number(myData.baseCommission || 0);
-//     const calculatedBaseCommission = sumFieldHelper(personalCommissionLog, 'comm') + sumFieldHelper(groupCommissionLog, 'comm');
-
-//     // 💡 যদি মেমোরি ক্যালকুলেশনে কোনো ফ্র্যাকশন গ্যাপ থাকে, তবে তা গ্রুপ কমিশনের প্রথম নোডে অটো-ব্যালেন্স করে দেওয়া হবে
-//     if (calculatedBaseCommission < dbBaseCommission && groupCommissionLog.length > 0) {
-//       const deficit = dbBaseCommission - calculatedBaseCommission;
-//       groupCommissionLog[0].comm += deficit;
-//     }
-
-//     // ৫. গ্লোবাল কোম্পানি প্রফিট শেয়ার পুল ক্যালকুলেটর ইঞ্জিন (আপনার নতুন রেট স্ল্যাব)
-//     const totalCompanySales = savedLedger.meta?.totalCompanySales || 17059887;
-//     const poolCounters = savedLedger.meta?.poolCounters || { RSM: 0, DSM: 5, SDSM: 1, SM: 1, NSM: 1, ED: 0, BOM: 0 };
-//     const userEarnedPools = myData.earnedPools || ["DSM", "SDSM", "SM", "NSM"];
-
-//     const POOL_PERCENTAGES = { "RSM": 0.01, "DSM": 0.05, "SDSM": 0.01, "SM": 0.005, "NSM": 0.01, "ED": 0.005, "BOM": 0.01 };
-//     const companyShareLogs = [];
-//     const poolCalculationSteps = [`📊 কোম্পানি মোট মাসিক বিক্রয় (Global Volume): ৳${totalCompanySales.toLocaleString()}`];
-//     let verifiedTotalPoolBonus = 0;
-
-//     userEarnedPools.forEach(poolKey => {
-//       const rate = POOL_PERCENTAGES[poolKey] || 0.01;
-//       const totalPoolFund = totalCompanySales * rate; 
-//       const shareCount = poolCounters[poolKey] || 0;     
-      
-//       if (shareCount > 0) {
-//         const perShareAmount = totalPoolFund / shareCount;
-//         verifiedTotalPoolBonus += perShareAmount;
-        
-//         companyShareLogs.push({
-//           poolName: poolKey,
-//           staffId: searchId,
-//           refId: myData.refIdNo || "00000152",
-//           nameOfStaff: myData.name,
-//           globalSales: totalCompanySales,
-//           percentage: rate * 100, 
-//           shareCount: shareCount,
-//           comm: Math.round(perShareAmount)
-//         });
-//         poolCalculationSteps.push(
-//           `🎯 [${poolKey} Pool] -> ৳${totalCompanySales.toLocaleString()} × ${(rate * 100)}% ÷ ${shareCount} = ৳${Math.round(perShareAmount).toLocaleString()}`
-//         );
-//       }
-//     });
-
-//     // ৬. স্যালারি শিটের ফাইনাল গ্র্যান্ড টোটাল মেটা অ্যাসাইনমেন্ট
-//     const finalPoolBonus = Number(myData.globalPoolBonusAmount || verifiedTotalPoolBonus);
-//     const finalBonusAmount = Number(myData.monthlyBonusAmount || 0);
-
-//     const grandTotal = dbBaseCommission + finalPoolBonus + finalBonusAmount;
-//     const serviceCharge = Math.round(grandTotal * 0.10);
-//     const netPayable = grandTotal - serviceCharge;
-
-//     const monthsList = [
-//       { value: 1, name: 'January' }, { value: 2, name: 'February' }, { value: 3, name: 'March' }, 
-//       { value: 4, name: 'April' }, { value: 5, name: 'May' }, { value: 6, name: 'June' }, 
-//       { value: 7, name: 'July' }, { value: 8, name: 'August' }, { value: 9, name: 'September' }, 
-//       { value: 10, name: 'October' }, { value: 11, name: 'November' }, { value: 12, name: 'December' }
-//     ];
-
-//     res.status(200).json({
-//       success: true,
-//       data: {
-//         staffId: searchId,
-//         staffName: myData.name,
-//         monthName: monthsList[targetMonth - 1]?.name || "July",
-//         year: targetYear,
-//         autoPosition: myRank,
-//         qualificationStatus: myData.qualificationStatus || "Qualified",
-//         baseCommission: dbBaseCommission, 
-//         globalPoolBonusAmount: finalPoolBonus,
-//         monthlyBonusAmount: finalBonusAmount,
-//         netTotalEarnings: myData.netTotalEarnings || netPayable,
-//         poolCounters, 
-//         personalCommissionLog,
-//         groupCommissionLog,
-//         companyShareLogs,
-//         poolSteps: poolCalculationSteps,
-//         financials: {
-//           grandTotal: myData.netTotalEarnings ? Math.round(myData.netTotalEarnings / 0.9) : grandTotal,
-//           serviceCharge: myData.netTotalEarnings ? Math.round((myData.netTotalEarnings / 0.9) * 0.10) : serviceCharge,
-//           netPayable: myData.netTotalEarnings || netPayable
-//         }
-//       }
-//     });
-
-//   } catch (error) {
-//     console.error("❌ Backend Salary Sheet Engine Crash:", error);
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// };
-
-// 2nd version of sumFieldHelper (optimized)
+//3rd version of getMyMonthlySalarySheet (optimized and simplified)
 // const getMyMonthlySalarySheet = async (req, res) => {
 //   try {
 //     const { idNo, year, month } = req.query;
@@ -1973,7 +1735,7 @@ const getMyMonthlyCommissionStatus = async (req, res) => {
 //     const myRank = (myData.autoPosition || "SALES REPRESENTATIVE").toUpperCase().trim();
 //     const myRate = RANK_SLAB_RATES[myRank] || 0.00;
 
-//     // ৩. 📊 পার্সোনাল ও গ্রুপ সেলস ইনভয়েস ওয়াইজ গ্যাপ কমিশন ট্র্যাকিং ইঞ্জিন (Pass 2 সিঙ্কড)
+//     // ৩. 📊 পার্সোনাল ও গ্রুপ সেলস ইনভয়েস ওয়াইজ গ্যাপ কমিশন ট্র্যাকিং ইঞ্জিন (Fixed & Fully Synced)
 //     const personalCommissionLog = [];
 //     const groupCommissionLog = [];
 
@@ -2043,94 +1805,96 @@ const getMyMonthlyCommissionStatus = async (req, res) => {
 //       if (saleEmployeeIdNo) {
 //         const creatorEmployee = users.find(u => u.idNo === saleEmployeeIdNo);
 
-//         // 🔒 Pass 2 অরিজিনাল গ্যাপ ইঞ্জিন ট্রাভার্সাল সিমুলেশন (সঠিক Y-Axis লেগ লক সহ)
-//         let currentIdNo = saleEmployeeIdNo;
-//         let distributedRateSoFar = 0;
-//         let myInvoiceEarnedGapRate = 0;
-//         const visited = new Set();
-
-//         // লেগ হেড স্ল্যাব ট্র্যাকিং
-//         let directLegHeadIdNo = saleEmployeeIdNo;
-//         const legVisited = new Set();
-//         while (
-//           directLegHeadIdNo && 
-//           userStatusMap[directLegHeadIdNo] && 
-//           users.find(u => u.idNo === directLegHeadIdNo)?.refIdNo && 
-//           users.find(u => u.idNo === directLegHeadIdNo).refIdNo !== "0" && 
-//           users.find(u => u.idNo === directLegHeadIdNo).refIdNo !== "MKT-0001" && 
-//           !legVisited.has(directLegHeadIdNo)
-//         ) {
-//           legVisited.add(directLegHeadIdNo);
-//           directLegHeadIdNo = users.find(u => u.idNo === directLegHeadIdNo).refIdNo;
-//         }
-        
-//         const legHeadNode = employeeList.find(e => e.idNo === directLegHeadIdNo);
-//         let legHeadMaxSlab = legHeadNode ? (RANK_SLAB_RATES[legHeadNode.autoPosition?.toUpperCase().trim()] || 0) : 0;
-
-//         while (currentIdNo && currentIdNo !== "0" && !visited.has(currentIdNo)) {
-//           visited.add(currentIdNo);
-//           const uStatus = userStatusMap[currentIdNo];
-//           if (!uStatus) break;
-
-//           let myPositionRate = uStatus.selfQualifiesForBonus ? uStatus.currentSlabRate : 0;
-
-//           // লিডার বাউণ্ডারি অথবা বসের আইডিতে আসলেই লেগ হেড ম্যাক্স স্ল্যাব এনফোর্স হবে
-//           if (currentIdNo === "MKT-0001" || !users.find(u => u.idNo === currentIdNo)?.refIdNo) {
-//             distributedRateSoFar = Math.max(distributedRateSoFar, legHeadMaxSlab);
-//           }
-
-//           if (myPositionRate > distributedRateSoFar) {
-//             const currentGap = myPositionRate - distributedRateSoFar;
-//             if (currentIdNo === searchId) {
-//               myInvoiceEarnedGapRate = currentGap; // এই ইনভয়েসে আমার প্রকৃত গ্যাপ কমিশন রেট লক হলো
-//             }
-//             distributedRateSoFar = myPositionRate;
-//           }
-//           if (distributedRateSoFar >= 0.24) break;
-//           currentIdNo = users.find(u => u.idNo === currentIdNo)?.refIdNo;
-//         }
-
-//         // ক) কন্ডিশন ১: এটি যদি আমার নিজের পার্সোনাল ইনভয়েস হয়
-//         if (saleEmployeeIdNo === searchId && myInvoiceEarnedGapRate > 0) {
+//         // 🔒 💥 কন্ডিশন ১: এটি যদি আমার নিজের পার্সোনাল ইনভয়েস হয় (Direct Self-Slab Injection fIXED)
+//         // নিজের পার্সোনাল ইনভয়েসের ওপর কোনো গ্যাপ ট্রাভার্সাল লাগবে না, সরাসরি নিজের ফুল স্ল্যাব পার্সেন্টেজ পাবে
+//         if (saleEmployeeIdNo === searchId && myRate > 0) {
 //           personalCommissionLog.push({
 //             staffId: saleEmployeeIdNo,
 //             rank: myRank,
 //             refId: myData.refIdNo || "00000152",
-//             nameOfStaff: creatorEmployee ? creatorEmployee.name : "Self",
+//             nameOfStaff: creatorEmployee ? creatorEmployee.name : (myData.name || "Self"),
 //             dealerName: dealerName,
 //             ags: billAmt,
-//             pPercentage: Number((myInvoiceEarnedGapRate * 100).toFixed(2)), 
+//             pPercentage: Number((myRate * 100).toFixed(2)), // পুরো র‍্যাংক স্ল্যাব রেট (যেমন: ১৫%)
 //             ps: 1000,
 //             gs: 1000,
-//             comm: Math.round(billAmt * myInvoiceEarnedGapRate)
+//             comm: Math.round(billAmt * myRate) // সরাসরি মাসিক ইনভয়েস × কারেন্ট স্ল্যাব রেট
 //           });
 //         } 
-//         // খ) কন্ডিশন ২: এটি যদি আমার টিমের কোনো ডাউনলাইন মেম্বারের ইনভয়েস হয় (গ্যাপ লজিক)
-//         else if (myTeamIdNos.includes(saleEmployeeIdNo) && myInvoiceEarnedGapRate > 0) {
-//           const childInLedger = employeeList.find(emp => emp.idNo === saleEmployeeIdNo);
-//           const childRank = (childInLedger?.autoPosition || "SALES REPRESENTATIVE").toUpperCase().trim();
+//         // 🔒 💥 কন্ডিশন ২: এটি যদি আমার টিমের কোনো ডাউনলাইন মেম্বারের ইনভয়েস হয় (গ্যাপ লজিক)
+//         else if (myTeamIdNos.includes(saleEmployeeIdNo)) {
+//           let currentIdNo = saleEmployeeIdNo;
+//           let distributedRateSoFar = 0;
+//           let myInvoiceEarnedGapRate = 0;
+//           const visited = new Set();
 
-//           groupCommissionLog.push({
-//             staffId: saleEmployeeIdNo,
-//             rank: childRank,
-//             refId: searchId,
-//             nameOfStaff: creatorEmployee ? creatorEmployee.name : "Team Member",
-//             dealerName: dealerName,
-//             ags: billAmt,
-//             pPercentage: Number((myInvoiceEarnedGapRate * 100).toFixed(2)), 
-//             ps: 1000,
-//             gs: 1000,
-//             comm: Math.round(billAmt * myInvoiceEarnedGapRate)
-//           });
+//           // লেগ হেড স্ল্যাব ট্র্যাকিং
+//           let directLegHeadIdNo = saleEmployeeIdNo;
+//           const legVisited = new Set();
+//           while (
+//             directLegHeadIdNo && 
+//             userStatusMap[directLegHeadIdNo] && 
+//             users.find(u => u.idNo === directLegHeadIdNo)?.refIdNo && 
+//             users.find(u => u.idNo === directLegHeadIdNo).refIdNo !== "0" && 
+//             users.find(u => u.idNo === directLegHeadIdNo).refIdNo !== "MKT-0001" && 
+//             !legVisited.has(directLegHeadIdNo)
+//           ) {
+//             legVisited.add(directLegHeadIdNo);
+//             directLegHeadIdNo = users.find(u => u.idNo === directLegHeadIdNo).refIdNo;
+//           }
+          
+//           const legHeadNode = employeeList.find(e => e.idNo === directLegHeadIdNo);
+//           let legHeadMaxSlab = legHeadNode ? (RANK_SLAB_RATES[legHeadNode.autoPosition?.toUpperCase().trim()] || 0) : 0;
+
+//           while (currentIdNo && currentIdNo !== "0" && !visited.has(currentIdNo)) {
+//             visited.add(currentIdNo);
+//             const uStatus = userStatusMap[currentIdNo];
+//             if (!uStatus) break;
+
+//             let myPositionRate = uStatus.selfQualifiesForBonus ? uStatus.currentSlabRate : 0;
+
+//             if (currentIdNo === "MKT-0001" || !users.find(u => u.idNo === currentIdNo)?.refIdNo) {
+//               distributedRateSoFar = Math.max(distributedRateSoFar, legHeadMaxSlab);
+//             }
+
+//             if (myPositionRate > distributedRateSoFar) {
+//               const currentGap = myPositionRate - distributedRateSoFar;
+//               if (currentIdNo === searchId) {
+//                 myInvoiceEarnedGapRate = currentGap; // এই টিমের ইনভয়েসে আমার অর্জিত নেট গ্যাপ রেট লক হলো
+//               }
+//               distributedRateSoFar = myPositionRate;
+//             }
+//             if (distributedRateSoFar >= 0.24) break;
+//             currentIdNo = users.find(u => u.idNo === currentIdNo)?.refIdNo;
+//           }
+
+//           // যদি এই টিম ইনভয়েস থেকে গ্যাপ কমিশন আর্ন হয়ে থাকে তবে লগে পুশ হবে
+//           if (myInvoiceEarnedGapRate > 0) {
+//             const childInLedger = employeeList.find(emp => emp.idNo === saleEmployeeIdNo);
+//             const childRank = (childInLedger?.autoPosition || "SALES REPRESENTATIVE").toUpperCase().trim();
+
+//             groupCommissionLog.push({
+//               staffId: saleEmployeeIdNo,
+//               rank: childRank,
+//               refId: searchId,
+//               nameOfStaff: creatorEmployee ? creatorEmployee.name : "Team Member",
+//               dealerName: dealerName,
+//               ags: billAmt,
+//               pPercentage: Number((myInvoiceEarnedGapRate * 100).toFixed(2)), // নেট গ্যাপ পার্সেন্টেজ
+//               ps: 1000,
+//               gs: 1000,
+//               comm: Math.round(billAmt * myInvoiceEarnedGapRate)
+//             });
+//           }
 //         }
 //       }
 //     });
 
-//         // ৪. 🔒 ডাটাবেজের অফিশিয়াল বেস কমিশনের সাথে মিল রেখে ব্যালেন্স এডজাস্টমেন্ট প্রোটেকশন
+//     // ৪. ডাটাবেজের অফিশিয়াল বেস কমিশনের সাথে মিল রেখে ব্যালেন্স এডজাস্টমেন্ট প্রোটেকশন
 //     const dbBaseCommission = Number(myData.baseCommission || 0);
 //     const calculatedBaseCommission = sumFieldHelper(personalCommissionLog, 'comm') + sumFieldHelper(groupCommissionLog, 'comm');
 
-//     // 💡 দশমিকের কারণে বা ইন-মেমোরি ফ্র্যাকশন গ্যাপ থাকলে তা গ্রুপ কমিশনের প্রথম নোডে অটো-ব্যালেন্স করে দেওয়া হবে
+//     // 💡 যদি মেমোরি ক্যালকুলেশনে কোনো ফ্র্যাকশন গ্যাপ থাকে, তবে তা ব্যালেন্স করে দেওয়া হবে
 //     if (calculatedBaseCommission < dbBaseCommission && groupCommissionLog.length > 0) {
 //       const deficit = dbBaseCommission - calculatedBaseCommission;
 //       groupCommissionLog[0].comm += deficit;
@@ -2139,7 +1903,9 @@ const getMyMonthlyCommissionStatus = async (req, res) => {
 //       personalCommissionLog[0].comm += deficit;
 //     }
 
-//     // ৫. গ্লোবাল কোম্পানি প্রফিট শেয়ার пул ক্যালকুলেটর ইঞ্জিন
+//      // =========================================================================
+//     // ৫. গ্লোবাল কোম্পানি প্রফিট শেয়ার пул ক্যালকুলেটর ইঞ্জিন (9th Version Finalized)
+//     // =========================================================================
 //     const totalCompanySales = savedLedger.meta?.totalCompanySales || 17059887;
 //     const poolCounters = savedLedger.meta?.poolCounters || { RSM: 0, DSM: 5, SDSM: 1, SM: 1, NSM: 1, ED: 0, BOM: 0 };
 //     const userEarnedPools = myData.earnedPools || ["DSM", "SDSM", "SM", "NSM"];
@@ -2155,6 +1921,7 @@ const getMyMonthlyCommissionStatus = async (req, res) => {
 //       const shareCount = poolCounters[poolKey] || 0;     
       
 //       if (shareCount > 0) {
+//         // 🔒 ফিক্সড ফর্মুলা: মোট পুল ফান্ডের টাকা পুলে থাকা প্রকৃত ইউনিক মেম্বারদের মাঝে সমানভাগে ভাগ
 //         const perShareAmount = totalPoolFund / shareCount;
 //         verifiedTotalPoolBonus += perShareAmount;
         
@@ -2175,7 +1942,7 @@ const getMyMonthlyCommissionStatus = async (req, res) => {
 //     });
 
 //     // =========================================================================
-//     // ৬. স্যালারি শিটের ফাইনাল গ্র্যান্ড টোটাল মেটা অ্যাসাইনমেন্ট (ব্যক্তিগত বিক্রয় কমিশনসহ)
+//     // ৬. স্যালারি শিটের ফাইনাল গ্র্যান্ড টোটাল মেটা অ্যাসাইনমেন্ট
 //     // =========================================================================
 //     const finalPoolBonus = Number(myData.globalPoolBonusAmount || verifiedTotalPoolBonus);
 //     const finalBonusAmount = Number(myData.monthlyBonusAmount || 0);
@@ -2229,13 +1996,19 @@ const getMyMonthlyCommissionStatus = async (req, res) => {
 
 
 
-//3rd version of getMyMonthlySalarySheet (optimized and simplified)
+// 4th version of getMyMonthlySalarySheet (optimized and simplified)
+
+/**
+ * GET /api/salary/my-monthly-sheet
+ * Query Params: idNo, year, month
+ */
 const getMyMonthlySalarySheet = async (req, res) => {
   try {
     const { idNo, year, month } = req.query;
 
+    // প্যারামিটার ভ্যালিডেশন চেক
     if (!idNo || !year || !month) {
-      return res.status(400).json({ success: false, message: "Missing required parameters" });
+      return res.status(400).json({ success: false, message: "প্রয়োজনীয় প্যারামিটারগুলো পাওয়া যায়নি" });
     }
 
     const targetYear = Number(year);
@@ -2248,54 +2021,64 @@ const getMyMonthlySalarySheet = async (req, res) => {
     // ১. ডাটাবেজ থেকে নির্দিষ্ট মাসের লেজার ডকুমেন্ট খুঁজে বের করা
     const savedLedger = await MonthlyLedger.findOne({ year: targetYear, month: targetMonth });
     if (!savedLedger) {
-      return res.status(200).json({ success: true, data: null, message: "Ledger snapshot not found for this month" });
+      return res.status(200).json({ success: true, data: null, message: "এই মাসের লেজার স্ন্যাপশট পাওয়া যায়নি" });
     }
 
-    // ২. লেজার থেকে এই নির্দিষ্ট কর্মচারীর ডেটা অবজেক্ট বের করা
+    // ২. লেজার থেকে কর্মচারীর ডেটা (employeesData) এবং ডিলারের ডেটা (dealersData) এক্সট্রাক্ট করা
     const employeeList = savedLedger.employeesData || savedLedger.data || [];
-    const myData = employeeList.find(emp => emp.idNo && emp.idNo.toString().trim().toUpperCase() === searchId);
+    const dealerList = savedLedger.dealersData || [];
 
-    if (!myData) {
-      return res.status(200).json({ success: true, data: null, message: "Employee record not found in this month's ledger" });
+    // ইউজার আইডি দিয়ে মার্কেটিং স্টাফ স্ন্যাপশট খোঁজা
+    const myData = employeeList.find(emp => emp.idNo && emp.idNo.toString().trim().toUpperCase() === searchId);
+    
+    // 🎯 [নতুন সংযোজন] ইউজার আইডি দিয়ে ডিলার স্ন্যাপশট খোঁজা (যেমন: MKT-0001)
+    const myDealerData = dealerList.find(dlr => dlr.dealerId && dlr.dealerId.toString().trim().toUpperCase() === searchId);
+
+    // যদি ইউজার মার্কেটিং লিস্টেও না থাকে এবং ডিলার লিস্টেও না থাকে, তবেই কেবল নট ফাউন্ড রিটার্ন করবে
+    if (!myData && !myDealerData) {
+      return res.status(200).json({ success: true, data: null, message: "এই মাসের লেজারে উক্ত আইডির কোনো স্টাফ বা ডিলার রেকর্ড পাওয়া যায়নি" });
     }
 
     // 🎯 অফিশিয়াল র‍্যাংক পার্সেন্টেজ স্ল্যাব ম্যাপিং
     const RANK_SLAB_RATES = {
-      "SALES REPRESENTATIVE": 0.00,
-      "SR": 0.00,
-      "AM": 0.15,
-      "RSM": 0.175,
-      "DSM": 0.20,
-      "SDSM": 0.21,
-      "SM": 0.22,
-      "NSM": 0.23,
-      "ED": 0.24,
-      "BOM": 0.24
+      "SALES REPRESENTATIVE": 0.00, "SR": 0.00, "AM": 0.15, "RSM": 0.175,
+      "DSM": 0.20, "SDSM": 0.21, "SM": 0.22, "NSM": 0.23, "ED": 0.24, "BOM": 0.24
     };
 
-    const myRank = (myData.autoPosition || "SALES REPRESENTATIVE").toUpperCase().trim();
-    const myRate = RANK_SLAB_RATES[myRank] || 0.00;
+    // যদি মার্কেটিং স্টাফ ডেটা না থাকে (শুধু ডিলার হয়), তবে ডিফল্ট ভ্যালু সেট হবে
+    const myRank = myData ? (myData.autoPosition || "SALES REPRESENTATIVE").toUpperCase().trim() : "DEALER";
+    const myRate = myData ? (RANK_SLAB_RATES[myRank] || 0.00) : 0.00;
+    const dbBaseCommission = myData ? Number(myData.baseCommission || 0) : 0;
 
-    // ৩. 📊 পার্সোনাল ও গ্রুপ সেলস ইনভয়েস ওয়াইজ গ্যাপ কমিশন ট্র্যাকিং ইঞ্জিন (Fixed & Fully Synced)
+    // ৩. 📊 পার্সোনাল ও গ্রুপ সেলস ইনভয়েস ওয়াইজ গ্যাপ কমিশন ট্র্যাকিং ইঞ্জিন প্রিপারেশন
     const personalCommissionLog = [];
     const groupCommissionLog = [];
-
-    let allInvoices = await db.collection("invoices").find({}).toArray();
-    if (!allInvoices || allInvoices.length === 0) {
-      allInvoices = await db.collection("sales").find({}).toArray();
-    }
-
-    const dealers = await db.collection("dealers").find({}).toArray();
-    const users = await db.collection("users").find({ idNo: { $regex: /^MKT/i } }).toArray();
 
     const startDate = new Date(targetYear, targetMonth - 1, 1);
     const endDate = new Date(targetYear, targetMonth, 1);
 
-    // শুধুমাত্র সিলেক্টেড মাসের ইনভয়েস ফিল্টার করা
-    const filteredInvoices = allInvoices.filter(s => {
-      const d = new Date(s.date || s.createdAt);
-      return d >= startDate && d < endDate;
-    });
+    // ইনভয়েস কোয়েরি অপ্টিমাইজেশন
+    let filteredInvoices = await db.collection("invoices").find({
+      $or: [
+        { date: { $gte: startDate, $lt: endDate } },
+        { createdAt: { $gte: startDate, $lt: endDate } }
+      ]
+    }).toArray();
+
+    if (!filteredInvoices || filteredInvoices.length === 0) {
+      filteredInvoices = await db.collection("sales").find({
+        $or: [
+          { date: { $gte: startDate, $lt: endDate } },
+          { createdAt: { $gte: startDate, $lt: endDate } }
+        ]
+      }).toArray();
+    }
+
+    const dealersArray = await db.collection("dealers").find({}).toArray();
+    const dealerMap = new Map(dealersArray.map(d => [d._id.toString(), d]));
+
+    const usersArray = await db.collection("users").find({ idNo: { $regex: /^MKT/i } }).toArray();
+    const userMap = new Map(usersArray.map(u => [u.idNo, u]));
 
     // রিকার্সিভলি ডাউনলাইন চেইন আইডি লিস্ট বের করার হেল্পার
     const getAllDownlineIdNos = (startIdNo) => {
@@ -2303,7 +2086,7 @@ const getMyMonthlySalarySheet = async (req, res) => {
       const queue = [startIdNo];
       while (queue.length > 0) {
         const currentId = queue.shift();
-        const children = users.filter(u => u.refIdNo === currentId);
+        const children = usersArray.filter(u => u.refIdNo === currentId);
         children.forEach(child => {
           if (!downlines.includes(child.idNo)) {
             downlines.push(child.idNo);
@@ -2316,7 +2099,6 @@ const getMyMonthlySalarySheet = async (req, res) => {
 
     const myTeamIdNos = getAllDownlineIdNos(searchId);
 
-    // পাস ২-এর মূল গ্যাপ ইঞ্জিনের সাথে রিপোর্টিং ১০০% সিঙ্ক করার জন্য ইন-মেমোরি স্ন্যাপশট রেট ম্যাপ
     const userStatusMap = {};
     employeeList.forEach(e => {
       userStatusMap[e.idNo] = {
@@ -2325,135 +2107,132 @@ const getMyMonthlySalarySheet = async (req, res) => {
       };
     });
 
-    filteredInvoices.forEach(sale => {
-      const billAmt = Number(sale.grandTotal || sale.totalAmount || 0);
-      if (billAmt <= 0) return;
+    // ৪. মূল ইনভয়েস প্রসেসিং লুপ (শুধুমাত্র মার্কেটিং স্টাফদের গ্যাপ হিসেবের জন্য)
+    if (myData) {
+      filteredInvoices.forEach(sale => {
+        const billAmt = Number(sale.grandTotal || sale.totalAmount || 0);
+        if (billAmt <= 0) return;
 
-      let saleEmployeeIdNo = null;
-      let dealerName = "General Customer";
+        let saleEmployeeIdNo = null;
+        let dealerName = "General Customer";
 
-      if (sale.isMonthlyArchived && sale.archivedSalesData?.employeeSnapshot?.idNo) {
-        saleEmployeeIdNo = sale.archivedSalesData.employeeSnapshot.idNo;
-        dealerName = sale.archivedSalesData.dealerSnapshot?.name || "Unknown";
-      } else if (sale.dealer) {
-        const matchingDealer = dealers.find(d => d._id.toString() === sale.dealer.toString());
-        if (matchingDealer) {
-          saleEmployeeIdNo = matchingDealer.referenceIdNo;
-          dealerName = matchingDealer.name;
+        if (sale.isMonthlyArchived && sale.archivedSalesData?.employeeSnapshot?.idNo) {
+          saleEmployeeIdNo = sale.archivedSalesData.employeeSnapshot.idNo;
+          dealerName = sale.archivedSalesData.dealerSnapshot?.name || "Unknown";
+        } else if (sale.dealer) {
+          const matchingDealer = dealerMap.get(sale.dealer.toString());
+          if (matchingDealer) {
+            saleEmployeeIdNo = matchingDealer.referenceIdNo;
+            dealerName = matchingDealer.name;
+          }
         }
-      }
 
-      if (saleEmployeeIdNo) {
-        const creatorEmployee = users.find(u => u.idNo === saleEmployeeIdNo);
+        if (saleEmployeeIdNo) {
+          const creatorEmployee = userMap.get(saleEmployeeIdNo);
 
-        // 🔒 💥 কন্ডিশন ১: এটি যদি আমার নিজের পার্সোনাল ইনভয়েস হয় (Direct Self-Slab Injection fIXED)
-        // নিজের পার্সোনাল ইনভয়েসের ওপর কোনো গ্যাপ ট্রাভার্সাল লাগবে না, সরাসরি নিজের ফুল স্ল্যাব পার্সেন্টেজ পাবে
-        if (saleEmployeeIdNo === searchId && myRate > 0) {
-          personalCommissionLog.push({
-            staffId: saleEmployeeIdNo,
-            rank: myRank,
-            refId: myData.refIdNo || "00000152",
-            nameOfStaff: creatorEmployee ? creatorEmployee.name : (myData.name || "Self"),
-            dealerName: dealerName,
-            ags: billAmt,
-            pPercentage: Number((myRate * 100).toFixed(2)), // পুরো র‍্যাংক স্ল্যাব রেট (যেমন: ১৫%)
-            ps: 1000,
-            gs: 1000,
-            comm: Math.round(billAmt * myRate) // সরাসরি মাসিক ইনভয়েস × কারেন্ট স্ল্যাব রেট
-          });
-        } 
-        // 🔒 💥 কন্ডিশন ২: এটি যদি আমার টিমের কোনো ডাউনলাইন মেম্বারের ইনভয়েস হয় (গ্যাপ লজিক)
-        else if (myTeamIdNos.includes(saleEmployeeIdNo)) {
-          let currentIdNo = saleEmployeeIdNo;
-          let distributedRateSoFar = 0;
-          let myInvoiceEarnedGapRate = 0;
-          const visited = new Set();
-
-          // লেগ হেড স্ল্যাব ট্র্যাকিং
-          let directLegHeadIdNo = saleEmployeeIdNo;
-          const legVisited = new Set();
-          while (
-            directLegHeadIdNo && 
-            userStatusMap[directLegHeadIdNo] && 
-            users.find(u => u.idNo === directLegHeadIdNo)?.refIdNo && 
-            users.find(u => u.idNo === directLegHeadIdNo).refIdNo !== "0" && 
-            users.find(u => u.idNo === directLegHeadIdNo).refIdNo !== "MKT-0001" && 
-            !legVisited.has(directLegHeadIdNo)
-          ) {
-            legVisited.add(directLegHeadIdNo);
-            directLegHeadIdNo = users.find(u => u.idNo === directLegHeadIdNo).refIdNo;
-          }
-          
-          const legHeadNode = employeeList.find(e => e.idNo === directLegHeadIdNo);
-          let legHeadMaxSlab = legHeadNode ? (RANK_SLAB_RATES[legHeadNode.autoPosition?.toUpperCase().trim()] || 0) : 0;
-
-          while (currentIdNo && currentIdNo !== "0" && !visited.has(currentIdNo)) {
-            visited.add(currentIdNo);
-            const uStatus = userStatusMap[currentIdNo];
-            if (!uStatus) break;
-
-            let myPositionRate = uStatus.selfQualifiesForBonus ? uStatus.currentSlabRate : 0;
-
-            if (currentIdNo === "MKT-0001" || !users.find(u => u.idNo === currentIdNo)?.refIdNo) {
-              distributedRateSoFar = Math.max(distributedRateSoFar, legHeadMaxSlab);
-            }
-
-            if (myPositionRate > distributedRateSoFar) {
-              const currentGap = myPositionRate - distributedRateSoFar;
-              if (currentIdNo === searchId) {
-                myInvoiceEarnedGapRate = currentGap; // এই টিমের ইনভয়েসে আমার অর্জিত নেট গ্যাপ রেট লক হলো
-              }
-              distributedRateSoFar = myPositionRate;
-            }
-            if (distributedRateSoFar >= 0.24) break;
-            currentIdNo = users.find(u => u.idNo === currentIdNo)?.refIdNo;
-          }
-
-          // যদি এই টিম ইনভয়েস থেকে গ্যাপ কমিশন আর্ন হয়ে থাকে তবে লগে পুশ হবে
-          if (myInvoiceEarnedGapRate > 0) {
-            const childInLedger = employeeList.find(emp => emp.idNo === saleEmployeeIdNo);
-            const childRank = (childInLedger?.autoPosition || "SALES REPRESENTATIVE").toUpperCase().trim();
-
-            groupCommissionLog.push({
+          // কন্ডিশন ১: নিজের পার্সোনাল ইনভয়েস
+          if (saleEmployeeIdNo === searchId && myRate > 0) {
+            personalCommissionLog.push({
               staffId: saleEmployeeIdNo,
-              rank: childRank,
-              refId: searchId,
-              nameOfStaff: creatorEmployee ? creatorEmployee.name : "Team Member",
+              rank: myRank,
+              refId: myData.refIdNo || "00000152",
+              nameOfStaff: creatorEmployee ? creatorEmployee.name : (myData.name || "Self"),
               dealerName: dealerName,
               ags: billAmt,
-              pPercentage: Number((myInvoiceEarnedGapRate * 100).toFixed(2)), // নেট গ্যাপ পার্সেন্টেজ
+              pPercentage: Number((myRate * 100).toFixed(2)), 
               ps: 1000,
               gs: 1000,
-              comm: Math.round(billAmt * myInvoiceEarnedGapRate)
+              comm: Math.round(billAmt * myRate) 
             });
+          } 
+          // কন্ডিশন ২: ডাউনলাইন মেম্বারের ইনভয়েস (গ্যাপ লজিক)
+          else if (myTeamIdNos.includes(saleEmployeeIdNo)) {
+            let currentIdNo = saleEmployeeIdNo;
+            let distributedRateSoFar = 0;
+            let myInvoiceEarnedGapRate = 0;
+            const visited = new Set();
+
+            let directLegHeadIdNo = saleEmployeeIdNo;
+            const legVisited = new Set();
+            while (
+              directLegHeadIdNo && 
+              userStatusMap[directLegHeadIdNo] && 
+              userMap.get(directLegHeadIdNo)?.refIdNo && 
+              userMap.get(directLegHeadIdNo).refIdNo !== "0" && 
+              userMap.get(directLegHeadIdNo).refIdNo !== "MKT-0001" && 
+              !legVisited.has(directLegHeadIdNo)
+            ) {
+              legVisited.add(directLegHeadIdNo);
+              directLegHeadIdNo = userMap.get(directLegHeadIdNo).refIdNo;
+            }
+            
+            const legHeadNode = employeeList.find(e => e.idNo === directLegHeadIdNo);
+            let legHeadMaxSlab = legHeadNode ? (RANK_SLAB_RATES[legHeadNode.autoPosition?.toUpperCase().trim()] || 0) : 0;
+
+            while (currentIdNo && currentIdNo !== "0" && !visited.has(currentIdNo)) {
+              visited.add(currentIdNo);
+              const uStatus = userStatusMap[currentIdNo];
+              if (!uStatus) break;
+
+              let myPositionRate = uStatus.selfQualifiesForBonus ? uStatus.currentSlabRate : 0;
+
+              if (currentIdNo === "MKT-0001" || !userMap.get(currentIdNo)?.refIdNo) {
+                distributedRateSoFar = Math.max(distributedRateSoFar, legHeadMaxSlab);
+              }
+
+              if (myPositionRate > distributedRateSoFar) {
+                const currentGap = myPositionRate - distributedRateSoFar;
+                if (currentIdNo === searchId) {
+                  myInvoiceEarnedGapRate = currentGap; 
+                }
+                distributedRateSoFar = myPositionRate;
+              }
+              if (distributedRateSoFar >= 0.24) break;
+              currentIdNo = userMap.get(currentIdNo)?.refIdNo;
+            }
+
+            if (myInvoiceEarnedGapRate > 0) {
+              const childInLedger = employeeList.find(emp => emp.idNo === saleEmployeeIdNo);
+              const childRank = (childInLedger?.autoPosition || "SALES REPRESENTATIVE").toUpperCase().trim();
+
+              groupCommissionLog.push({
+                staffId: saleEmployeeIdNo,
+                rank: childRank,
+                refId: searchId,
+                nameOfStaff: creatorEmployee ? creatorEmployee.name : "Team Member",
+                dealerName: dealerName,
+                ags: billAmt,
+                pPercentage: Number((myInvoiceEarnedGapRate * 100).toFixed(2)), 
+                ps: 1000,
+                gs: 1000,
+                comm: Math.round(billAmt * myInvoiceEarnedGapRate)
+              });
+            }
           }
         }
+      });
+
+      // ৫. ডেফিসিট এডজাস্টমেন্ট প্রোটেকশন
+      const calculatedBaseCommission = sumFieldHelper(personalCommissionLog, 'comm') + sumFieldHelper(groupCommissionLog, 'comm');
+      if (calculatedBaseCommission < dbBaseCommission && groupCommissionLog.length > 0) {
+        const deficit = dbBaseCommission - calculatedBaseCommission;
+        groupCommissionLog[0].comm += deficit;
+      } else if (calculatedBaseCommission < dbBaseCommission && personalCommissionLog.length > 0) {
+        const deficit = dbBaseCommission - calculatedBaseCommission;
+        personalCommissionLog[0].comm += deficit;
       }
-    });
-
-    // ৪. ডাটাবেজের অফিশিয়াল বেস কমিশনের সাথে মিল রেখে ব্যালেন্স এডজাস্টমেন্ট প্রোটেকশন
-    const dbBaseCommission = Number(myData.baseCommission || 0);
-    const calculatedBaseCommission = sumFieldHelper(personalCommissionLog, 'comm') + sumFieldHelper(groupCommissionLog, 'comm');
-
-    // 💡 যদি মেমোরি ক্যালকুলেশনে কোনো ফ্র্যাকশন গ্যাপ থাকে, তবে তা ব্যালেন্স করে দেওয়া হবে
-    if (calculatedBaseCommission < dbBaseCommission && groupCommissionLog.length > 0) {
-      const deficit = dbBaseCommission - calculatedBaseCommission;
-      groupCommissionLog[0].comm += deficit;
-    } else if (calculatedBaseCommission < dbBaseCommission && personalCommissionLog.length > 0) {
-      const deficit = dbBaseCommission - calculatedBaseCommission;
-      personalCommissionLog[0].comm += deficit;
     }
 
-     // =========================================================================
-    // ৫. গ্লোবাল কোম্পানি প্রফিট শেয়ার пул ক্যালকুলেটর ইঞ্জিন (9th Version Finalized)
+    // =========================================================================
+    // ৬. গ্লোবাল কোম্পানি প্রফিট শেয়ার пул ক্যালকুলেটর ইঞ্জিন
     // =========================================================================
     const totalCompanySales = savedLedger.meta?.totalCompanySales || 17059887;
     const poolCounters = savedLedger.meta?.poolCounters || { RSM: 0, DSM: 5, SDSM: 1, SM: 1, NSM: 1, ED: 0, BOM: 0 };
-    const userEarnedPools = myData.earnedPools || ["DSM", "SDSM", "SM", "NSM"];
+    const userEarnedPools = myData?.earnedPools || [];
 
     const POOL_PERCENTAGES = { "RSM": 0.01, "DSM": 0.05, "SDSM": 0.01, "SM": 0.005, "NSM": 0.01, "ED": 0.005, "BOM": 0.01 };
     const companyShareLogs = [];
-    const poolCalculationSteps = [`📊 কোম্পানি মোট মাসিক বিক্রয় (Global Volume): ৳${totalCompanySales.toLocaleString()}`];
+    const poolCalculationSteps = [`📊 কোম্পানির মোট মাসিক বিক্রয় (Global Volume): ৳${totalCompanySales.toLocaleString()}`];
     let verifiedTotalPoolBonus = 0;
 
     userEarnedPools.forEach(poolKey => {
@@ -2462,15 +2241,15 @@ const getMyMonthlySalarySheet = async (req, res) => {
       const shareCount = poolCounters[poolKey] || 0;     
       
       if (shareCount > 0) {
-        // 🔒 ফিক্সড ফর্মুলা: মোট পুল ফান্ডের টাকা পুলে থাকা প্রকৃত ইউনিক মেম্বারদের মাঝে সমানভাগে ভাগ
+        // পুল ফান্ডের টাকা পুলে থাকা ইউনিক মেম্বারদের মাঝে সমানভাগে ভাগ করা হচ্ছে
         const perShareAmount = totalPoolFund / shareCount;
         verifiedTotalPoolBonus += perShareAmount;
         
         companyShareLogs.push({
           poolName: poolKey,
           staffId: searchId,
-          refId: myData.refIdNo || "00000152",
-          nameOfStaff: myData.name,
+          refId: myData?.refIdNo || "00000152",
+          nameOfStaff: myData?.name,
           globalSales: totalCompanySales,
           percentage: rate * 100, 
           shareCount: shareCount,
@@ -2483,12 +2262,16 @@ const getMyMonthlySalarySheet = async (req, res) => {
     });
 
     // =========================================================================
-    // ৬. স্যালারি শিটের ফাইনাল গ্র্যান্ড টোটাল মেটা অ্যাসাইনমেন্ট
+    // ৭. স্যালারি শিটের ফাইনাল গ্র্যান্ড টোটাল মেটা অ্যাসাইনমেন্ট
     // =========================================================================
-    const finalPoolBonus = Number(myData.globalPoolBonusAmount || verifiedTotalPoolBonus);
-    const finalBonusAmount = Number(myData.monthlyBonusAmount || 0);
+    const finalPoolBonus = myData ? Number(myData.globalPoolBonusAmount || verifiedTotalPoolBonus) : 0;
+    const finalBonusAmount = myData ? Number(myData.monthlyBonusAmount || 0) : 0;
+    
+    // ডিলার স্ন্যাপশট থেকে অর্জিত মূল ডিলার কমিশন
+    const dealerCommissionAmt = myDealerData ? Number(myDealerData.commission || 0) : 0;
 
-    const grandTotal = dbBaseCommission + finalPoolBonus + finalBonusAmount;
+    // স্টাফ কমিশন + পুল বোনাস + কোম্পানির এক্সট্রা বোনাস + ডিলারের নিজস্ব স্পেশাল কমিশন = গ্র্যান্ড টোটাল
+    const grandTotal = dbBaseCommission + finalPoolBonus + finalBonusAmount + dealerCommissionAmt;
     const serviceCharge = Math.round(grandTotal * 0.10);
     const netPayable = grandTotal - serviceCharge;
 
@@ -2499,42 +2282,61 @@ const getMyMonthlySalarySheet = async (req, res) => {
       { value: 10, name: 'October' }, { value: 11, name: 'November' }, { value: 12, name: 'December' }
     ];
 
-    res.status(200).json({
+    // =========================================================================
+    // ৮. রেসপন্স অবজেক্ট জেনারেশন (ডিলার ওয়াইজ ডেটা অপশন সহ ফ্রন্টএন্ড রেডি)
+    // =========================================================================
+    return res.status(200).json({
       success: true,
       data: {
         staffId: searchId,
-        staffName: myData.name,
-        monthName: monthsList[targetMonth - 1]?.name || "July",
+        staffName: myData ? myData.name : (myDealerData ? myDealerData.name : "N/A"),
+        monthName: monthsList[targetMonth - 1]?.name || "Unknown",
         year: targetYear,
         autoPosition: myRank,
-        qualificationStatus: myData.qualificationStatus || "Qualified",
+        isStaffRecordFound: !!myData,
+        
+        // 🎯 ডিলার ওয়াইজ আলাদা অপশন সেকশন (যদি লেজারে ডিলার ডেটা থাকে)
+        dealerProfile: myDealerData ? {
+          isDealerRecordFound: true,
+          dealerId: myDealerData.dealerId,
+          name: myDealerData.name,
+          totalSales: Number(myDealerData.totalSales || 0),
+          dealerCommission: dealerCommissionAmt,
+          status: myDealerData.status || "Not Qualified"
+        } : {
+          isDealerRecordFound: false,
+          message: "এই মাসের ডিলার স্ন্যাপশটে কোনো ডেটা পাওয়া যায়নি"
+        },
+
+        qualificationStatus: myData ? (myData.qualificationStatus || "Qualified") : (myDealerData?.status || "N/A"),
         baseCommission: dbBaseCommission, 
+        dealerCommissionAmount: dealerCommissionAmt, // রেসপন্সে ট্র্যাকিং করার জন্য আলাদা ডিলার কমিশন সামারি ফিল্ড
         globalPoolBonusAmount: finalPoolBonus,
         monthlyBonusAmount: finalBonusAmount,
-        netTotalEarnings: myData.netTotalEarnings || netPayable,
+        netTotalEarnings: myData?.netTotalEarnings || netPayable,
         poolCounters, 
         personalCommissionLog,
         groupCommissionLog,
         companyShareLogs,
         poolSteps: poolCalculationSteps,
         financials: {
-          grandTotal: myData.netTotalEarnings ? Math.round(myData.netTotalEarnings / 0.9) : grandTotal,
-          serviceCharge: myData.netTotalEarnings ? Math.round((myData.netTotalEarnings / 0.9) * 0.10) : serviceCharge,
-          netPayable: myData.netTotalEarnings || netPayable
+          grandTotal: grandTotal,
+          serviceCharge: serviceCharge,
+          netPayable: netPayable
         }
       }
     });
 
   } catch (error) {
     console.error("❌ Backend Salary Sheet Engine Crash:", error);
-    res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
+// অ্যারের ভেতরের নির্দিষ্ট ফিল্ডের সামারি বা যোগফল বের করার হেল্পার ফাংশন
 function sumFieldHelper(arr, field) {
   return arr?.reduce((t, x) => t + Number(x[field] || 0), 0) || 0;
 }
-
 
 
 
