@@ -551,7 +551,7 @@ const SalarySheet = () => {
               </div>
             </div>
 
-                        {/* সেগমেন্ট ১: 1 PERSONAL SALES COMMISSION */}
+            {/* সেগমেন্ট ১: 1 PERSONAL SALES COMMISSION */}
             <div className="mb-4">
               <div onClick={() => toggleSection('p1')} className="bg-slate-900 text-white text-[11px] font-black px-3 py-2 flex justify-between items-center rounded-t cursor-pointer select-none">
                 <span>1 PERSONAL SALES COMMISSION</span>
@@ -646,7 +646,7 @@ const SalarySheet = () => {
               </div>
             )}
 
-                       {/* সেগমেন্ট ২: 2 GROUP SALES COMMISSION (GAP LOG) */}
+            {/* সেগমেন্ট ২: 2 GROUP SALES COMMISSION (GAP LOG) */}
             <div className="mb-4">
               <div onClick={() => toggleSection('p2')} className="bg-slate-900 text-white text-[11px] font-black px-3 py-2 flex justify-between items-center rounded-t cursor-pointer select-none">
                 <span>2 GROUP SALES COMMISSION (GAP LOG)</span>
@@ -768,7 +768,8 @@ const SalarySheet = () => {
                 </div>
               )}
             </div>
-                        {/* সেগমেন্ট ৪: 4 PERFORMANCE BONUS AMOUNT */}
+            
+            {/* সেগমেন্ট ৪: 4 PERFORMANCE BONUS AMOUNT */}
             <div className="mb-4">
               <div onClick={() => toggleSection('bonus')} className="bg-slate-900 text-white text-[11px] font-black px-3 py-2 flex justify-between items-center rounded-t cursor-pointer select-none">
                 <span>4 PERFORMANCE BONUS AMOUNT</span>
