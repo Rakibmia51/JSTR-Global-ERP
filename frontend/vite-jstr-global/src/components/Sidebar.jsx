@@ -309,7 +309,8 @@ import {
   User,
   Cpu,
   PackagePlus,
-  ShieldAlert
+  ShieldAlert,
+  FileText
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { FaRegHandRock } from 'react-icons/fa';
@@ -511,10 +512,10 @@ const Sidebar = () => {
       ]
     },
     { 
-      name: t('payout_history', 'Payout History'), 
-      id: 'Payout History',
-      icon: History,
-      path: `/${userRole.toLowerCase()}-panel/wallet/payout-history`,
+      name: t('account_statement', 'Account Statement'), 
+      id: 'Account Statement',
+      icon: FileText,
+      path: `/${userRole.toLowerCase()}-panel/account-statement`,
       roles: ['employee', 'dealer', 'admin'], // উভয়েই দেখতে পাবে,
       userDepartmentCode: ['MKT'], 
     },

@@ -47,6 +47,7 @@ import AdminChangePassword from './components/AdminChangePassword';
 import UserProfile from './components/profile';
 import AdminRankPanel from './components/RankUpdate';
 import UserProfileView from './components/UserProfileView';
+import AccountStatement from './components/AccountStatement';
 
 
 function App() {
@@ -115,7 +116,7 @@ function App() {
           <Route path="commission" element={<MyCommission/>} />
           <Route path="salary-sheet" element={<SalarySheet/>} />
           <Route path="wallet" element={<UserWallet/>} />
-          <Route path="wallet/payout-history" element={<ComingSoon/>} />
+          <Route path="account-statement" element={<AccountStatement/>} />
           <Route path="tree" element={<DownlineTree/>} />
           <Route path="rank" element={<RankProgress/>} />
 
@@ -158,7 +159,7 @@ function App() {
           <Route path="commission" element={<MyCommission/>} />
           <Route path="salary-sheet" element={<SalarySheet/>} />
           <Route path="wallet" element={<UserWallet/>} />
-          <Route path="wallet/payout-history" element={<ComingSoon/>} />
+          <Route path="account-statement" element={<AccountStatement/>} />
           <Route path="tree" element={<DownlineTree/>} />
           <Route path="rank" element={<RankProgress/>} />
           <Route path="settings" element={
