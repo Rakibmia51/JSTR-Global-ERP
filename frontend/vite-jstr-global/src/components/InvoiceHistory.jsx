@@ -5,6 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios'; 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import API from '../api'; // আপনার Axios/API ক্লায়েন্ট পাথ
 
 const InvoiceList = () => {
   const [invoices, setInvoices] = useState([]);
@@ -68,6 +69,31 @@ const InvoiceList = () => {
     setCurrentPage(1);
     fetchInvoices();
   };
+
+
+  // ১. ব্যাকএন্ড থেকে বিদ্যমান প্রোফাইল ডেটা লোড করা (GET /me)
+      // import API from '../api'; // আপনার Axios/API ক্লায়েন্ট পাথ
+
+      const [companyData, setCompanyData] = useState({});
+
+      useEffect(() => {
+        const fetchCompanyData = async () => {
+          try {
+            const response = await API.get("/company/me");
+            if (response.data.success && response.data.data) {
+              setCompanyData((prev) => ({ ...prev, ...response.data.data }));
+      
+              //console.log("Company data loaded:", response.data.data);
+            }
+          } catch (error) {
+            console.error("Error loading company data", error);
+          }
+        };
+        fetchCompanyData();
+      }, []);
+
+     // console.log("Company Data:", companyData); // ডিবাগিং এর জন্য লগ
+
 
   // প্রিন্ট ফাংশন: একটি নতুন উইন্ডো খুলবে এবং ইনভয়েসের HTML তৈরি করবে
   const handlePrintInvoice = (inv) => {
@@ -138,8 +164,10 @@ const InvoiceList = () => {
               <div class="logo-area">
                 <div class="logo-placeholder">SG</div>
                 <div>
-                  <h1 class="company-title">Success Global LTD.</h1>
-                  <p class="company-sub">Mohakhali C/A, Dhaka-1212 | Phone: +880 2-9555555<br>Email: info@successglobalbd.com | Web: ://successglobalbd.com</p>
+                  <h1 class="company-title">${companyData.name || "Company Name"}</h1>
+                  <p class="company-sub">${companyData.address.line1 || "Address"}, ${companyData.address.city || "City"}, ${companyData.address.country || "Country"} </br>
+                                  Phone: ${companyData.phone || "Phone Number"}</br>
+                                  Email: ${companyData.email || "Email Address"} </br> Website: ${companyData.website || "Website URL"}</p>
                 </div>
               </div>
               <div class="invoice-meta">
@@ -303,8 +331,10 @@ const InvoiceList = () => {
               <div class="logo-area">
                 <div class="logo-placeholder">SG</div>
                 <div>
-                    <h1 class="company-title">Success Global LTD.</h1>
-                    <p class="company-sub">Mohakhali C/A, Dhaka-1212 | Phone: +880 2-9555555<br>Email: info@successglobalbd.com | Web:www.successglobalbd.com</p>
+                    <h1 class="company-title">${companyData.name || "Company Name"}</h1>
+                    <p class="company-sub">${companyData.address.line1 || "Address"}, ${companyData.address.city || "City"}, ${companyData.address.country || "Country"} </br>
+                      Phone: ${companyData.phone || "Phone Number"}</br>
+                      Email: ${companyData.email || "Email Address"} </br> Website: ${companyData.website || "Website URL"}</p>
                   </div>
               </div>
               <div class="invoice-meta">

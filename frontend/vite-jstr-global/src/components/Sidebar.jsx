@@ -269,7 +269,7 @@
 
 
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   LayoutDashboard, 
@@ -314,6 +314,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { FaRegHandRock } from 'react-icons/fa';
+import API from '../api'; // আপনার Axios/API ক্লায়েন্ট পাথ
 
 const Sidebar = () => {
   const { t, i18n } = useTranslation();
@@ -428,7 +429,8 @@ const Sidebar = () => {
         { name: t('monthly_sales_data_archiver'), id: 'Monthly Sales Data Archiver', icon: PackagePlus, path: '/admin-panel/settings/archiver' },
         { name: t('monthly_commission_ledger_lock'), id: 'Monthly Commission Ledger Lock', icon: ShieldAlert, path: '/admin-panel/settings/ledger-lock' },
         { name: t('change_password'), id: 'Change Password', icon: Lock, path: '/admin-panel/settings/change-password' },
-        {name: t('rank_update'), id: 'Rank Update', icon: FaRegHandRock, path: '/admin-panel/settings/rank-update'}
+        {name: t('rank_update'), id: 'Rank Update', icon: FaRegHandRock, path: '/admin-panel/settings/rank-update'},
+        {name: t('company_profile'), id: 'Company Profile', icon: Building, path: '/admin-panel/settings/company-profile'},
       ]
     },
 
@@ -585,6 +587,26 @@ const Sidebar = () => {
     navigate('/login', { replace: true }); 
   };
 
+
+    // ১. ব্যাকএন্ড থেকে বিদ্যমান প্রোফাইল ডেটা লোড করা (GET /me)
+      const [formData, setFormData] = useState({});
+
+      useEffect(() => {
+        const fetchCompanyData = async () => {
+          try {
+            const response = await API.get("/company/me");
+            if (response.data.success && response.data.data) {
+              setFormData((prev) => ({ ...prev, ...response.data.data }));
+      
+              //console.log("Company data loaded:", response.data.data);
+            }
+          } catch (error) {
+            console.error("Error loading company data", error);
+          }
+        };
+        fetchCompanyData();
+      }, []);
+
   return (
     <div className="flex h-screen bg-slate-50 font-sans">
       <button 
@@ -612,7 +634,24 @@ const Sidebar = () => {
               </div>
               {isOpen && (
                 <span className="font-extrabold text-lg tracking-wider text-slate-100 whitespace-nowrap">
-                  SUCCESS<br/><span className="text-brand">Global bd</span>
+                  {/* SUCCESS<br/><span className="text-brand">Global bd</span> */}
+                  {/* কোম্পানির নামকে স্পেস দিয়ে ভেঙে প্রথম শব্দ এবং বাকি শব্দ আলাদা করা হলো */}
+                    {formData.name ? (
+                      <>
+                        {/* প্রথম শব্দ (যেমন: Success) */}
+                        {formData.name.split(" ")[0]}{" "}
+                        
+                        {/* বাকি শব্দগুলো (যেমন: Global bd) */}
+                        <br />
+                        <span className="text-brand">
+                          {formData.name.split(" ").slice(1).join(" ")}
+                        </span>
+                      </>
+                    ) : (
+                      // যদি কোনো নাম না থাকে তবে ডিফল্ট প্লেসহোল্ডার
+                      <>Company<br/><span className="text-brand">Name</span></>
+                    )}
+
                 </span>
               )}
             </div>

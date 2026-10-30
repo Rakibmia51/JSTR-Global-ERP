@@ -4,6 +4,7 @@
   "all_employees": "All Employees",
   "tree_employees": "Tree Employees",
   "add_employee": "Add Employee",
+  "corporate_structure" : "Corporate Structure",
   "inventory": "Inventory",
   "stock_overview": "Stock Overview",
   "add_new_item": "Add New Item",
@@ -36,6 +37,8 @@
 "monthly_commission_ledger_lock": "Monthly Commission Ledger Lock",
 "dashboard_overview": "Dashboard Overview",
 "change_password": "Change Password",
-"admin_change_password": "Admin Change Password"
-
+"admin_change_password": "Admin Change Password",
+ "rank_update": "Rank Update",
+ "company_profile" : "Company Profile"
+ 
 }

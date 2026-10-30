@@ -361,6 +361,7 @@ import {
   FaChevronRight, FaChevronDown,FaBuilding ,FaSearch,FaSitemap , FaUserAlt, FaUsers, 
   FaUserTie , FaNetworkWired 
 } from "react-icons/fa";
+import API from '../api'; // আপনার Axios/API ক্লায়েন্ট পাথ
 
 const TreeBranch = ({ node, searchTerm, level = 0 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -577,6 +578,29 @@ const EmployeeHierarchyTree = () => {
       });
   }, []);
 
+// ১. ব্যাকএন্ড থেকে বিদ্যমান প্রোফাইল ডেটা লোড করা (GET /me)
+      // import API from '../api'; // আপনার Axios/API ক্লায়েন্ট পাথ
+
+      const [companyData, setCompanyData] = useState({});
+
+      useEffect(() => {
+        const fetchCompanyData = async () => {
+          try {
+            const response = await API.get("/company/me");
+            if (response.data.success && response.data.data) {
+              setCompanyData((prev) => ({ ...prev, ...response.data.data }));
+      
+              //console.log("Company data loaded:", response.data.data);
+            }
+          } catch (error) {
+            console.error("Error loading company data", error);
+          }
+        };
+        fetchCompanyData();
+      }, []);
+
+
+
   if (loading) {
     return (
       <div style={{ display: "flex", flexDirection: "column", height: "100vh", width: "100vw", justifyContent: "center", alignItems: "center", background: "#f8fafc", fontFamily: "sans-serif" }}>
@@ -600,7 +624,7 @@ const EmployeeHierarchyTree = () => {
               <FaBuilding size={18} />
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#0f172a" }}>SUCCESS Global</h2>
+              <h2 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#0f172a" }}>{companyData.name || "Company Name"}</h2>
               <span style={{ fontSize: "11px", color: "#94a3b8", fontWeight: "600", textTransform: "uppercase" }}>ERP Enterprise</span>
             </div>
           </div>

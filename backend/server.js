@@ -36,6 +36,7 @@ const commissionRoutes = require('./routes/commissionRoutes.js')
 const payoutRoutes = require('./routes/payoutRoutes');
 const rankUpdateRoutes = require('./routes/rankUpdateRoutes.js'); // নতুন র‍্যাংক আপডেট রাউট
 const accountRoutes = require('./routes/accountRoutes');
+const companyProfileRoutes = require('./routes/companyProfileRoutes.js'); // কোম্পানি প্রোফাইল রাউট
 
 
 // এপিআই রাউট লিংক
@@ -66,6 +67,9 @@ app.use('/api/rank-update', rankUpdateRoutes);
 
 // Api Account Statement
 app.use('/api/accounts', accountRoutes);
+
+// Api Company Profile
+app.use('/api/company', companyProfileRoutes);
 
 
 // Cron Job Setup for Monthly Sales Archiving 

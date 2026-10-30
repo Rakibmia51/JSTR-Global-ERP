@@ -48,6 +48,7 @@ import UserProfile from './components/profile';
 import AdminRankPanel from './components/RankUpdate';
 import UserProfileView from './components/UserProfileView';
 import AccountStatement from './components/AccountStatement';
+import CompanyProfilePage from './components/CompanyProfilePage';
 
 
 function App() {
@@ -112,6 +113,7 @@ function App() {
           {/* Marketing profile */}
           <Route path="products" element={<ProductShowroom/>} />
           <Route path="my-sales" element={<EmployeeMonthlySales/>} />
+          <Route path="corporate-structure" element={<UserProfileView/>} />
           <Route path="team-sales" element={<TeamInvoicesLog/>} />
           <Route path="commission" element={<MyCommission/>} />
           <Route path="salary-sheet" element={<SalarySheet/>} />
@@ -140,6 +142,7 @@ function App() {
             } />
           
           <Route path="settings/rank-update" element={<AdminRankPanel/>} />
+          <Route path="settings/company-profile" element={<CompanyProfilePage/>} />
 
         </Route>
       
