@@ -29,18 +29,18 @@ function removeOldLogo(logoUrl) {
   fs.unlink(file, () => {});
 }
 
-// GET /api/company/me: current company profile (null if not created yet)
+// GET /api/company/me: ওনার আইডি ফিল্টার ছাড়া প্রথম কোম্পানি প্রোফাইল নিয়ে আসবে
 const getMyCompany = asyncHandler(async (req, res) => {
-  // authMiddleware থেকে আসা req.user._id ব্যবহার করা হয়েছে
-  const company = await Company.findOne({ owner: req.user._id });
+  // 🎯 ফিক্স: { owner: req.user._id } এর পরিবর্তে সরাসরি প্রথম ডকুমেন্টটি খুঁজবে
+  const company = await Company.findOne(); 
   
   if (!company) {
     return res.status(404).json({ success: false, message: "Company profile not found" });
   }
 
-  // ফ্রন্টএন্ডের মিল রাখার জন্য success এবং data ফরম্যাটে পাঠানো হলো
   res.json({ success: true, data: company });
 });
+
 
 // PUT /api/company/me: create or update (supports saving step by step)
 const saveMyCompany = asyncHandler(async (req, res) => {

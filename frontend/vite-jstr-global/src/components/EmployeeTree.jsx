@@ -581,7 +581,28 @@ const EmployeeHierarchyTree = () => {
 // ১. ব্যাকএন্ড থেকে বিদ্যমান প্রোফাইল ডেটা লোড করা (GET /me)
       // import API from '../api'; // আপনার Axios/API ক্লায়েন্ট পাথ
 
-      const [companyData, setCompanyData] = useState({});
+      const [companyData, setCompanyData] = useState({
+    name: "",
+    legalName: "",
+    industry: "",
+    size: "",
+    registrationNumber: "",
+    taxId: "",
+    email: "",
+    phone: "",
+    website: "",
+    address: {
+      line1: "",
+      line2: "",
+      city: "",
+      state: "",
+      postalCode: "",
+      country: "Bangladesh",
+    },
+    currency: "BDT",
+    timezone: "Asia/Dhaka",
+    fiscalYearStartMonth: 1,
+  });
 
       useEffect(() => {
         const fetchCompanyData = async () => {

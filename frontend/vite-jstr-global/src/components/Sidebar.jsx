@@ -319,6 +319,53 @@ import API from '../api'; // আপনার Axios/API ক্লায়েন�
 const Sidebar = () => {
   const { t, i18n } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
+    // কোম্পানির ডেটা রাখার জন্য স্টেট ডিক্লেয়ার করা হলো
+  const [companyData, setCompanyData] = useState({
+        name: "",
+        legalName: "",
+        industry: "",
+        size: "",
+        registrationNumber: "",
+        taxId: "",
+        email: "",
+        phone: "",
+        website: "",
+        address: {
+          line1: "",
+          line2: "",
+          city: "",
+          state: "",
+          postalCode: "",
+          country: "Bangladesh",
+        },
+        currency: "BDT",
+        timezone: "Asia/Dhaka",
+        fiscalYearStartMonth: 1,
+  });
+
+  useEffect(() => {
+    const loadSidebarCompanyData = async () => {
+      try {
+        const response = await API.get("/company/me");
+        
+        // ব্যাকএন্ড থেকে ডেটা সফলভাবে আসলে স্টেটে সেট হবে
+        if (response.data && response.data.success && response.data.data) {
+          setCompanyData(response.data.data);
+        }
+      } catch (error) {
+        // যদি ইউজার নতুন হয় এবং কোনো কোম্পানি প্রোফাইল না থাকে (404 Error)
+        if (error.response && error.response.status === 404) {
+          console.log("New user: Sidebar initialized with default fallback text.");
+          setCompanyData({ name: "" }); // স্টেট খালি রাখা হলো যাতে প্লেসহোল্ডার দেখায়
+        } else {
+          console.error("Failed to load company data in sidebar:", error);
+        }
+      }
+    };
+
+    loadSidebarCompanyData();
+  }, []);
+
   const [activeTab, setActiveTab] = useState('Dashboard');
   const [openSubMenus, setOpenSubMenus] = useState({}); 
   const navigate = useNavigate();
@@ -588,24 +635,45 @@ const Sidebar = () => {
   };
 
 
-    // ১. ব্যাকএন্ড থেকে বিদ্যমান প্রোফাইল ডেটা লোড করা (GET /me)
-      const [formData, setFormData] = useState({});
+  //   // ১. ব্যাকএন্ড থেকে বিদ্যমান প্রোফাইল ডেটা লোড করা (GET /me)
+  //     const [formData, setFormData] = useState({
+  //   name: "",
+  //   legalName: "",
+  //   industry: "",
+  //   size: "",
+  //   registrationNumber: "",
+  //   taxId: "",
+  //   email: "",
+  //   phone: "",
+  //   website: "",
+  //   address: {
+  //     line1: "",
+  //     line2: "",
+  //     city: "",
+  //     state: "",
+  //     postalCode: "",
+  //     country: "Bangladesh",
+  //   },
+  //   currency: "BDT",
+  //   timezone: "Asia/Dhaka",
+  //   fiscalYearStartMonth: 1,
+  // });
 
-      useEffect(() => {
-        const fetchCompanyData = async () => {
-          try {
-            const response = await API.get("/company/me");
-            if (response.data.success && response.data.data) {
-              setFormData((prev) => ({ ...prev, ...response.data.data }));
+  //     useEffect(() => {
+  //       const fetchCompanyData = async () => {
+  //         try {
+  //           const response = await API.get("/company/me");
+  //           if (response.data.success && response.data.data) {
+  //             setFormData((prev) => ({ ...prev, ...response.data.data }));
       
-              //console.log("Company data loaded:", response.data.data);
-            }
-          } catch (error) {
-            console.error("Error loading company data", error);
-          }
-        };
-        fetchCompanyData();
-      }, []);
+  //             //console.log("Company data loaded:", response.data.data);
+  //           }
+  //         } catch (error) {
+  //           console.error("Error loading company data", error);
+  //         }
+  //       };
+  //       fetchCompanyData();
+  //     }, []);
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans">
@@ -630,21 +698,30 @@ const Sidebar = () => {
           <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-800">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-brand flex items-center justify-center font-bold text-brand-dark text-xl shadow-[0_0_15px_rgba(75,203,250,0.5)] flex-shrink-0">
-                SG
+               {companyData.name ? (
+                  <>
+                    {/* প্রথম শব্দের ১ম অক্ষর এবং ২য় শব্দের ১ম অক্ষর একসাথে জোড়া দেওয়া হলো */}
+                    {companyData.name.split(" ")[0]?.[0]?.toUpperCase()}
+                    {companyData.name.split(" ")[1]?.[0]?.toUpperCase() || ""}
+                  </>
+                ) : (
+                  // যদি কোম্পানির নাম এন্ট্রি না থাকে তবে ডিফল্ট সংক্ষেপণ
+                  "CN"
+                )}
               </div>
               {isOpen && (
                 <span className="font-extrabold text-lg tracking-wider text-slate-100 whitespace-nowrap">
                   {/* SUCCESS<br/><span className="text-brand">Global bd</span> */}
                   {/* কোম্পানির নামকে স্পেস দিয়ে ভেঙে প্রথম শব্দ এবং বাকি শব্দ আলাদা করা হলো */}
-                    {formData.name ? (
+                    {companyData.name ? (
                       <>
                         {/* প্রথম শব্দ (যেমন: Success) */}
-                        {formData.name.split(" ")[0]}{" "}
+                        {companyData.name.split(" ")[0]}{" "}
                         
                         {/* বাকি শব্দগুলো (যেমন: Global bd) */}
                         <br />
                         <span className="text-brand">
-                          {formData.name.split(" ").slice(1).join(" ")}
+                          {companyData.name.split(" ").slice(1).join(" ")}
                         </span>
                       </>
                     ) : (

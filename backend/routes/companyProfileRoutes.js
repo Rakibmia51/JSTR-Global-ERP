@@ -14,25 +14,25 @@ const {
 const { uploadLogo } = require("../middleware/companyProfileUpload.js");
 
 // আপনার নিজস্ব অথেনটিকেশন মিডলওয়্যার ইম্পোর্ট করা (পাথ ঠিক করে নিবেন)
-const { protect } = require("../middleware/authMiddleware.js"); 
+const { protect, authorizeRoles } = require("../middleware/authMiddleware.js"); 
 
 // =========================================================================
 // কোম্পানি প্রোফাইল রাউটস (সবগুলো রাউট আপনার আসল protect মিডলওয়্যার দিয়ে প্রটেক্টেড)
 // =========================================================================
 
 // GET: বর্তমান লগইন থাকা ইউজারের কোম্পানির প্রোফাইল দেখা
-router.get("/me", protect, getMyCompany);
+router.get("/me", protect,authorizeRoles("admin", "manager", "employee", "staff"), getMyCompany);
 
 // PUT: কোম্পানির বেসিক ইনফরমেশন তৈরি বা আপডেট করা
-router.put("/me", protect, saveMyCompany);
+router.put("/me", protect, authorizeRoles("admin"), saveMyCompany);
 
 // POST: কোম্পানির লোগো আপলোড করা
-router.post("/me/logo", protect, uploadLogo, uploadMyLogo);
+router.post("/me/logo", protect, authorizeRoles("admin"), uploadLogo, uploadMyLogo);
 
 // DELETE: কোম্পানির লোগো রিমুভ বা ডিলিট করা
-router.delete("/me/logo", protect, deleteMyLogo);
+router.delete("/me/logo", protect, authorizeRoles("admin"), deleteMyLogo);
 
 // POST: কোম্পানির প্রাথমিক সেটআপ সম্পূর্ণ হিসেবে মার্ক করা
-router.post("/me/complete", protect, completeMySetup);
+router.post("/me/complete", protect, authorizeRoles("admin"), completeMySetup);
 
 module.exports = router;

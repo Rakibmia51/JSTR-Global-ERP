@@ -489,6 +489,47 @@ const SalarySheet = () => {
 
   const sumField = (arr, field) => arr?.reduce((t, x) => t + Number(x[field] || 0), 0) || 0;
 
+
+  // ১. ব্যাকএন্ড থেকে বিদ্যমান প্রোফাইল ডেটা লোড করা (GET /me)
+      const [companyData, setCompanyData] = useState({
+    name: "",
+    legalName: "",
+    industry: "",
+    size: "",
+    registrationNumber: "",
+    taxId: "",
+    email: "",
+    phone: "",
+    website: "",
+    address: {
+      line1: "Address",
+      line2: "",
+      city: "",
+      state: "",
+      postalCode: "",
+      country: "Bangladesh",
+    },
+    currency: "BDT",
+    timezone: "Asia/Dhaka",
+    fiscalYearStartMonth: 1,
+  });
+
+      useEffect(() => {
+        const fetchCompanyData = async () => {
+          try {
+            const companyResponse = await API.get("/company/me");
+            if (companyResponse.data.success && companyResponse.data.data) {
+              setCompanyData((prev) => ({ ...prev, ...companyResponse.data.data }));
+      
+              console.log("Company data loaded:", companyResponse.data.data);
+            }
+          } catch (error) {
+            console.error("Error loading company data", error);
+          }
+        };
+        fetchCompanyData();
+      }, []);
+
   return (
     <div className="p-6 bg-slate-100 min-h-screen font-sans antialiased print:bg-white print:p-0">
       
@@ -535,8 +576,10 @@ const SalarySheet = () => {
           <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8 print:border-0 print:shadow-none print:p-0 print:m-0">
             
             <div className="text-center border-b-2 border-slate-800 pb-4 mb-6">
-              <h1 className="text-xl font-black text-slate-900 tracking-wider">Success Global LIMITED</h1>
-              <p className="text-[10px] text-slate-500 font-semibold mt-0.5">06 Banani C/A (6th Floor), Dhaka-1212. Tel : 056454.</p>
+              <h1 className="text-xl font-black text-slate-900 tracking-wider">{companyData.name || 'Company Name'}</h1>
+              <p className="text-[10px] text-slate-500 font-semibold mt-0.5">{companyData.address?.line1}, {companyData.address?.line2}, {companyData.address?.city}</p>
+              <p className="text-[10px] text-slate-500 font-semibold mt-0.5"> Phone: {companyData.phone} | Email: {companyData.email}</p>  
+              <p className="text-[10px] text-slate-500 font-semibold mt-0.5">Website: {companyData.website}</p>
               <h3 className="text-xs font-bold bg-slate-100 inline-block px-4 py-1 rounded-full text-slate-800 uppercase tracking-wide mt-2">
                 Salary Statement for the month of {salaryData.monthName} {salaryData.year}
               </h3>
