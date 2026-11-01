@@ -60,11 +60,12 @@
 
 
 // Automated Backup of Database and Uploads Folder in JSON Format to Google Drive
+const { JWT } = require('google-auth-library');
 const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
 const { google } = require('googleapis');
+const AdmZip = require('adm-zip'); // adm-zip প্যাকেজ রিকোয়ার করা
 
 require('dotenv').config();
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/erp_jstr_global";
@@ -75,8 +76,11 @@ const FOLDER_ID = 'SUCCESS_GLOBAL_BD_BACKUP'; // ড্রাইভে শেয়
 
 const uploadToGoogleDrive = async (filePath, fileName) => {
     try {
-        const auth = new google.auth.GoogleAuth({
-            keyFile: KEY_FILE_PATH,
+        const keyFileContent = JSON.parse(fs.readFileSync(KEY_FILE_PATH, 'utf8'));
+
+        const auth = new JWT({
+            email: keyFileContent.client_email,
+            key: keyFileContent.private_key,
             scopes: ['https://www.googleapis.com/auth/drive.file'],
         });
 
@@ -115,7 +119,7 @@ const runBackupAndDriveUpload = async () => {
         // ১. ডাটাবেজ কালেকশন ব্যাকআপ
         const collections = await mongoose.connection.db.listCollections().toArray();
         for (let col of collections) {
-            const data = await mongoose.connection.db.collection(col.name).find({}).toArray();
+            const data = await mongoose.connection.db.collection(col.name).find({}.toArray ? {} : {}).toArray();
             fs.writeFileSync(path.join(backupDir, `${col.name}.json`), JSON.stringify(data, null, 2));
         }
 
@@ -125,17 +129,21 @@ const runBackupAndDriveUpload = async () => {
             fs.cpSync(uploadsDir, path.join(backupDir, 'uploads'), { recursive: true });
         }
 
-        // ৩. জিপ ফাইল তৈরি করা
+        // ৩. Node.js দিয়ে জিপ ফাইল তৈরি করা (adm-zip ব্যবহার করে)
         const zipFileName = `backup-${Date.now()}.zip`;
         const zipFilePath = path.join(__dirname, zipFileName);
-        console.log('🗜️ Compressing backup...');
-        execSync(`zip -r ${zipFileName} my_backup`, { cwd: __dirname });
+        console.log('🗜️ Compressing backup using Node.js...');
+        
+        const zip = new AdmZip();
+        zip.addLocalFolder(backupDir, 'my_backup');
+        zip.writeZip(zipFilePath);
+        console.log('✅ Zip file created successfully.');
 
         // ৪. গুগল ড্রাইভে আপলোড করা
         console.log('☁️ Uploading to Google Drive...');
         await uploadToGoogleDrive(zipFilePath, zipFileName);
 
-        // ৫. অটো-ক্লিন: সার্ভার থেকে লোকাল টেম্পোরারি ফাইল ও ফোল্ডার মুছে ফেলা
+        // ৫. অটো-ক্লিন: লোকাল টেম্পোরারি ফাইল ও ফোল্ডার মুছে ফেলা
         fs.rmSync(backupDir, { recursive: true, force: true });
         fs.unlinkSync(zipFilePath);
         console.log('🧹 Local temporary backup files cleaned up successfully.');
