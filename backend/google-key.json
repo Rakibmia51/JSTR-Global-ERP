@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "fleet-anagram-461512-a7",
+  "private_key_id": "b1dada568cfd5ed4435320461df8eb0aacc4742d",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDKk7ETqYaVSfeW\nY1PYN8GidEWvrpL9NAK4J3bYOn8kAg8rmAd0L+eMFI8uHDzWVPZHbByf/15ADhk9\nvj0T1u+E90FqzXsY2/1Bd7uM4oH4YUGE/LWyB2EST0Mulfjm2nln2WF/4OgCMA2F\nG6LEDdPMSst3YB4g0wnw/eGsytLOnbjq0XY9EplEN1bSrmQiQ23jqO58sNWOZKMf\ncfQJ9zVIadpvz/TMn1EPAGpxAV0kV8MEus35muLcqU9PDX7GgIFvdcWMQ+B/Bwl7\nCSHKIVaRRPw8dUAYtlWIT+hPUdCXXfvDtJBrodLuKhKUtymIAuBRYGiv9c5Lz6vA\nAQBn5WfnAgMBAAECggEAIFiZ10Jj73WKl5RPoIAypn57XBR7evuxjXcbtmYMxBKi\nGnthgU9e4RKtVBcFLdIOKxRbs76Cbabyp9W3CfJxd2FFrEiYJb2GwEvegh3u09qv\nrAzv9DfSa6qFVyxyPGZZKVhgBZvDYAoNNppVkImGrqGowGx0Exivhy/6t20BYSUs\nUj+1/Oq5EVSkbnVUuSDrjihkhjCkvuLad/CHC68uW57DEDLjNjhH6Am6QZ+oXyzf\nc4JI0S1Ac8NCwcbmR+bMdQuTmoKwGgwWMceEmM5QJsIKdFTAiTfb1TqfaoS5C5Wx\nZbjkJvCsJu6WSSQN4BofMcPkYSZqnZVGQW4ZhkSgHQKBgQDostW/EJCsYF4BGTLk\nR2jfVosKENOJC+9wIllo+u4x5cgiGueOjCazDpY0wDPI8fanr2VZP6PzfTVLV5lR\nqAOx5KOSScTc5atphZvUpGx74oX0D9SvFLWjVyqoew45XwBRSg1Scrj7melPckkK\ncurruBb+Z9ApFvM+Buk4ZPsvfQKBgQDe3LJB8Nwl0M+kDgKbmQGby+ErRB5/AHrd\ntqDeCMd5WprN+IJ/i22RmlyG/89/2NxdJLshlm3vdUgjse+9pJ6vIblweloPF1p4\nGTMqnwMBI0MOn6Z6SiSCdhKtiHKe24heIE4QGEa32qNk9+EpUQ3YP4cJHHKdHwrK\ni55VIh1aMwKBgAtiJD6yisFD/ZVELE8qhyDV1PtrE04S/WWY6JLQI7LhMMcqVcWN\naZ88yXBPLrlXzN8rH2QcTuLsbxz+bgumknezXaUcYrsDqT0CQjtGx9/Plwn3dEoU\nU0ZoTzfqvSllUlinrLspzY7RWq5+QsB2GrPpT4amgXJhIwkXwXT2y6rpAoGAWdX4\n/V/MPmon6WfEYViSL21F/Rzedi+JV6pwulArqJ1/XZvZbvSTXGgu+DRSPqT6X4mY\n7XcoJajPRaRKkdW0KcCccdzAROkTDOqLl5i1q1W9iD2O7CjLAtP5v34LRkIUfGzl\nStOeXiqCRwcs+myz+gHRuzh+cxu6S99wGb1Au8UCgYBHcke4GogwxUypRCUhBtLf\niUV/wJRO/2hLjoc24nT/8aXq9slHUb9vxOD9/T2OaJuRrjLGOOPkCXiMl0WfAtGo\nJeDJZUgKWceCH9fUhGrgsSEi/Kb9UJsDGRrDpboI3RVgOfVTsdqjnb5coiV2pl6q\nKiUktBBNh7TJJjd2WviOWg==\n-----END PRIVATE KEY-----\n",
+  "client_email": "success-global-bd@fleet-anagram-461512-a7.iam.gserviceaccount.com",
+  "client_id": "116938706358474904725",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/success-global-bd%40fleet-anagram-461512-a7.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
