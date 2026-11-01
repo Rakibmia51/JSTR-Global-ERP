@@ -287,7 +287,7 @@ if (isManualRun) {
     console.log('⏳ Scheduled backup service started.');
     console.log('⏰ Next automatic backup will run every day at 03:00 AM.');
 
-    cron.schedule('0 3 * * *', async () => {
+    cron.schedule('20 3 * * *', async () => {
         console.log('⏰ Starting daily automated backup execution...');
         await runBackupAndDriveUpload();
     });
