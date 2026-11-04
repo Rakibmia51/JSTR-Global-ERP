@@ -283,11 +283,11 @@ if (isManualRun) {
         process.exit(0);
     });
 } else {
-    // ২. অটোমেটিক মোড: প্রতিদিন রাত ৩:০০ টায় অটো-রান হবে ('0 3 * * *')
+    // ২. অটোমেটিক মোড: প্রতিদিন রাত ১:০০ টায় অটো-রান হবে ('0 1 * * *')
     console.log('⏳ Scheduled backup service started.');
-    console.log('⏰ Next automatic backup will run every day at 03:00 AM.');
+    console.log('⏰ Next automatic backup will run every day at 01:00 AM.');
 
-    cron.schedule('23 3 * * *', async () => {
+    cron.schedule('00 1 * * *', async () => {
         console.log('⏰ Starting daily automated backup execution...');
         await runBackupAndDriveUpload();
     });

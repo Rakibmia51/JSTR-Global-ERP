@@ -533,8 +533,260 @@ useEffect(() => {
       }, 0);
     };
 
-  const handleFormPrint = (passedData) => {
-      // 💡 ১. ডাটা অবজেক্ট তৈরি:passedData অথবা formData থেকে ব্যাকআপ নেওয়া
+    // const handleFormPrint = (passedData) => {
+    //     // 💡 ১. ডাটা অবজেক্ট তৈরি:passedData অথবা formData থেকে ব্যাকআপ নেওয়া
+    //     const data = passedData || formData || {}; 
+
+    //   setTimeout(() => {
+    //     const printWindow = window.open('', '_blank');
+    //     if (!printWindow) {
+    //       alert("প্লিজ আপনার ব্রাউজারের পপ-আপ ব্লকার অপশনটি এলাও করুন।");
+    //       return;
+    //     }
+        
+    //       // 💡 আল্টিমেট ইনভয়েস নম্বর চেইন (যা কোনোভাবেই Draft দেখাবে না)
+    //     // ১. পাস করা অবজেক্টের নম্বর -> ২. লোকাল গ্লোবাল ভেরিয়েবলের নম্বর -> ৩. নেক্সট সিরিয়াল স্টেট -> ৪. ফর্ম ডাটায় থাকা নম্বর
+    //     const finalInvoiceNo = data.invoiceNo || 
+    //                           (formData.invoiceNo && formData.invoiceNo !== "" ? formData.invoiceNo : null) || 
+    //                           lastSavedInvoiceNo || 
+    //                           'INV-Draft';
+        
+    //     // 💡 ২. ডিলার ক্লায়েন্ট ইনফরমেশন ডাইনামিক ফিল্টারিং (ডিলার বাগ ফিক্সড)
+    //     const checkIsDealer = isDealer || !!data.dealer;
+    //   // console.log("Check if Dealer:", checkIsDealer, " | Dealer Code:", dealerCode, " | Fetched Dealer Name:", fetchedDealerName, " | Data Dealer:", data.dealer);
+        
+    //     // dealerCode showing logic
+    //     const displayDealerCode = checkIsDealer 
+    //       ? (dealerCode || data.dealer?.code || 'N/A') 
+    //       : 'Walk-in Customer';
+
+    //     // ডিলারের নাম খোঁজার চেইন
+    //     const clientName = checkIsDealer 
+    //       ? (fetchedDealerName || data.dealer?.name || (typeof data.dealer === 'object' ? data.dealer?.name : '') || 'Authorized Dealer') 
+    //       : (data.customerName || formData.customerName || 'Walk-in Customer');
+
+    //     // 💡 ডিলারের মোবাইল নম্বর রিড করার নিখুঁত ব্যাকআপ চেইন
+    //     const clientMobile = checkIsDealer 
+    //       ? (fetchedDealerPhone || data.dealer?.mobilePhoneNo || data.dealer?.mobile || data.dealer?.phone || data.dealerMobile || 'N/A') 
+    //       : (data.customerMobile || formData.customerMobile || 'N/A');
+
+    //     // 💡 ডিলারের ঠিকানা রিড করার নিখুঁত ব্যাকআপ চেইন
+    //     const clientAddress = checkIsDealer 
+    //       ? (fetchedDealerAddress || data.dealer?.address || data.dealerAddress || 'N/A') 
+    //       : (data.customerAddress || formData.customerAddress || 'Counter Sale');
+
+
+    //     // 💡 ৩. আইটেম লিস্ট রেন্ডারিং
+    //     const itemsList = data.items && data.items.length > 0 ? data.items : (formData.items || []);
+        
+    //     const itemRows = itemsList.map((item, idx) => {
+    //       const pName = item.productName || item.name || (item.productId && item.productId.name) || 'Unknown Product';
+    //       const qty = Number(item.quantity) || 0;
+    //       const price = Number(item.unitPrice) || 0;
+    //       const calculatedTotalPrice = item.totalPrice || (qty * price) || 0;
+          
+    //       return `
+    //         <tr style="border-bottom: 1px solid #f1f5f9; page-break-inside: avoid;">
+    //           <td style="padding: 10px 8px; text-align: center; color: #64748b;">${idx + 1}</td>
+    //           <td style="padding: 10px 8px; font-weight: 600; color: #1e293b;">${pName}</td>
+    //           <td style="padding: 10px 8px; text-align: center; color: #334155;">${qty}</td>
+    //           <td style="padding: 10px 8px; text-align: right; color: #334155;">৳${price.toLocaleString()}</td>
+    //           <td style="padding: 10px 8px; text-align: right; font-weight: 600; color: #0f172a;">৳${calculatedTotalPrice.toLocaleString()}</td>
+    //         </tr>
+    //       `;
+    //     }).join('');
+
+    //     // console.log("Data for Print:", data)
+    //         // =========================================================================
+    //     // 💡 4. Financial Data Calculations & Strict Type Safety (Zero-Due Fix)
+    //     // =========================================================================
+    //     const displaySubTotal = Number(data.subTotal || subTotal || 0);
+    //     const displayDiscount = Number(data.discount !== undefined ? data.discount : (formData.discount || 0));
+    //     const displayTax = Number(data.tax !== undefined ? data.tax : (formData.tax || 0));
+        
+    //     // Explicit mathematical breakdown of the Grand Total boundary
+    //     const displayGrandTotal = displaySubTotal + displayTax - displayDiscount;
+        
+    //     // Enforce high-precision parsing on variable entries to prevent string concatenation
+    //     const displayPaidAmount = Number(data.paidAmount !== undefined ? data.paidAmount : (formData.paidAmount || 0));
+    //     const displayAdjAmount = Number(data.advanceAdjustment?.adjustedAmount || adjustedAmount || formData.advanceAdjustment?.adjustedAmount || 0);
+        
+    //     // 💡 SYSTEM OVERRIDE: Calculate the balance live to protect ledger integrity
+    //     // This ignores unpopulated database response keys and re-evaluates the ledger on the fly
+    //     const calculatedDue = displayGrandTotal - displayPaidAmount - displayAdjAmount;
+    //     const displayDueAmount = calculatedDue < 0 ? 0 : calculatedDue;
+        
+    //     const displayPaymentMethod = data.paymentMethod || formData.paymentMethod || 'Cash';
+        
+    //     // Dynamic payment status adjustment based on real-time calculated balances
+    //     let displayPaymentStatus = data.paymentStatus || formData.paymentStatus || 'Due';
+    //     if (displayDueAmount === 0 && displayGrandTotal > 0) {
+    //       displayPaymentStatus = 'Paid';
+    //     } else if (displayPaidAmount > 0 || displayAdjAmount > 0) {
+    //       displayPaymentStatus = 'Partial';
+    //     }
+        
+    //     const statusColor = displayPaymentStatus.toLowerCase() === 'paid' ? '#16a34a' : displayPaymentStatus.toLowerCase() === 'due' ? '#dc2626' : '#d97706';
+
+    //     // 💡 ৫. HTML টেমপ্লেট রাইটিং (অফিসিয়াল JSTR Global Ltd. ব্র্যান্ডিং সহ)
+    //     printWindow.document.write(`
+    //       <html>
+    //         <head>
+    //           <title>Invoice - ${data.invoiceNo || formData.invoiceNo || lastSavedInvoiceNo || 'Draft'}</title>
+    //           <style>
+    //             @import url('https://googleapis.com');
+    //             @media print {
+    //               body { margin: 0; padding: 10px; }
+    //               .no-print { display: none; }
+    //               .footer-sig { page-break-inside: avoid; }
+    //             }
+    //             body { font-family: 'Inter', sans-serif; color: #1e293b; margin: 30px; line-height: 1.5; background: #fff; }
+    //             .invoice-card { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; min-height: 92vh; }
+    //             .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; }
+    //             .logo-area { display: flex; align-items: center; gap: 12px; }
+    //             .logo-placeholder { width: 45px; height: 45px; background: linear-gradient(135deg, #0284c7, #0ea5e9); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 20px; }
+    //             .company-title { font-size: 22px; font-weight: 700; color: #0f172a; margin: 0; }
+    //             .invoice-meta { text-align: right; }
+    //             .invoice-title { font-size: 24px; font-weight: 800; text-transform: uppercase; color: #0284c7; margin: 0; }
+    //             .details-section { display: flex; justify-content: space-between; margin-top: 25px; margin-bottom: 25px; gap: 20px; }
+    //             .details-box { width: 48%; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #f1f5f9; }
+    //             .details-box h4 { margin: 0 0 8px 0; color: #0284c7; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+    //             table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
+    //             th { background-color: #f1f5f9; color: #475569; padding: 12px 8px; font-weight: 600; text-transform: uppercase; font-size: 11px; }
+    //             .summary-wrapper { display: flex; justify-content: space-between; margin-top: 20px; gap: 30px; page-break-inside: avoid; }
+    //             .terms-box { width: 52%; font-size: 11px; color: #64748b; }
+    //             .summary-table { width: 45%; font-size: 13px; border-collapse: collapse; }
+    //             .summary-table td { padding: 6px 8px; color: #475569; }
+    //             .total-row { font-weight: 700; font-size: 14px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; }
+    //             .footer-sig { display: flex; justify-content: space-between; margin-top: auto; padding-top: 60px; }
+    //             .sig-line { width: 140px; border-top: 1px dashed #cbd5e1; text-align: center; font-size: 12px; padding-top: 8px; }
+    //           </style>
+    //         </head>
+    //         <body>
+    //           <div class="invoice-card">
+    //             <!-- হেডার সেকশন: Success Global Ltd. ব্র্যান্ডিং সিঙ্ক -->
+    //             <div class="header">
+    //               <div class="logo-area">
+    //                 <div class="logo-placeholder">S</div>
+    //                 <div>
+    //                   <h1 class="company-title">${companyData.name || "Company Name"}</h1>
+    //                   <p style="margin:4px 0; font-size:12px; color:#64748b;">${companyData.address.line1 || "Address"}, ${companyData.address.city || "City"}, ${companyData.address.country || "Country"} </br>
+    //                     Phone: ${companyData.phone || "Phone Number"}</br>
+    //                     Email: ${companyData.email || "Email Address"} </br> Website: ${companyData.website || "Website URL"}</p>
+    //                 </div>
+    //               </div>
+    //               <div class="invoice-meta">
+    //                 <h2 class="invoice-title">Invoice</h2>
+    //                 <p style="margin:3px 0; font-size:13px;"><b>Invoice No:</b> ${data.invoiceNo || formData.invoiceNo || finalInvoiceNo ||'Draft'}</p>
+    //                 <p style="margin:3px 0; font-size:13px;"><b>Date:</b> ${new Date().toLocaleDateString('en-BD', { dateStyle: 'medium' })}</p>
+    //               </div>
+    //             </div>
+
+    //             <!-- ক্লায়েন্ট ও পেমেন্ট ইনফো সেকশন -->
+    //             <div class="details-section">
+    //               <div class="details-box">
+    //                 <h4>Bill To / Customer Information</h4>
+    //                 ${displayDealerCode !== 'Walk-in Customer' ? `<p><b>Dealer Code:</b> ${displayDealerCode.toUpperCase()}</p>` : ''}
+    //                 <p><b>Client Name:</b> ${clientName}</p>
+    //                 <p><b>Mobile No:</b> ${clientMobile}</p>
+    //                 <p><b>Address:</b> ${clientAddress}</p>
+    //               </div>
+                  
+    //               <div class="details-box" style="background: #fafafa;">
+    //                 <h4>Payment Status & Method</h4>
+    //                 <p><b>Payment Method:</b> ${displayPaymentMethod}</p>
+    //                 <p><b>Payment Status:</b> <span style="font-weight: 700; color: ${statusColor};">${displayPaymentStatus}</span></p>
+    //                 <p><b>Prepared By:</b> System Operator</p>
+    //               </div>
+    //             </div>
+
+    //             <!-- প্রোডাক্ট আইটেম টেবিল -->
+    //             <table>
+    //               <thead>
+    //                 <tr>
+    //                   <th style="width: 8%; text-align: center;">SL</th>
+    //                   <th style="text-align: left;">Product Name</th>
+    //                   <th style="width: 12%; text-align: center;">Qty</th>
+    //                   <th style="width: 18%; text-align: right;">Unit Price</th>
+    //                   <th style="width: 20%; text-align: right;">Total Price</th>
+    //                 </tr>
+    //               </thead>
+    //               <tbody>
+    //                 ${itemRows}
+    //               </tbody>
+    //             </table>
+
+    //             <!-- ফাইনান্সিয়াল সামারি সেকশন -->
+    //             <div class="summary-wrapper">
+    //               <div class="terms-box">
+    //                 <h5>Terms & Conditions:</h5>
+    //                 <p>1. Goods once sold will not be taken back.</p>
+    //                 <p>2. Warranty claims depend on manufacturer policy.</p>
+    //               </div>
+                  
+    //               <table class="summary-table">
+    //                 <tr>
+    //                   <td>Sub Total:</td>
+    //                   <td style="text-align: right;">৳${Number(displaySubTotal).toLocaleString()}</td>
+    //                 </tr>
+    //                 <tr>
+    //                   <td>Tax:</td>
+    //                   <td style="text-align: right;">৳${Number(displayTax).toLocaleString()}</td>
+    //                 </tr>
+    //                 <tr>
+    //                   <td>Discount:</td>
+    //                   <td style="text-align: right; color: #dc2626;">- ৳${Number(displayDiscount).toLocaleString()}</td>
+    //                 </tr>
+                    
+    //                 <!-- 💡 অ্যাডভান্সড অ্যাডজাস্টমেন্ট ডাইনামিক রো -->
+    //                 ${Number(displayAdjAmount) > 0 ? `
+    //                 <tr>
+    //                   <td>Advance Adjusted:</td>
+    //                   <td style="text-align: right; color: #2563eb;">- ৳${Number(displayAdjAmount).toLocaleString()}</td>
+    //                 </tr>
+    //                 ` : ''}
+                    
+    //                 <tr class="total-row">
+    //                   <td><b>Grand Total:</b></td>
+    //                   <td style="text-align: right;"><b>৳${Number(displayGrandTotal).toLocaleString()}</b></td>
+    //                 </tr>
+    //                 <tr>
+    //                   <td style="color: #16a34a;">Paid Amount:</td>
+    //                   <td style="text-align: right; font-weight: 600; color: #16a34a;">৳${Number(displayPaidAmount).toLocaleString()}</td>
+    //                 </tr>
+    //                 <tr style="border-top: 1px solid #e2e8f0;">
+    //                   <td style="color: #dc2626; font-weight: 600;">Due Amount:</td>
+    //                   <td style="text-align: right; font-weight: 700; color: #dc2626;">৳${Number(displayDueAmount > 0 ? displayDueAmount : 0).toLocaleString()}</td>
+    //                 </tr>
+    //               </table>
+    //             </div>
+
+    //             <!-- সিগনেচার এরিয়া -->
+    //             <div class="footer-sig">
+    //               <div class="sig-line">Customer Signature</div>
+    //               <div class="sig-line">Prepared By</div>
+    //               <div class="sig-line">Authorized Signatory</div>
+    //             </div>
+    //           </div>
+              
+    //           <!-- প্রিন্ট উইন্ডো ফায়ার এবং ক্লোজ স্ক্রিপ্ট -->
+    //           <script>
+    //             window.onload = function() {
+    //               window.print();
+    //               window.onafterprint = function() { window.close(); };
+    //             }
+    //           </script>
+    //         </body>
+    //       </html>
+    //     `);
+    //     printWindow.document.close();
+    //   }, 0); // Zero-delay timeout to ensure the print window is fully initialized  
+    // }
+
+
+// 2nd print function (without API submission) for testing and debugging
+const handleFormPrint = (passedData) => {
+      // 💡 ১. ডাটা অবজেক্ট তৈরি: passedData অথবা formData থেকে ব্যাকআপ নেওয়া
       const data = passedData || formData || {}; 
 
     setTimeout(() => {
@@ -544,37 +796,50 @@ useEffect(() => {
         return;
       }
       
-        // 💡 আল্টিমেট ইনভয়েস নম্বর চেইন (যা কোনোভাবেই Draft দেখাবে না)
-      // ১. পাস করা অবজেক্টের নম্বর -> ২. লোকাল গ্লোবাল ভেরিয়েবলের নম্বর -> ৩. নেক্সট সিরিয়াল স্টেট -> ৪. ফর্ম ডাটায় থাকা নম্বর
+      // 💡 আল্টিমেট ইনভয়েস নম্বর চেইন
       const finalInvoiceNo = data.invoiceNo || 
                             (formData.invoiceNo && formData.invoiceNo !== "" ? formData.invoiceNo : null) || 
                             lastSavedInvoiceNo || 
                             'INV-Draft';
       
-      // 💡 ২. ডিলার ক্লায়েন্ট ইনফরমেশন ডাইনামিক ফিল্টারিং (ডিলার বাগ ফিক্সড)
-      const checkIsDealer = isDealer || !!data.dealer;
-    // console.log("Check if Dealer:", checkIsDealer, " | Dealer Code:", dealerCode, " | Fetched Dealer Name:", fetchedDealerName, " | Data Dealer:", data.dealer);
+      // =========================================================================
+      // 🤝 ডাইনামিক কোম্পানি অথবা Partner Organization সিলেকশন লজিক
+      // =========================================================================
+      // যদি ইনভয়েস ডাটাতে নির্দিষ্ট partnerOrg সিলেক্ট করা থাকে, তবে তার তথ্য দেখাবে, অন্যথায় মেইন কোম্পানি দেখাবে।
+      const activeOrg = data.partnerOrg || data.selectedPartnerOrg || null;
+
+      const headerName = activeOrg?.name || companyData.name || "Company Name";
+      const headerLegalName = activeOrg?.legalName || companyData.legalName || "";
+      const headerEmail = activeOrg?.email || companyData.email || "Email Address";
+      const headerPhone = activeOrg?.phone || companyData.phone || "Phone Number";
+      const headerWebsite = activeOrg?.website || companyData.website || "Website URL";
       
-      // dealerCode showing logic
+      // লোগো হ্যান্ডলিং (Partner Organization লোগো থাকলে সেটি, না থাকলে মেইন লোগো)
+      const rawLogoUrl = activeOrg?.logoUrl || companyData.logoUrl || "";
+      const headerLogo = rawLogoUrl ? (rawLogoUrl.startsWith("http") ? rawLogoUrl : `${SERVER_URL}${rawLogoUrl}`) : "";
+
+      // ঠিকানা হ্যান্ডলিং
+      const orgAddress = activeOrg?.address || companyData.address || {};
+      const formattedAddress = `${orgAddress.line1 || ""}, ${orgAddress.city || ""}, ${orgAddress.country || "Bangladesh"}`;
+
+      // 💡 ২. ডিলার ক্লায়েন্ট ইনফরমেশন ডাইনামিক ফিল্টারিং
+      const checkIsDealer = isDealer || !!data.dealer;
+      
       const displayDealerCode = checkIsDealer 
         ? (dealerCode || data.dealer?.code || 'N/A') 
         : 'Walk-in Customer';
 
-      // ডিলারের নাম খোঁজার চেইন
       const clientName = checkIsDealer 
         ? (fetchedDealerName || data.dealer?.name || (typeof data.dealer === 'object' ? data.dealer?.name : '') || 'Authorized Dealer') 
         : (data.customerName || formData.customerName || 'Walk-in Customer');
 
-      // 💡 ডিলারের মোবাইল নম্বর রিড করার নিখুঁত ব্যাকআপ চেইন
       const clientMobile = checkIsDealer 
         ? (fetchedDealerPhone || data.dealer?.mobilePhoneNo || data.dealer?.mobile || data.dealer?.phone || data.dealerMobile || 'N/A') 
         : (data.customerMobile || formData.customerMobile || 'N/A');
 
-      // 💡 ডিলারের ঠিকানা রিড করার নিখুঁত ব্যাকআপ চেইন
       const clientAddress = checkIsDealer 
         ? (fetchedDealerAddress || data.dealer?.address || data.dealerAddress || 'N/A') 
         : (data.customerAddress || formData.customerAddress || 'Counter Sale');
-
 
       // 💡 ৩. আইটেম লিস্ট রেন্ডারিং
       const itemsList = data.items && data.items.length > 0 ? data.items : (formData.items || []);
@@ -596,29 +861,23 @@ useEffect(() => {
         `;
       }).join('');
 
-      // console.log("Data for Print:", data)
-          // =========================================================================
-      // 💡 4. Financial Data Calculations & Strict Type Safety (Zero-Due Fix)
+      // =========================================================================
+      // 💡 4. Financial Data Calculations
       // =========================================================================
       const displaySubTotal = Number(data.subTotal || subTotal || 0);
       const displayDiscount = Number(data.discount !== undefined ? data.discount : (formData.discount || 0));
       const displayTax = Number(data.tax !== undefined ? data.tax : (formData.tax || 0));
       
-      // Explicit mathematical breakdown of the Grand Total boundary
       const displayGrandTotal = displaySubTotal + displayTax - displayDiscount;
       
-      // Enforce high-precision parsing on variable entries to prevent string concatenation
       const displayPaidAmount = Number(data.paidAmount !== undefined ? data.paidAmount : (formData.paidAmount || 0));
       const displayAdjAmount = Number(data.advanceAdjustment?.adjustedAmount || adjustedAmount || formData.advanceAdjustment?.adjustedAmount || 0);
       
-      // 💡 SYSTEM OVERRIDE: Calculate the balance live to protect ledger integrity
-      // This ignores unpopulated database response keys and re-evaluates the ledger on the fly
       const calculatedDue = displayGrandTotal - displayPaidAmount - displayAdjAmount;
       const displayDueAmount = calculatedDue < 0 ? 0 : calculatedDue;
       
       const displayPaymentMethod = data.paymentMethod || formData.paymentMethod || 'Cash';
       
-      // Dynamic payment status adjustment based on real-time calculated balances
       let displayPaymentStatus = data.paymentStatus || formData.paymentStatus || 'Due';
       if (displayDueAmount === 0 && displayGrandTotal > 0) {
         displayPaymentStatus = 'Paid';
@@ -628,11 +887,11 @@ useEffect(() => {
       
       const statusColor = displayPaymentStatus.toLowerCase() === 'paid' ? '#16a34a' : displayPaymentStatus.toLowerCase() === 'due' ? '#dc2626' : '#d97706';
 
-      // 💡 ৫. HTML টেমপ্লেট রাইটিং (অফিসিয়াল JSTR Global Ltd. ব্র্যান্ডিং সহ)
+      // 💡 ৫. HTML টেমপ্লেট রাইটিং (ডাইনামিক Partner Organization লোগো ও বিবরণসহ)
       printWindow.document.write(`
         <html>
           <head>
-            <title>Invoice - ${data.invoiceNo || formData.invoiceNo || lastSavedInvoiceNo || 'Draft'}</title>
+            <title>Invoice - ${data.invoiceNo || formData.invoiceNo || finalInvoiceNo || 'Draft'}</title>
             <style>
               @import url('https://googleapis.com');
               @media print {
@@ -644,6 +903,7 @@ useEffect(() => {
               .invoice-card { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; min-height: 92vh; }
               .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; }
               .logo-area { display: flex; align-items: center; gap: 12px; }
+              .company-logo { width: 55px; height: 55px; object-fit: cover; border-radius: 8px; border: 1px solid #cbd5e1; }
               .logo-placeholder { width: 45px; height: 45px; background: linear-gradient(135deg, #0284c7, #0ea5e9); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 20px; }
               .company-title { font-size: 22px; font-weight: 700; color: #0f172a; margin: 0; }
               .invoice-meta { text-align: right; }
@@ -664,15 +924,21 @@ useEffect(() => {
           </head>
           <body>
             <div class="invoice-card">
-              <!-- হেডার সেকশন: Success Global Ltd. ব্র্যান্ডিং সিঙ্ক -->
+              <!-- হেডার সেকশন: ডাইনামিক Partner Organization লোগো এবং বিবরণ -->
               <div class="header">
                 <div class="logo-area">
-                  <div class="logo-placeholder">S</div>
+                  ${
+                    headerLogo 
+                      ? `<img src="${headerLogo}" alt="Logo" class="company-logo" />` 
+                      : `<div class="logo-placeholder">${headerName.charAt(0)}</div>`
+                  }
                   <div>
-                    <h1 class="company-title">${companyData.name || "Company Name"}</h1>
-                    <p style="margin:4px 0; font-size:12px; color:#64748b;">${companyData.address.line1 || "Address"}, ${companyData.address.city || "City"}, ${companyData.address.country || "Country"} </br>
-                      Phone: ${companyData.phone || "Phone Number"}</br>
-                      Email: ${companyData.email || "Email Address"} </br> Website: ${companyData.website || "Website URL"}</p>
+                    <h1 class="company-title">${headerName}</h1>
+                    <p style="margin:4px 0; font-size:12px; color:#64748b;">
+                      ${formattedAddress} <br/>
+                      Phone: ${headerPhone} | Email: ${headerEmail} <br/>
+                      Website: ${headerWebsite}
+                    </p>
                   </div>
                 </div>
                 <div class="invoice-meta">
@@ -716,7 +982,7 @@ useEffect(() => {
                 </tbody>
               </table>
 
-              <!-- ফাইনান্সিয়াল সামারি সেকশন -->
+              <!-- ফাইনান্সিয়াল সামারি সেকশন -->
               <div class="summary-wrapper">
                 <div class="terms-box">
                   <h5>Terms & Conditions:</h5>
@@ -738,7 +1004,6 @@ useEffect(() => {
                     <td style="text-align: right; color: #dc2626;">- ৳${Number(displayDiscount).toLocaleString()}</td>
                   </tr>
                   
-                  <!-- 💡 অ্যাডভান্সড অ্যাডজাস্টমেন্ট ডাইনামিক রো -->
                   ${Number(displayAdjAmount) > 0 ? `
                   <tr>
                     <td>Advance Adjusted:</td>
@@ -761,7 +1026,7 @@ useEffect(() => {
                 </table>
               </div>
 
-              <!-- সিগনেচার এরিয়া -->
+              <!-- সিগনেচার এরিয়া -->
               <div class="footer-sig">
                 <div class="sig-line">Customer Signature</div>
                 <div class="sig-line">Prepared By</div>
@@ -769,7 +1034,6 @@ useEffect(() => {
               </div>
             </div>
             
-            <!-- প্রিন্ট উইন্ডো ফায়ার এবং ক্লোজ স্ক্রিপ্ট -->
             <script>
               window.onload = function() {
                 window.print();
@@ -780,11 +1044,8 @@ useEffect(() => {
         </html>
       `);
       printWindow.document.close();
-    }, 0); // Zero-delay timeout to ensure the print window is fully initialized  
+    }, 0);  
   }
-
-
-
 
 
 
