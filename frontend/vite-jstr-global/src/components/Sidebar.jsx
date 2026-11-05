@@ -290,8 +290,7 @@ import {
   History,        
   DollarSign,     
   PieChart,       
-  Target,         
-  Megaphone,      
+  Target,          
   Globe,
   Package,
   PlusCircle,
@@ -304,13 +303,23 @@ import {
   Lock,
   Store,
   Building,
-  Sliders,
   Database,
   User,
   Cpu,
   PackagePlus,
   ShieldAlert,
-  FileText
+  FileText,
+  EqualApproximatelyIcon,
+  FileChartPie,
+  BarChart3,
+  User2,
+  Eye,
+  ReceiptText,
+  WalletCards,
+  Gift,
+  CalendarDays,
+  AlertCircle,
+  GitBranch
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { FaRegHandRock } from 'react-icons/fa';
@@ -445,10 +454,14 @@ const Sidebar = () => {
       subMenuItems: [
         { name: t('create_invoice'), id: 'Create Invoice', icon: FilePlus, path: '/admin-panel/accounting/create-invoice' },
         { name: t('invoice_history'), id: 'Invoice History', icon: History, path: '/admin-panel/accounting/history' },
-        { name: t('expense_tracker'), id: 'Expense Tracker', icon: DollarSign, path: '/admin-panel/accounting/expenses' },
+        { name: t('expense_tracker'), id: 'Expense Tracker', icon: EqualApproximatelyIcon, path: '/admin-panel/accounting/expenses' },
         { name: t('financial_reports'), id: 'Financial Reports', icon: PieChart, path: '/admin-panel/accounting/reports' },
         { name: t('admin_wallet_manager', 'Admin Wallet Manager'), id: 'Admin Wallet Manager', icon: Wallet, path: '/admin-panel/accounting/wallet-manager' },
         { name: t('admin_accounts_dashboard', 'Accounts & Payout Ledger'), id: 'Admin Accounts Dashboard', icon: UserCheck, path: '/admin-panel/accounting/admin-accounts-dashboard' },
+
+        { name: t('accounts_reports'), id: 'Accounts Reports', icon: Building, path: '/admin-panel/accounting/accounts-reports' },
+        { name: t('dealer_transaction_details'), id: 'Dealer Transaction Details', icon: Users, path: '/admin-panel/accounting/dealer-transactions' },
+        { name: t('free_sample_gift'), id: 'Free / Sample / Gift', icon: Gift, path: '/admin-panel/accounting/free-sample-gifts' }
       ]
     },
     { 
@@ -459,9 +472,45 @@ const Sidebar = () => {
       hasSubMenu: true,
       roles: ['admin'],
       subMenuItems: [
-        { name: t('archive_monthly_sales'), id: 'Monthly Sales Archive', icon: Lock, path: '/admin-panel/sales/archive'},
         { name: t('sales_forecast'), id: 'Sales Forecast', icon: TrendingUp, path: '/admin-panel/sales/forecast' },
         { name: t('qualify_list'), id: 'Qualify List', icon: Target, path: '/admin-panel/sales/commission' },
+            // Staff Billing Section
+        { name: t('individual_bill_staff'), id: 'Individual Bill (Staff)', icon: FileText, path: '/admin-panel/marketing/staff/individual-bill' },
+        { name: t('bill_summary_staff'), id: 'Bill Summary (Staff)', icon: FileSpreadsheet, path: '/admin-panel/marketing/staff/bill-summary' },
+        
+        // Dealer Billing Section
+        { name: t('individual_bill_dealer'), id: 'Individual Bill (Dealer)', icon: FileText, path: '/admin-panel/marketing/dealer/individual-bill' },
+        { name: t('bill_summary_dealer'), id: 'Bill Summary (Dealer)', icon: FileSpreadsheet, path: '/admin-panel/marketing/dealer/bill-summary' },
+        
+        // Performance & Analytics
+        { name: t('sales_share_achiever_list'), id: 'Sales Share Achiever List', icon: Award, path: '/admin-panel/marketing/sales-share-achiever' },
+        
+        // Payment Tracking
+        { name: t('payment_list_by_date'), id: 'Payment List by Date', icon: CalendarDays, path: '/admin-panel/marketing/payments/by-date' },
+        { name: t('not_paid_list'), id: 'Not Paid List', icon: AlertCircle, path: '/admin-panel/marketing/payments/not-paid' },
+        
+        // Network & Hierarchy (Downline & Tree)
+        { name: t('down_line'), id: 'Down Line', icon: GitBranch, path: '/admin-panel/marketing/network/downline' },
+        { name: t('tree_of_staff'), id: 'Tree of Staff', icon: Network, path: '/admin-panel/marketing/network/staff-tree' },
+        { name: t('list_of_staff_by_group'), id: 'List of Staff By Group', icon: Users, path: '/admin-panel/marketing/staff/by-group' }
+          
+      ]
+    },
+    { 
+      name: t('sales_reports'), 
+      id: 'Sales Reports',
+      icon: FileChartPie,
+      path: '/admin-panel/reports',
+      hasSubMenu: true,
+      roles: ['admin'],
+      subMenuItems: [
+        { name: t('sales_invoices'), id: 'Sales Invoices', icon: FileText, path: '/admin-panel/reports/invoices' },
+        { name: t('invoices_reports'), id: 'Invoices Reports', icon: FileChartPie, path: '/admin-panel/reports/invoices-reports' },
+        { name: t('dealer_statement'), id: 'Dealer Statement', icon: Users, path: '/admin-panel/reports/dealer-statement' },
+        { name: t('staff_statement'), id: 'Staff Statement', icon: UserCheck, path: '/admin-panel/reports/staff-statement' },
+        { name: t('advanced_reports'), id: 'Advanced Reports', icon: BarChart3, path: '/admin-panel/reports/advanced-reports' },
+        { name: t('staff_&_dealer_list'), id: 'Staff & Dealer List', icon: User2, path: '/admin-panel/reports/staff-dealer-list' },
+        { name: t('invoice_preview'), id: 'Invoice Preview', icon: Eye, path: '/admin-panel/reports/invoice-preview' },
       ]
     },
     {

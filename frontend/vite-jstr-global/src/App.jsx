@@ -98,16 +98,32 @@ function App() {
           <Route path="accounting/create-invoice" element={<InvoiceForm/>} />
           <Route path="/admin-panel/accounting/update-invoice/:id" element={<InvoiceForm/>} />
           <Route path="accounting/history" element={<InvoiceHistoryTable/>} />
-          <Route path="accounting/expenses" element={<InvoiceAndChallan/>} />
+          <Route path="accounting/expenses" element={<ComingSoon/>} />
           <Route path="accounting/reports" element={<ComingSoon/>} />
           <Route path="accounting/wallet-manager" element={<ComingSoon/>} />
           <Route path="accounting/admin-accounts-dashboard" element={<AdminAccountsDashboard/>} />
+
+          <Route path="accounting/accounts-reports" element={<ComingSoon/>} />
+          <Route path="accounting/dealer-transactions" element={<ComingSoon/>} />
+          <Route path="accounting/free-sample-gifts" element={<ComingSoon/>} />
+          
 
           {/* 📈 Marketing & Sales Modules */}
           <Route path="sales/archive" element={<AdminArchivePanel/>} />
           <Route path="sales/forecast" element={<SalesTrackingReport/>} />
           <Route path="sales/commission" element={<CommissionDesk/>} />
           <Route path="sales/campaigns" element={<SalesArchiveMonthly/>} />
+
+          <Route path="marketing/staff/individual-bill" element={<ComingSoon />} />
+          <Route path="marketing/staff/bill-summary" element={<ComingSoon />} />
+          <Route path="marketing/dealer/individual-bill" element={<ComingSoon />} />
+          <Route path="marketing/dealer/bill-summary" element={<ComingSoon />} />
+          <Route path="marketing/sales-share-achiever" element={<ComingSoon />} />
+          <Route path="marketing/payments/by-date" element={<ComingSoon />} />
+          <Route path="marketing/payments/not-paid" element={<ComingSoon />} />
+          <Route path="marketing/network/downline" element={<ComingSoon />} />
+          <Route path="marketing/network/staff-tree" element={<ComingSoon />} />
+          <Route path="marketing/staff/by-group" element={<ComingSoon />} />
 
 
           {/* Marketing profile */}

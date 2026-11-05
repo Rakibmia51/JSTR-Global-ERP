@@ -1,44 +1,86 @@
 {
   "dashboard": "Dashboard",
+  "dashboard_overview": "Dashboard Overview",
+  "welcome": "Welcome back to JSTR Global ERP panel.",
+  "system_status": "System Status",
+
+  
   "employees": "Employees",
+  "total_employees": "Total Employees",
   "all_employees": "All Employees",
   "tree_employees": "Tree Employees",
   "add_employee": "Add Employee",
   "corporate_structure" : "Corporate Structure",
+
+
   "inventory": "Inventory",
   "stock_overview": "Stock Overview",
+  "active_products": "Active Products",
   "add_new_item": "Add New Item",
+
+
   "dealer": "Dealer",
   "all_dealers": "All Dealers",
   "add_new_dealer": "Add New Dealer",
+
+
   "invoice_accounting": "Invoice & Accounting",
   "create_invoice": "Create Invoice",
   "invoice_history": "Invoice History",
   "expense_tracker": "Expense Tracking",
   "financial_reports": "Financial Reports",
+  "accounts_reports": "Accounts Reports",
+  "dealer_transaction_details": "Dealer Transaction Details",
+  "free_sample_gift": "Free / Sample / Gift",
+
+
   "marketing_sales": "Marketing & Sales",
   "sales_forecast": "Sales Forecast",
   "qualify_list": "Qualify List",
+  "individual_bill_staff": "Individual Bill Staff",
+  "individual_bill_dealer": "Individual Bill Dealer",
+  "bill_summary_staff": "Bill Summary Staff",
+  "bill_summary_dealer": "Bill Summary Dealer",
+  "sales_share_achiever_list": "Sales Share Achiever List",
+  "payment_list_by_date": "Payment List by Date",
+  "not_paid_list": "Not Paid List",
+  "down_line": "Down Line",
+  "tree_of_staff": "Tree of Staff",
+  "list_of_staff_by_group": "List of Staff By Group",
+
+  "sales_reports": "Sales Reports",
+  "sales_invoices": "Sales Invoices",
+  "invoices_reports": "Invoices Reports",
+  "dealer_statement": "Dealer Statement",
+  "staff_statement": "Staff Statement",
+  "advanced_reports": "Advanced Reports",
+  "staff_&_dealer_list": "Staff & Dealer List",
+  "invoice_preview": "Invoice Preview",
+
+
+
   "settings": "Settings",
-  "logout": "Logout",
-  "welcome": "Welcome back to JSTR Global ERP panel.",
-  "total_employees": "Total Employees",
-  "active_products": "Active Products",
-  "system_status": "System Status",
-  "optimal": "Optimal",
+  "monthly_calculation": "Monthly Calculation",
+  "monthly_sales_data_archiver": "Monthly Sales Data Archiver",
   "archive_monthly_sales": "Archive Monthly Sales",
+  "monthly_commission_ledger_lock": "Monthly Commission Ledger Lock",
+  "admin_change_password": "Admin Change Password",
+  "rank_update": "Rank Update",
+  "company_profile" : "Company Profile",
+
+  "logout": "Logout",
+
+
+
+  "optimal": "Optimal",
   "commission": "Commission",
   "wallet": "Wallet",
   "my_payouts": "My Payouts",
   "request_payout": "Request Payout",
   "payout_history": "Payout History",
-"monthly_calculation": "Monthly Calculation",
-"monthly_sales_data_archiver": "Monthly Sales Data Archiver",
-"monthly_commission_ledger_lock": "Monthly Commission Ledger Lock",
-"dashboard_overview": "Dashboard Overview",
-"change_password": "Change Password",
-"admin_change_password": "Admin Change Password",
- "rank_update": "Rank Update",
- "company_profile" : "Company Profile"
+  "change_password": "Change Password",
+
+  "user_settings": "User Settings"
+
  
 }
