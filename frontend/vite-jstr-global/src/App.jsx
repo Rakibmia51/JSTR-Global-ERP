@@ -49,6 +49,9 @@ import AdminRankPanel from './components/RankUpdate';
 import UserProfileView from './components/UserProfileView';
 import AccountStatement from './components/AccountStatement';
 import CompanyProfilePage from './components/CompanyProfilePage';
+import DailySalesReport from './components/Reports/DailySalesReport';
+import DealerStatement from './components/Reports/DealerStatement';
+import StaffStatement from './components/Reports/StaffStatement';
 
 
 function App() {
@@ -137,6 +140,15 @@ function App() {
           <Route path="account-statement" element={<AccountStatement/>} />
           <Route path="tree" element={<DownlineTree/>} />
           <Route path="rank" element={<RankProgress/>} />
+
+
+          {/* Sales Reports */}
+          <Route path="reports/invoices-reports" element={<DailySalesReport/>} />
+          <Route path="reports/dealer-statement" element={<DealerStatement/>} />
+          <Route path="reports/staff-statement" element={<StaffStatement/>} />
+          <Route path="reports/advanced-reports" element={<ComingSoon/>} />
+          <Route path="reports/staff-dealer-list" element={<ComingSoon/>} />
+          <Route path="reports/invoice-preview" element={<ComingSoon/>} />
 
           {/* ⚙️ Settings */}
           <Route path="settings/calculation" element={<AdminArchivePanel/>} />

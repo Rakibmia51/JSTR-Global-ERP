@@ -504,7 +504,6 @@ const Sidebar = () => {
       hasSubMenu: true,
       roles: ['admin'],
       subMenuItems: [
-        { name: t('sales_invoices'), id: 'Sales Invoices', icon: FileText, path: '/admin-panel/reports/invoices' },
         { name: t('invoices_reports'), id: 'Invoices Reports', icon: FileChartPie, path: '/admin-panel/reports/invoices-reports' },
         { name: t('dealer_statement'), id: 'Dealer Statement', icon: Users, path: '/admin-panel/reports/dealer-statement' },
         { name: t('staff_statement'), id: 'Staff Statement', icon: UserCheck, path: '/admin-panel/reports/staff-statement' },
