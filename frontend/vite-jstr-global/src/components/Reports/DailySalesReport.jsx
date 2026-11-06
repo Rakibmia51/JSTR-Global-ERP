@@ -10,13 +10,15 @@ const DetailedInvoiceReport = () => {
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'; 
   
 
   const fetchReport = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const { data } = await axios.get('http://localhost:3000/api/reports/detailed-invoices', {
+      const { data } = await axios.get(`${SERVER_URL}/api/reports/detailed-invoices`, {
         params: { startDate, endDate },
         headers: {
           Authorization: `Bearer ${token}`

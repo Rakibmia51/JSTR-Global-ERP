@@ -13,6 +13,7 @@ const StaffStatement = () => {
   const [statementData, setStatementData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [apiStatus, setApiStatus] = useState(null);
+  const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'; 
 
   const fetchStatement = async () => {
     if (!idNo.trim()) {
@@ -25,7 +26,7 @@ const StaffStatement = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = `http://localhost:3000/api/reports/staff-statement/${idNo.trim()}`;
+      const apiUrl = `${SERVER_URL}/api/reports/staff-statement/${idNo.trim()}`;
       
       const { data } = await axios.get(apiUrl, {
         params: { startDate, endDate },
