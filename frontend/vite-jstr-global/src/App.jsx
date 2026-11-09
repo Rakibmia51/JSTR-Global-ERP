@@ -52,6 +52,7 @@ import CompanyProfilePage from './components/CompanyProfilePage';
 import DailySalesReport from './components/Reports/DailySalesReport';
 import DealerStatement from './components/Reports/DealerStatement';
 import StaffStatement from './components/Reports/StaffStatement';
+import StaffAdvanceReports from './components/Reports/StaffAdvanceReports';
 
 
 function App() {
@@ -146,7 +147,7 @@ function App() {
           <Route path="reports/invoices-reports" element={<DailySalesReport/>} />
           <Route path="reports/dealer-statement" element={<DealerStatement/>} />
           <Route path="reports/staff-statement" element={<StaffStatement/>} />
-          <Route path="reports/advanced-reports" element={<ComingSoon/>} />
+          <Route path="reports/advanced-reports" element={<StaffAdvanceReports/>} />
           <Route path="reports/staff-dealer-list" element={<ComingSoon/>} />
           <Route path="reports/invoice-preview" element={<ComingSoon/>} />
 

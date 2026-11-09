@@ -77,76 +77,6 @@ const getDetailedInvoiceReport = asyncHandler(async (req, res) => {
 });
 
 
-// @desc    Get Dealer Statement (Invoices & Deliveries)
-// @route   GET /api/reports/dealer-statement/:dealerId
-// @access  Private
-// const getDealerStatement = asyncHandler(async (req, res) => {
-//   const { dealerId } = req.params;
-//   const { startDate, endDate } = req.query;
-
-//   // ডিলার চেক করা
-//   const dealer = await Dealer.findById(dealerId);
-//   if (!dealer) {
-//     res.status(404);
-//     throw new Error('Dealer not found');
-//   }
-
-//   let dateQuery = {};
-//   if (startDate && endDate) {
-//     const start = new Date(startDate);
-//     start.setHours(0, 0, 0, 0);
-//     const end = new Date(endDate);
-//     end.setHours(23, 59, 59, 999);
-//     dateQuery.createdAt = { $gte: start, $lte: end };
-//   }
-
-//   // ১. ডিলারের ইনভয়েস ডেটা ফেচ করা
-//   const invoices = await Invoice.find({ dealer: dealerId, ...dateQuery }).sort({ createdAt: 1 });
-
-//   // ২. ডিলারের ডেলিভারি প্রোডাক্টস ডেটা ফেচ করা (যদি মডেল থাকে)
-//   const deliveries = await DeliveryProduct.isArray ? [] : await DeliveryProduct.find({ dealer: dealerId, ...dateQuery }).sort({ createdAt: 1 });
-
-//   // হিসাব নিকাশ (Totals & Balance)
-//   let totalDebit = 0; // মোট বিল / গ্রস
-//   let totalCredit = 0; // মোট পরিশোধ (ক্যাশ + ব্যাংক + অ্যাডভান্স)
-
-//   const statementItems = invoices.map((inv, index) => {
-//     const paid = (inv.paidAmount || 0) + (inv.advanceAdjustment?.adjustedAmount || 0);
-//     const grandTotal = inv.grandTotal || 0;
-//     const due = inv.dueAmount || 0;
-
-//     totalDebit += grandTotal;
-//     totalCredit += paid;
-
-//     return {
-//       serial: index + 1,
-//       date: inv.createdAt,
-//       invoiceNo: inv.invoiceNo,
-//       type: 'Invoice',
-//       particulars: `Invoice Sale (Ref: ${inv.invoiceNo})`,
-//       debit: grandTotal, // পাওনা / বিল
-//       credit: paid,      // জমা / পরিশোধ
-//       balance: grandTotal - paid
-//     };
-//   });
-
-//   res.status(200).json({
-//     success: true,
-//     dealer: {
-//       name: dealer.name,
-//       dealerId: dealer.dealerId,
-//       mobile: dealer.mobile,
-//       address: dealer.address
-//     },
-//     summary: {
-//       totalDebit,
-//       totalCredit,
-//       currentDue: totalDebit - totalCredit
-//     },
-//     data: statementItems
-//   });
-// });
-
 // @desc    Get Dealer Statement (Invoice data based only)
 // @route   GET /api/reports/dealer-statement/:dealerId
 // @access  Private
@@ -218,186 +148,6 @@ const getDealerStatementByCode = asyncHandler(async (req, res) => {
     data: statementItems
   });
 });
-
-
-// @desc    Get Staff Statement (Income In vs Payout Out with 10% Audit Fee)
-// @route   GET /api/reports/staff-statement/:idNo
-// @access  Private
-// const getStaffMonthlyStatement = asyncHandler(async (req, res) => {
-//   const { idNo } = req.params;
-//   const { year, month, startDate, endDate } = req.query;
-
-//   if (!idNo) {
-//     res.status(400);
-//     throw new Error('Staff/Dealer ID No (idNo) is required!');
-//   }
-
-//   // ১. ডেট রেঞ্জ বা মাস-বছর ফিল্টার বাউন্ডারি সেটআপ
-//   let start, end;
-//   if (startDate && endDate) {
-//     start = new Date(startDate);
-//     end = new Date(endDate);
-//     end.setHours(23, 59, 59, 999);
-//   } else if (year && month) {
-//     start = new Date(Number(year), Number(month) - 1, 1);
-//     end = new Date(Number(year), Number(month), 0, 23, 59, 59, 999);
-//   } else {
-//     // ডিফল্ট চলতি মাস
-//     const now = new Date();
-//     start = new Date(now.getFullYear(), now.getMonth(), 1);
-//     end = new Date();
-//     end.setHours(23, 59, 59, 999);
-//   }
-
-//   // 🎯 idNo কে বড় হাতের অক্ষরে রূপান্তর করা হলো (Case-Insensitive Search)
-//   const searchId = idNo.trim().toUpperCase();
-
-//   // ২. ওপেনিং ব্যালেন্স ক্যালকুলেশন (ডেট রেঞ্জের পূর্বের সকল ইনকাম মাইনাস এপ্রুভড পেআউট)
-//   const pastLedgers = await MonthlyLedger.find({
-//     createdAt: { $lt: start }
-//   });
-
-//   let openingBalance = 0;
-
-//   pastLedgers.forEach(ledger => {
-//     let gross = 0;
-//     let dataFound = false;
-
-//     // স্টাফ আর্নিংস (Case-Insensitive Match)
-//     const emp = ledger.employeesData?.find(e => e.idNo && e.idNo.toUpperCase() === searchId);
-//     if (emp) {
-//       gross += (emp.baseCommission || 0) + (emp.monthlyBonusAmount || 0) + (emp.globalPoolBonusAmount || 0);
-//       dataFound = true;
-//     }
-    
-//     // ডিলার আর্নিংস (Case-Insensitive Match)
-//     const dealer = ledger.dealersData?.find(d => d.dealerId && d.dealerId.toUpperCase() === searchId);
-//     if (dealer) {
-//       gross += Number(dealer.commission || 0);
-//       dataFound = true;
-//     }
-
-//     if (dataFound) {
-//       const charge = Math.round(gross * 0.10); // ১০% সার্ভিস চার্জ
-//       openingBalance += (gross - charge);
-//     }
-//   });
-
-//   // পূর্ববর্তী অনুমোদিত ক্যাশআউট বিয়োগ (Case-Insensitive Search)
-//   const pastPayouts = await Payout.find({
-//     userIdNo: { $regex: new RegExp(`^${searchId}$`, 'i') },
-//     createdAt: { $lt: start },
-//     status: 'Approved'
-//   });
-
-//   pastPayouts.forEach(po => {
-//     openingBalance -= Number(po.amount || 0);
-//   });
-
-//   // ৩. সিলেক্টেড ডেট রেঞ্জের লাইভ লেজার এবং পেআউট রিড করা
-//   const currentLedgers = await MonthlyLedger.find({
-//     createdAt: { $gte: start, $lte: end }
-//   }).sort({ createdAt: 1 });
-
-//   const currentPayouts = await Payout.find({
-//     userIdNo: { $regex: new RegExp(`^${searchId}$`, 'i') },
-//     createdAt: { $gte: start, $lte: end },
-//     status: { $in: ['Approved', 'Pending'] }
-//   }).sort({ createdAt: 1 });
-
-//   // ৪. টাইমলাইন লগস তৈরি
-//   let timelineLogs = [];
-//   let totalIncomeIn = 0;
-//   let totalPaymentOut = 0;
-
-//   // লেজার থেকে ইনকাম (Credit / In)
-//   currentLedgers.forEach(ledger => {
-//     const monthNames = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    
-//     let totalGrossEarnings = 0;
-//     let breakdownDetails = [];
-//     let isAnyRecordFound = false;
-
-//     // স্টাফ আর্নিংস (Case-Insensitive Match)
-//     const emp = ledger.employeesData?.find(e => e.idNo && e.idNo.toUpperCase() === searchId);
-//     if (emp) {
-//       const staffGross = (emp.baseCommission || 0) + (emp.monthlyBonusAmount || 0) + (emp.globalPoolBonusAmount || 0);
-//       totalGrossEarnings += staffGross;
-//       breakdownDetails.push(`Staff: ৳${staffGross.toLocaleString()}`);
-//       isAnyRecordFound = true;
-//     }
-
-//     // ডিলার আর্নিংস (Case-Insensitive Match)
-//     const dealer = ledger.dealersData?.find(d => d.dealerId && d.dealerId.toUpperCase() === searchId);
-//     if (dealer) {
-//       const dealerGross = Number(dealer.commission || 0);
-//       totalGrossEarnings += dealerGross;
-//       breakdownDetails.push(`Dealer: ৳${dealerGross.toLocaleString()}`);
-//       isAnyRecordFound = true;
-//     }
-
-//     if (isAnyRecordFound) {
-//       const charge = Math.round(totalGrossEarnings * 0.10);
-//       const netPayable = totalGrossEarnings - charge;
-
-//       timelineLogs.push({
-//         date: ledger.createdAt,
-//         transactionId: `COM-${ledger.year}${String(ledger.month).padStart(2, '0')}`,
-//         description: `Monthly Commission Released (${monthNames[ledger.month]}, ${ledger.year}) - [${breakdownDetails.join(' + ')}] | Gross: ৳${totalGrossEarnings.toLocaleString()}, Audit Fee 10%: -৳${charge.toLocaleString()}`,
-//         type: 'credit', // Income (In)
-//         amount: netPayable
-//       });
-
-//       totalIncomeIn += netPayable;
-//     }
-//   });
-
-//   // পেআউট থেকে পেমেন্ট (Debit / Out)
-//   currentPayouts.forEach(po => {
-//     timelineLogs.push({
-//       date: po.createdAt,
-//       transactionId: po.transactionId || `TXN-PO-${po._id.toString().slice(-6).toUpperCase()}`,
-//       description: `Cashout Disbursed via ${po.paymentMethod} [Note: ${po.note || 'N/A'}]`,
-//       type: 'debit', // Payout (Out)
-//       amount: Number(po.amount || 0),
-//       status: po.status
-//     });
-
-//     if (po.status === 'Approved') {
-//       totalPaymentOut += Number(po.amount || 0);
-//     }
-//   });
-
-//   // ৫. তারিখ অনুযায়ী সর্টিং
-//   timelineLogs.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-//   // ৬. রানিং ব্যালেন্স চেইন ক্যালকুলেশন
-//   let runningBalance = openingBalance;
-//   const finalizedTransactions = timelineLogs.map(log => {
-//     if (log.type === 'credit') {
-//       runningBalance += log.amount;
-//     } else if (log.type === 'debit' && log.status === 'Approved') {
-//       runningBalance -= log.amount;
-//     }
-
-//     return {
-//       ...log,
-//       runningBalance: runningBalance
-//     };
-//   });
-
-//   res.status(200).json({
-//     success: true,
-//     employeeId: searchId,
-//     summary: {
-//       openingBalance,
-//       totalIncomeIn,
-//       totalPaymentOut,
-//       closingBalance: runningBalance
-//     },
-//     transactions: finalizedTransactions.reverse() // সর্বশেষ ট্রানজেকশন উপরে দেখানোর জন্য
-//   });
-// });
 
 
 // @desc    Get Staff Statement with Employee Info (Name, Phone, Address, Rank)
@@ -603,6 +353,116 @@ const getStaffMonthlyStatement = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Get Advanced Adjustment Reports from Invoices
+// @route   GET /api/reports/advance-adjustments
+// @access  Private
+const getAdvanceAdjustmentReports = asyncHandler(async (req, res) => {
+  const { employeeIdNo, startDate, endDate } = req.query;
+
+  // কুয়েরি বিল্ডআপ
+  let query = {
+    "advanceAdjustment.employeeIdNo": { $exists: true, $ne: null }
+  };
+
+  // যদি নির্দিষ্ট স্টাফ বা ডিলার আইডি দিয়ে ফিল্টার করতে চান
+  if (employeeIdNo) {
+    query["advanceAdjustment.employeeIdNo"] = employeeIdNo.trim().toUpperCase();
+  }
+
+  // ডেট রেঞ্জ ফিল্টার (যদি থাকে)
+  if (startDate && endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+    query.createdAt = { $gte: start, $lte: end };
+  }
+
+  // ইনভয়েসগুলো ফেচ করা যেখানে অ্যাডভান্স অ্যাডজাস্টমেন্ট রয়েছে
+  const invoices = await Invoice.find(query)
+  .populate('dealer', 'dealerId name')
+  .sort({ createdAt: -1 });
+
+  let totalAdjustedSum = 0;
+  let reportDetails = [];
+
+  invoices.forEach(inv => {
+    const adv = inv.advanceAdjustment;
+    if (adv && adv.adjustedAmount > 0) {
+      totalAdjustedSum += Number(adv.adjustedAmount);
+
+      reportDetails.push({
+        invoiceId: inv._id,
+        invoiceNo: inv.invoiceNo,
+        date: inv.createdAt,
+        employeeIdNo: adv.employeeIdNo,
+        employeeName: adv.employeeName || 'N/A',
+        dealerCode: inv.dealer?.dealerId || inv.dealer?.code || 'N/A',
+        adjustedAmount: adv.adjustedAmount,
+        grandTotal: inv.grandTotal,
+        paymentStatus: inv.paymentStatus
+      });
+    }
+  });
+
+  res.status(200).json({
+    success: true,
+    count: reportDetails.length,
+    summary: {
+      totalAdvanceAdjusted: totalAdjustedSum
+    },
+    adjustments: reportDetails
+  });
+});
 
 
-module.exports = { getDetailedInvoiceReport, getDealerStatementByCode, getStaffMonthlyStatement };
+// @desc    Get Total Staff Advance Summary Reports
+// @route   GET /api/reports/advance-summary
+// @access  Private
+const getStaffAdvanceSummary = asyncHandler(async (req, res) => {
+  const { startDate, endDate } = req.query;
+
+  let matchQuery = {
+    "advanceAdjustment.employeeIdNo": { $exists: true, $ne: null }
+  };
+
+  if (startDate && endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+    matchQuery.createdAt = { $gte: start, $lte: end };
+  }
+
+  // MongoDB Aggregation দিয়ে স্টাফ/ডিলার অনুযায়ী গ্রুপ ও টোটাল হিসাব করা
+  const summaryData = await Invoice.aggregate([
+    { $match: matchQuery },
+    {
+      $group: {
+        _id: "$advanceAdjustment.employeeIdNo",
+        employeeName: { $first: "$advanceAdjustment.employeeName" },
+        totalInvoices: { $sum: 1 },
+        totalAdjustedAmount: { $sum: "$advanceAdjustment.adjustedAmount" }
+      }
+    },
+    { $sort: { totalAdjustedAmount: -1 } }
+  ]);
+
+  const grandTotalAdvance = summaryData.reduce((acc, curr) => acc + curr.totalAdjustedAmount, 0);
+
+  res.status(200).json({
+    success: true,
+    totalStaffCount: summaryData.length,
+    grandTotalAdvance,
+    summary: summaryData
+  });
+});
+
+
+
+
+module.exports = { 
+  getDetailedInvoiceReport,
+  getDealerStatementByCode, 
+  getStaffMonthlyStatement, 
+  getAdvanceAdjustmentReports,
+  getStaffAdvanceSummary 
+};

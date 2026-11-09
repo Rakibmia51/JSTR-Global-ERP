@@ -1,7 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const { protect, authorizeRoles } = require('../middleware/authMiddleware');
-const {getDetailedInvoiceReport, getDealerStatementByCode, getStaffMonthlyStatement } = require('../controllers/salesReportController');
+const {
+  getDetailedInvoiceReport, 
+  getDealerStatementByCode, 
+  getStaffMonthlyStatement,
+  getAdvanceAdjustmentReports,
+  getStaffAdvanceSummary 
+  
+} = require('../controllers/salesReportController');
 
 // @route   GET /api/reports/detailed-invoices
 // @desc    Get detailed invoice report with date filters and partner org support
@@ -26,5 +33,17 @@ router.get(
   authorizeRoles('admin', 'accounts'),
   getStaffMonthlyStatement
 );
+
+router.get(
+  '/advance-adjustments', 
+  protect, 
+  authorizeRoles('admin', 'accounts'), 
+  getAdvanceAdjustmentReports);
+
+router.get(
+  '/advance-summary', 
+  protect, 
+  authorizeRoles('admin', 'accounts'), 
+  getStaffAdvanceSummary);
 
 module.exports = router;
